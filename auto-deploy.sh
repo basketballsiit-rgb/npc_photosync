@@ -50,10 +50,10 @@ if [ "$LOCAL" != "$REMOTE" ]; then
 
         # 5. รีสตาร์ทผ่าน PM2
         if command -v pm2 > /dev/null 2>&1; then
-            pm2 restart npc_photosync || pm2 start ecosystem.config.js
+            pm2 restart npc_photosync --update-env || pm2 start ecosystem.config.js
             pm2 save >> deploy.log 2>&1
         else
-            npx pm2 restart npc_photosync || npx pm2 start ecosystem.config.js
+            npx pm2 restart npc_photosync --update-env || npx pm2 start ecosystem.config.js
             npx pm2 save >> deploy.log 2>&1
         fi
 
