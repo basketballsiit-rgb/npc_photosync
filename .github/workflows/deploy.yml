@@ -1,0 +1,78 @@
+name: Deploy NPC PhotoSync to College Server
+
+# Trigger workflow on push to main branch
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Connect to server via SSH and Deploy
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        timeout: 120s
+        command_timeout: 20m
+        script: |
+          echo "=== 🚀 Starting NPC_PhotoSync Deployment ==="
+          TARGET_DIR="/var/www/npc_photosync"
+
+          # 1. ตรวจสอบโฟลเดอร์โปรเจกต์ หากยังไม่มีให้ clone มาไว้ที่ /var/www/npc_photosync
+          if [ ! -d "$TARGET_DIR" ]; then
+            echo "Directory $TARGET_DIR does not exist. Cloning repository..."
+            git clone https://github.com/basketballsiit-rgb/npc_photosync.git "$TARGET_DIR"
+          fi
+
+          cd "$TARGET_DIR"
+
+          # 2. ตั้งค่า Path สำหรับ Node.js (ตามโครงสร้างเดียวกับ npc_smartflow)
+          if [ -d "/root/.nvm/versions/node/v20.20.2/bin" ]; then
+            export PATH="/root/.nvm/versions/node/v20.20.2/bin:$PATH"
+          fi
+
+          # 3. ดึงโค้ดล่าสุดจาก GitHub
+          echo "📥 Pulling latest changes from GitHub main branch..."
+          git fetch origin main
+          git reset --hard origin/main
+
+          # 4. ตรวจสอบไฟล์ .env บน Server
+          if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+            echo "⚠️ .env not found, copying from .env.example..."
+            cp .env.example .env
+          fi
+
+          # 5. ติดตั้ง Dependencies และ Generate Prisma Client
+          echo "📦 Installing npm dependencies..."
+          npm install
+
+          echo "🗄️ Generating Prisma Client & Syncing Database..."
+          npx prisma generate
+          npx prisma db push --accept-data-loss || true
+
+          # 6. Build Next.js Production Assets
+          echo "⚡ Building Next.js application..."
+          npm run build
+
+          # 7. จัดการสิทธิ์โฟลเดอร์อัปโหลดภาพ (SELinux & Permissions)
+          echo "🔒 Setting directory permissions..."
+          mkdir -p public/uploads/thumbnail public/uploads/report public/uploads/original
+          chmod -R 777 public/uploads
+          chcon -R -t httpd_sys_rw_content_t public/uploads 2>/dev/null || true
+
+          # 8. รีสตาร์ตแอปพลิเคชันผ่าน PM2 (พอร์ต 3005)
+          echo "🔄 Restarting Next.js server with PM2..."
+          if which pm2 > /dev/null 2>&1; then
+            pm2 restart npc_photosync || pm2 start npm --name "npc_photosync" -- start -- -p 3005
+            pm2 save
+          else
+            echo "⚠️ PM2 not found globally, checking npx pm2..."
+            npx pm2 restart npc_photosync || npx pm2 start npm --name "npc_photosync" -- start -- -p 3005
+            npx pm2 save
+          fi
+
+          echo "✅ Deploy NPC PhotoSync สำเร็จเรียบร้อยแล้ว!"
