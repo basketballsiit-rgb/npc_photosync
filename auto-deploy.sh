@@ -63,5 +63,5 @@ if [ "$LOCAL" != "$REMOTE" ]; then
     fi
 else
     # โค้ดตรงกับ GitHub อยู่แล้ว
-    true
+    echo "$(date): [No Update] System is already up to date ($LOCAL)" >> deploy.log
 fi
