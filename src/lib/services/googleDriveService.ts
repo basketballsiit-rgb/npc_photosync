@@ -26,6 +26,8 @@ export interface DriveUploadResult {
 /**
  * Initialize Google Drive Client with Service Account credentials
  */
+import { getGoogleDriveConfig } from "./systemSettingService";
+
 function isMockKey(key?: string): boolean {
   if (!key) return true;
   return (
@@ -35,35 +37,105 @@ function isMockKey(key?: string): boolean {
   );
 }
 
-function getDriveClient(): drive_v3.Drive | null {
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+export async function getDriveClient(): Promise<{ drive: drive_v3.Drive; rootId: string } | null> {
+  const config = await getGoogleDriveConfig();
 
   if (
-    !clientEmail ||
-    clientEmail.includes("npc-photosync-sa@pvc-nan.iam") ||
-    clientEmail.includes("your-gcp-project") ||
-    isMockKey(privateKey)
+    !config.clientEmail ||
+    config.clientEmail.includes("npc-photosync-sa@pvc-nan.iam") ||
+    config.clientEmail.includes("your-gcp-project") ||
+    isMockKey(config.privateKey)
   ) {
     return null;
   }
 
-  // Handle newline escape characters in private key
-  if (privateKey!.includes("\\n")) {
-    privateKey = privateKey!.replace(/\\n/g, "\n");
+  let privateKey = config.privateKey;
+  if (privateKey.includes("\\n")) {
+    privateKey = privateKey.replace(/\\n/g, "\n");
   }
 
   try {
     const auth = new google.auth.JWT({
-      email: clientEmail,
+      email: config.clientEmail,
       key: privateKey,
       scopes: ["https://www.googleapis.com/auth/drive"],
     });
 
-    return google.drive({ version: "v3", auth });
+    const drive = google.drive({ version: "v3", auth });
+    return { drive, rootId: config.rootFolderId };
   } catch (error) {
-    console.warn("Google Drive service account auth skipped (dev fallback active)");
+    console.warn("Google Drive service account auth skipped (dev fallback active):", error);
     return null;
+  }
+}
+
+/**
+ * Test connection to Google Drive
+ */
+export async function testDriveConnection(): Promise<{
+  success: boolean;
+  message: string;
+  folderName?: string;
+  folderId?: string;
+  clientEmail?: string;
+  isMock: boolean;
+}> {
+  const config = await getGoogleDriveConfig();
+  if (config.isMock || !config.isConfigured) {
+    return {
+      success: false,
+      message: "ยังไม่ได้ระบุ Google Service Account หรือ Private Key ที่ถูกต้อง (อยู่ในโหมดจำลอง Mock)",
+      isMock: true,
+    };
+  }
+
+  const client = await getDriveClient();
+  if (!client) {
+    return {
+      success: false,
+      message: "ไม่สามารถสร้าง Google Drive Client ได้ กรุณาตรวจสอบ Private Key หรืออีเมล Service Account",
+      isMock: false,
+    };
+  }
+
+  try {
+    const rootFolderId = client.rootId;
+    if (!rootFolderId) {
+      return {
+        success: false,
+        message: "ยังไม่ได้ระบุ Google Drive Root Folder ID",
+        isMock: false,
+      };
+    }
+
+    const res = await client.drive.files.get({
+      fileId: rootFolderId,
+      fields: "id, name, mimeType, capabilities",
+      supportsAllDrives: true,
+    });
+
+    return {
+      success: true,
+      message: `เชื่อมต่อสำเร็จ! ตรวจพบโฟลเดอร์/ไดรฟ์: "${res.data.name}"`,
+      folderName: res.data.name || undefined,
+      folderId: res.data.id || undefined,
+      clientEmail: config.clientEmail,
+      isMock: false,
+    };
+  } catch (error: any) {
+    console.error("Google Drive test connection failed:", error);
+    let msg = error.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ Google Drive";
+    if (msg.includes("unregistered callers") || msg.includes("API key not valid")) {
+      msg = "Google Drive API ยังไม่ได้เปิดใช้งานใน Google Cloud Console หรือ Key ไม่ถูกต้อง";
+    } else if (msg.includes("File not found") || msg.includes("404")) {
+      msg = "ไม่พบโฟลเดอร์นี้ หรือ Service Account ยังไม่ได้รับสิทธิ์ (อย่าลืมกดแชร์โฟลเดอร์ให้ Service Account เป็น Content Manager)";
+    }
+    return {
+      success: false,
+      message: msg,
+      clientEmail: config.clientEmail,
+      isMock: false,
+    };
   }
 }
 
@@ -117,8 +189,9 @@ export async function ensureAlbumDriveFolder(
   albumType: AlbumType,
   folderName: string
 ): Promise<DriveFolderResult> {
-  const drive = getDriveClient();
-  const rootSharedDriveId = process.env.GOOGLE_SHARED_DRIVE_ROOT_ID;
+  const client = await getDriveClient();
+  const drive = client?.drive;
+  const rootSharedDriveId = client?.rootId;
   const categoryName = ALBUM_TYPE_DRIVE_CATEGORY[albumType];
   const pathDisplay = `/${academicYear}/${categoryName}/${folderName}`;
 
@@ -167,7 +240,8 @@ export async function uploadOriginalToDrive(
   mimeType: string,
   folderId: string
 ): Promise<DriveUploadResult> {
-  const drive = getDriveClient();
+  const client = await getDriveClient();
+  const drive = client?.drive;
 
   if (!drive || folderId.startsWith("mock_") || folderId.startsWith("err_")) {
     const mockFileId = `mock_file_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -208,8 +282,9 @@ export async function moveAlbumFolderOnProjectLink(
   academicYear: number,
   newFolderName?: string
 ): Promise<DriveFolderResult> {
-  const drive = getDriveClient();
-  const rootSharedDriveId = process.env.GOOGLE_SHARED_DRIVE_ROOT_ID;
+  const client = await getDriveClient();
+  const drive = client?.drive;
+  const rootSharedDriveId = client?.rootId;
   const projectCategory = ALBUM_TYPE_DRIVE_CATEGORY[AlbumType.PROJECT];
   const finalFolderName = newFolderName || driveFolderId;
   const pathDisplay = `/${academicYear}/${projectCategory}/${finalFolderName}`;
@@ -272,7 +347,8 @@ export async function moveAlbumFolderOnProjectLink(
  * Stream an original file from Google Drive for direct downloading or proxying
  */
 export async function getOriginalFileStream(driveFileId: string): Promise<Readable> {
-  const drive = getDriveClient();
+  const client = await getDriveClient();
+  const drive = client?.drive;
 
   if (!drive || driveFileId.startsWith("mock_")) {
     // Fallback stream for mock/dev environment

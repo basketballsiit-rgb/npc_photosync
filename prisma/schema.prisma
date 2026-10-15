@@ -195,3 +195,14 @@ model AcademicTerm {
   @@map("academic_terms")
 }
 
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(100) // e.g. GOOGLE_SHARED_DRIVE_ROOT_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL
+  value       String   @db.Text
+  description String?  @db.VarChar(255)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@map("system_settings")
+}
+

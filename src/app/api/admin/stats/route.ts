@@ -30,10 +30,9 @@ export async function GET() {
     const approximateLocalCacheBytes = totalPhotos * 350 * 1024;
 
     // Check System Health Statuses
-    const isDriveConfigured =
-      Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL) &&
-      Boolean(process.env.GOOGLE_SHARED_DRIVE_ROOT_ID) &&
-      !process.env.GOOGLE_SHARED_DRIVE_ROOT_ID?.includes("0AFqXXXX");
+    const { getGoogleDriveConfig } = await import("@/lib/services/systemSettingService");
+    const driveConfig = await getGoogleDriveConfig();
+    const isDriveConfigured = driveConfig.isConfigured;
 
     const isSmartFlowConfigured =
       Boolean(process.env.NPC_SMARTFLOW_API_URL) &&
