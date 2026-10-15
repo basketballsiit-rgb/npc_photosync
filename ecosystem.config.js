@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "npc_photosync",
       script: "node_modules/next/dist/bin/next",
-      args: "start -p 3005",
+      args: "start -p 3006",
       cwd: "/var/www/npc_photosync",
       instances: 1,
       autorestart: true,
@@ -11,7 +11,8 @@ module.exports = {
       max_memory_restart: "1G",
       env: {
         NODE_ENV: "production",
-        PORT: 3005,
+        PORT: 3006,
+        NEXT_PUBLIC_BASE_PATH: "/npc_photosync",
       },
     },
   ],

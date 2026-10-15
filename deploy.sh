@@ -48,13 +48,13 @@ mkdir -p public/uploads/thumbnail public/uploads/report public/uploads/original
 chmod -R 777 public/uploads
 chcon -R -t httpd_sys_rw_content_t public/uploads 2>/dev/null || true
 
-# 8. รีสตาร์ท Process ด้วย PM2 (พอร์ต 3005)
+# 8. รีสตาร์ท Process ด้วย PM2 (พอร์ต 3006)
 echo "=== 🔄 Restarting Application via PM2 ==="
 if command -v pm2 > /dev/null 2>&1; then
-    pm2 restart npc_photosync || pm2 start npm --name "npc_photosync" -- start -- -p 3005
+    pm2 restart npc_photosync || pm2 start ecosystem.config.js
     pm2 save
 else
-    npx pm2 restart npc_photosync || npx pm2 start npm --name "npc_photosync" -- start -- -p 3005
+    npx pm2 restart npc_photosync || npx pm2 start ecosystem.config.js
     npx pm2 save
 fi
 
