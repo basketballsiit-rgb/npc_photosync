@@ -191,7 +191,9 @@ export async function POST(req: NextRequest) {
 
     // Resolve uploader (fallback to default PR user if not authenticated)
     const defaultUser = await prisma.user.findFirst({
-      where: { email: "pr.staff@pvc.ac.th" },
+      where: {
+        email: { in: ["pr.staff@npc.ac.th", "pr.staff@pvc.ac.th"] },
+      },
     });
     const uploadedById = defaultUser?.id || (await prisma.user.findFirst())?.id;
 

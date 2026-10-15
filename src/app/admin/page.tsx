@@ -1287,7 +1287,7 @@ export default function AdminPage() {
                     </span>
                   </h2>
                   <p className="text-xs text-purple-300/80 max-w-2xl leading-relaxed">
-                    พื้นที่จัดเก็บภาพถ่ายต้นฉบับ 100% ไม่บีบอัด ผ่าน Google Drive / Shared Drive ของบัญชีสถานศึกษา (@pvc.ac.th หรือ @nanpoly.ac.th) เพื่อรองรับภาพกิจกรรมความละเอียดสูงไม่จำกัด
+                    พื้นที่จัดเก็บภาพถ่ายต้นฉบับ 100% ไม่บีบอัด ผ่าน Google Drive / Shared Drive ของบัญชีสถานศึกษา (@npc.ac.th) เพื่อรองรับภาพกิจกรรมความละเอียดสูงไม่จำกัด
                   </p>
                 </div>
 
@@ -1369,7 +1369,7 @@ export default function AdminPage() {
             <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-6 shadow-xl backdrop-blur-md space-y-4">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-cyan-400" />
-                <span>คำแนะนำ: 3 ขั้นตอนการเชื่อมต่อ Google Drive ของสถานศึกษา (@pvc.ac.th หรือ @nanpoly.ac.th)</span>
+                <span>คำแนะนำ: 3 ขั้นตอนการเชื่อมต่อ Google Drive ของสถานศึกษา (@npc.ac.th)</span>
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -1516,7 +1516,7 @@ export default function AdminPage() {
                         type="email"
                         value={driveForm.clientEmail}
                         onChange={(e) => setDriveForm({ ...driveForm, clientEmail: e.target.value })}
-                        placeholder="เช่น npc-photosync-sa@pvc-project.iam.gserviceaccount.com"
+                        placeholder="เช่น npc-photosync-sa@npc-project.iam.gserviceaccount.com"
                         className="w-full rounded-2xl border border-purple-800/40 bg-[#0A051E] px-4 py-3 text-xs text-white placeholder-purple-500/50 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
                       />
                     </div>

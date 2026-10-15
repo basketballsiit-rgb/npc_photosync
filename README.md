@@ -161,7 +161,7 @@ Content-Type: application/json
   "academicYear": 2569,
   "divisionName": "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา",
   "ownerTeacherName": "นางสาวกัญญา พัฒนกิจ",
-  "ownerEmail": "kanya.m@pvc.ac.th"
+  "ownerEmail": "kanya.m@npc.ac.th"
 }
 ```
 

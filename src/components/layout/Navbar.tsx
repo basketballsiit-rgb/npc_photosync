@@ -112,7 +112,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
                   {roles.find((r) => r.key === currentRole)?.label.split(" ")[0]}
                 </div>
                 <div className="text-[9px] text-pink-400 font-mono font-semibold">
-                  pvc.ac.th
+                  npc.ac.th
                 </div>
               </div>
             </button>

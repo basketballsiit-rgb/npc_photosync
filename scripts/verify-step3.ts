@@ -19,7 +19,7 @@ async function main() {
     divisionName: "ฝ่ายวิชาการ",
     departmentName: "แผนกวิชาเทคโนโลยีสารสนเทศ",
     ownerTeacherName: "นายทดสอบ ระบบดี",
-    ownerEmail: "test@pvc.ac.th",
+    ownerEmail: "test@npc.ac.th",
   });
   console.log("  - Project upserted successfully:", testProject.projectCode);
 

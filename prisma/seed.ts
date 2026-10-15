@@ -8,10 +8,10 @@ async function main() {
   // 1. Create Core Users
   console.log("Creating administrative & faculty users...");
   const adminUser = await prisma.user.upsert({
-    where: { email: "admin@pvc.ac.th" },
+    where: { email: "admin@npc.ac.th" },
     update: {},
     create: {
-      email: "admin@pvc.ac.th",
+      email: "admin@npc.ac.th",
       name: "นายอรรถกร สารพัดวิทย์",
       role: UserRole.SUPER_ADMIN,
       department: "งานประชาสัมพันธ์",
@@ -20,10 +20,10 @@ async function main() {
   });
 
   const prUser = await prisma.user.upsert({
-    where: { email: "pr.staff@pvc.ac.th" },
+    where: { email: "pr.staff@npc.ac.th" },
     update: {},
     create: {
-      email: "pr.staff@pvc.ac.th",
+      email: "pr.staff@npc.ac.th",
       name: "นางสาวพิมลพรรณ ช่างภาพ",
       role: UserRole.PR_STAFF,
       department: "งานประชาสัมพันธ์",
@@ -32,10 +32,10 @@ async function main() {
   });
 
   const teacherUser1 = await prisma.user.upsert({
-    where: { email: "somchai.t@pvc.ac.th" },
+    where: { email: "somchai.t@npc.ac.th" },
     update: {},
     create: {
-      email: "somchai.t@pvc.ac.th",
+      email: "somchai.t@npc.ac.th",
       name: "นายสมชาย วิชาการ",
       role: UserRole.TEACHER,
       department: "แผนกวิชาเทคโนโลยีสารสนเทศ",
@@ -44,10 +44,10 @@ async function main() {
   });
 
   const teacherUser2 = await prisma.user.upsert({
-    where: { email: "kanya.m@pvc.ac.th" },
+    where: { email: "kanya.m@npc.ac.th" },
     update: {},
     create: {
-      email: "kanya.m@pvc.ac.th",
+      email: "kanya.m@npc.ac.th",
       name: "นางสาวกัญญา พัฒนกิจ",
       role: UserRole.TEACHER,
       department: "งานกิจกรรมนักเรียนนักศึกษา",
@@ -71,7 +71,7 @@ async function main() {
       divisionName: "ฝ่ายวิชาการ",
       departmentName: "แผนกวิชาเทคโนโลยีสารสนเทศ",
       ownerTeacherName: "นายสมชาย วิชาการ",
-      ownerEmail: "somchai.t@pvc.ac.th",
+      ownerEmail: "somchai.t@npc.ac.th",
       projectStatus: "APPROVED",
     },
   });
@@ -88,7 +88,7 @@ async function main() {
       divisionName: "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา",
       departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
       ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
-      ownerEmail: "kanya.m@pvc.ac.th",
+      ownerEmail: "kanya.m@npc.ac.th",
       projectStatus: "APPROVED",
     },
   });
@@ -105,7 +105,7 @@ async function main() {
       divisionName: "ฝ่ายแผนงานและความร่วมมือ",
       departmentName: "งานโครงการพิเศษและบริการวิชาชีพ",
       ownerTeacherName: "นายเกรียงไกร ช่างยนต์",
-      ownerEmail: "kriengkrai.c@pvc.ac.th",
+      ownerEmail: "kriengkrai.c@npc.ac.th",
       projectStatus: "APPROVED",
     },
   });
