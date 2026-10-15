@@ -1,0 +1,151 @@
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import {
+  Cloud,
+  Layers,
+  Zap,
+  ShieldCheck,
+  User,
+  HardDrive,
+  RefreshCw,
+  FolderSync,
+} from "lucide-react";
+
+interface NavbarProps {
+  onQuickUploadClick?: () => void;
+}
+
+export function Navbar({ onQuickUploadClick }: NavbarProps) {
+  const [currentRole, setCurrentRole] = useState<string>("PR_STAFF");
+  const [showRoleMenu, setShowRoleMenu] = useState(false);
+
+  const roles = [
+    { key: "SUPER_ADMIN", label: "ผู้ดูแลระบบ (Admin)", color: "text-amber-400" },
+    { key: "PR_STAFF", label: "งานประชาสัมพันธ์ (PR)", color: "text-cyan-400" },
+    { key: "TEACHER", label: "ครูผู้สอน / เจ้าของโครงการ", color: "text-emerald-400" },
+    { key: "PUBLIC", label: "ผู้เยี่ยมชมทั่วไป (Guest)", color: "text-slate-400" },
+  ];
+
+  return (
+    <header className="sticky top-0 z-40 w-full border-b border-purple-900/30 bg-[#0F0728]/85 backdrop-blur-xl">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* College Logo & App Title */}
+        <div className="flex items-center gap-3.5">
+          <Link href="/" className="group flex items-center gap-3">
+            <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 via-purple-600 to-cyan-400 p-0.5 shadow-lg shadow-purple-500/25 transition-transform duration-300 group-hover:scale-105 group-hover:shadow-pink-500/40">
+              <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#0F0728]">
+                <Layers className="h-5 w-5 text-pink-400 group-hover:text-cyan-300 transition-colors" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-black tracking-tight text-white">
+                  NPC<span className="bg-gradient-to-r from-pink-400 via-rose-300 to-cyan-300 bg-clip-text text-transparent">_PhotoSync</span>
+                </span>
+                <span className="rounded-full bg-pink-500/10 px-2.5 py-0.5 text-[10px] font-bold text-pink-300 border border-pink-500/30">
+                  ✦ PR Cloud
+                </span>
+              </div>
+              <p className="hidden text-xs text-purple-300/70 sm:block">
+                ระบบคลังภาพดิจิทัลและซิงโครไนซ์โครงการ • วิทยาลัยสารพัดช่างน่าน
+              </p>
+            </div>
+          </Link>
+        </div>
+
+        {/* Live System Status Badges */}
+        <div className="hidden lg:flex items-center gap-3 text-xs">
+          {/* Google Shared Drive Badge */}
+          <div className="flex items-center gap-1.5 rounded-full border border-purple-800/40 bg-[#180C3E]/80 px-3 py-1.5 text-purple-200 shadow-sm backdrop-blur-md">
+            <HardDrive className="h-3.5 w-3.5 text-cyan-400" />
+            <span className="text-purple-300/80 font-medium">Drive:</span>
+            <span className="flex items-center gap-1 text-emerald-300 font-semibold">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Shared Drive
+            </span>
+          </div>
+
+          {/* SmartFlow Sync Status Badge */}
+          <div className="flex items-center gap-1.5 rounded-full border border-purple-800/40 bg-[#180C3E]/80 px-3 py-1.5 text-purple-200 shadow-sm backdrop-blur-md">
+            <FolderSync className="h-3.5 w-3.5 text-pink-400" />
+            <span className="text-purple-300/80 font-medium">SmartFlow:</span>
+            <span className="flex items-center gap-1 text-cyan-300 font-semibold">
+              <RefreshCw className="h-3 w-3 animate-spin text-cyan-400" />
+              ซิงค์ 2 ทาง
+            </span>
+          </div>
+        </div>
+
+        {/* Action Controls & Role Switcher */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Quick Upload Button (Warm Sunset Gradient) */}
+          <button
+            onClick={onQuickUploadClick}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-pink-500/30 transition-all duration-300 hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Zap className="h-4 w-4 fill-white text-white animate-pulse" />
+            <span>อัปโหลดภาพด่วน</span>
+          </button>
+
+          {/* Link to Admin Console */}
+          <Link
+            href="/admin"
+            className="hidden md:flex items-center gap-1.5 rounded-full border border-purple-800/50 bg-[#1C0E46]/80 px-3.5 py-2 text-xs font-semibold text-purple-200 transition-all hover:border-purple-600 hover:bg-[#281464] hover:text-white"
+          >
+            <ShieldCheck className="h-4 w-4 text-purple-300" />
+            <span>จัดการระบบ</span>
+          </Link>
+
+          {/* User Role Switcher Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowRoleMenu(!showRoleMenu)}
+              className="flex items-center gap-2 rounded-full border border-purple-800/50 bg-[#180C3E]/90 px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:border-pink-500/50"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500/20 to-purple-500/30 text-pink-300 border border-pink-500/30">
+                <User className="h-3.5 w-3.5" />
+              </div>
+              <div className="hidden sm:block text-left">
+                <div className="text-[11px] font-bold text-slate-100">
+                  {roles.find((r) => r.key === currentRole)?.label.split(" ")[0]}
+                </div>
+                <div className="text-[9px] text-pink-400 font-mono font-semibold">
+                  pvc.ac.th
+                </div>
+              </div>
+            </button>
+
+            {showRoleMenu && (
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-purple-800/50 bg-[#13072E]/95 p-1.5 shadow-2xl backdrop-blur-xl z-50">
+                <div className="px-3 py-2 text-[10px] font-bold tracking-wider text-purple-400 uppercase">
+                  สลับบทบาทผู้ใช้งานจำลอง
+                </div>
+                {roles.map((role) => (
+                  <button
+                    key={role.key}
+                    onClick={() => {
+                      setCurrentRole(role.key);
+                      setShowRoleMenu(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs transition-colors ${
+                      currentRole === role.key
+                        ? "bg-purple-600/30 font-bold text-pink-300 border border-purple-500/30"
+                        : "text-purple-200 hover:bg-purple-900/40 hover:text-white"
+                    }`}
+                  >
+                    <span>{role.label}</span>
+                    {currentRole === role.key && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-pink-400 shadow-sm shadow-pink-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}

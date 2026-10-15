@@ -1,0 +1,27 @@
+<svg width="480" height="110" viewBox="0 0 480 110" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cyanBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4" stop-opacity="1" />
+      <stop offset="100%" stop-color="#3B82F6" stop-opacity="1" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  
+  <!-- Backdrop Banner -->
+  <rect x="5" y="5" width="470" height="100" rx="14" fill="#0F172A" fill-opacity="0.88" stroke="#06B6D4" stroke-width="2" filter="url(#shadow)"/>
+  
+  <!-- College Emblem Symbol -->
+  <g transform="translate(18, 12)">
+    <circle cx="43" cy="43" r="36" fill="#1E293B" stroke="url(#cyanBlueGrad)" stroke-width="3"/>
+    <circle cx="43" cy="43" r="28" fill="none" stroke="#06B6D4" stroke-dasharray="3,3" stroke-width="2"/>
+    <polygon points="43,20 51,36 67,38 56,49 59,65 43,57 27,65 30,49 19,38 35,36" fill="#38BDF8"/>
+    <circle cx="43" cy="43" r="8" fill="#F8FAFC"/>
+  </g>
+
+  <!-- Typography -->
+  <text x="110" y="44" font-family="Arial, 'Kanit', sans-serif" font-weight="700" font-size="22" fill="#F8FAFC">วิทยาลัยสารพัดช่างน่าน</text>
+  <text x="110" y="68" font-family="Arial, sans-serif" font-weight="600" font-size="13" fill="#38BDF8" letter-spacing="1.2">NAN POLYTECHNIC COLLEGE</text>
+  <text x="110" y="87" font-family="Arial, sans-serif" font-size="10" fill="#94A3B8">NPC_PhotoSync • Digital Asset Management</text>
+</svg>

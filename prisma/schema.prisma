@@ -1,0 +1,197 @@
+// NPC_PhotoSync Prisma Schema
+// Nan Polytechnic College (วิทยาลัยสารพัดช่างน่าน)
+// Database: MySQL (Default port 3306)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  PR_STAFF
+  TEACHER
+  PUBLIC
+}
+
+enum AlbumType {
+  PROJECT   // ผูกกับโครงการ npc_smartflow (สำหรับรายงานสรุปโครงการ 5 บท)
+  ROUTINE   // กิจกรรมประจำวัน/เข้าแถวหน้าเสาธง/จัดการเรียนการสอน (ไม่ต้องผูกโครงการ)
+  ADHOC     // กิจกรรมเร่งด่วน/เฉพาะกิจ (ผูกโครงการย้อนหลังได้)
+  PORTFOLIO // คลังภาพ PR วิทยาลัย/ภาพอาคารสถานที่/ภาพผู้บริหาร
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique @db.VarChar(191)
+  name         String        @db.VarChar(191)
+  avatarUrl    String?       @db.Text
+  role         UserRole      @default(TEACHER)
+  department   String?       @db.VarChar(191)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  albums       Album[]
+  downloadLogs DownloadLog[]
+
+  @@map("users")
+}
+
+model SmartFlowProject {
+  id               String   @id @default(cuid())
+  smartflowId      String   @unique @db.VarChar(191) // ID อ้างอิงจากระบบ npc_smartflow
+  projectCode      String   @unique @db.VarChar(100) // เช่น PRJ-69-001
+  projectName      String   @db.VarChar(500)
+  academicYear     Int      // ปีการศึกษาไทย (พ.ศ.) เช่น 2569
+  budgetYear       Int      // ปีงบประมาณไทย (พ.ศ.) เช่น 2569
+  divisionName     String   @db.VarChar(191)         // ฝ่าย (เช่น ฝ่ายวิชาการ, ฝ่ายพัฒนากิจการฯ)
+  departmentName   String?  @db.VarChar(191)         // แผนกวิชา/งาน (ถ้ามี)
+  ownerTeacherName String   @db.VarChar(191)         // ครูผู้รับผิดชอบโครงการ
+  ownerEmail       String   @db.VarChar(191)
+  projectStatus    String   @default("APPROVED") @db.VarChar(50) // APPROVED, COMPLETED, etc.
+  lastSyncedAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  albums           Album[]
+
+  @@index([academicYear])
+  @@index([divisionName])
+  @@map("smartflow_projects")
+}
+
+model Album {
+  id               String            @id @default(cuid())
+  albumCode        String            @unique @db.VarChar(50) // เช่น PRJ-6910-001, RTN-6910-001
+  title            String            @db.VarChar(300)
+  description      String?           @db.Text
+  eventDate        DateTime
+  academicYear     Int               // ปีการศึกษาไทย พ.ศ. (เช่น 2569)
+  semester         Int               // ภาคเรียน (1, 2, 3)
+  albumType        AlbumType
+
+  // Project linkage (Nullable Foreign Key to SmartFlowProject)
+  projectId        String?           @db.VarChar(191)
+  project          SmartFlowProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // Academic Organizational Hierarchy
+  divisionName     String            @db.VarChar(191)
+  departmentName   String?           @db.VarChar(191)
+
+  // Google Drive Shared Drive Reference
+  driveFolderId    String?           @db.VarChar(191)
+  driveFolderUrl   String?           @db.Text
+  drivePathDisplay String?           @db.VarChar(500) // เช่น /2569/Semester_1/PROJECT/PRJ-6910-001
+
+  // Media Meta
+  coverThumbnailUrl String?          @db.Text
+  photoCount        Int              @default(0)
+  totalSizeBytes    BigInt           @default(0)
+  viewCount         Int              @default(0)
+  isPublic          Boolean          @default(true)
+  isLineNotified    Boolean          @default(false)
+
+  // Creator
+  uploadedById     String            @db.VarChar(191)
+  uploadedBy       User              @relation(fields: [uploadedById], references: [id])
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  mediaFiles       MediaFile[]
+  tags             AlbumTag[]
+  downloadLogs     DownloadLog[]
+
+  @@index([albumType])
+  @@index([academicYear, semester])
+  @@index([projectId])
+  @@index([eventDate])
+  @@index([uploadedById])
+  @@map("albums")
+}
+
+model MediaFile {
+  id               String        @id @default(cuid())
+  albumId          String        @db.VarChar(191)
+  album            Album         @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  fileName         String        @db.VarChar(255)
+  mimeType         String        @db.VarChar(100)
+  fileSizeBytes    BigInt
+  width            Int?
+  height           Int?
+
+  // Dual-Layer Storage References
+  driveFileId      String?       @unique @db.VarChar(191) // Google Shared Drive File ID
+  thumbnailWebpUrl String        @db.Text                 // WebP ~600px local cache
+  reportReadyJpgUrl String       @db.Text                 // HD JPG ~1920px with optional watermark
+
+  // EXIF Metadata
+  capturedAt       DateTime?
+  cameraModel      String?       @db.VarChar(191)
+
+  // AI Vision Auto-Tagging
+  aiCaption        String?       @db.Text
+  aiTagsJson       String?       @db.Text // JSON string array of tags
+
+  isFeatured       Boolean       @default(false)
+  downloadCount    Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  downloadLogs     DownloadLog[]
+
+  @@index([albumId])
+  @@index([isFeatured])
+  @@map("media_files")
+}
+
+model AlbumTag {
+  id        String   @id @default(cuid())
+  albumId   String   @db.VarChar(191)
+  album     Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  tagName   String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+
+  @@unique([albumId, tagName])
+  @@index([tagName])
+  @@map("album_tags")
+}
+
+model DownloadLog {
+  id           String     @id @default(cuid())
+  albumId      String?    @db.VarChar(191)
+  album        Album?     @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  mediaId      String?    @db.VarChar(191)
+  media        MediaFile? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  userId       String?    @db.VarChar(191)
+  user         User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  downloadType String     @db.VarChar(50) // SINGLE_ORIGINAL, REPORT_READY, ALBUM_ZIP
+  createdAt    DateTime   @default(now())
+
+  @@index([albumId])
+  @@index([mediaId])
+  @@index([userId])
+  @@map("download_logs")
+}
+
+model AcademicTerm {
+  id           String    @id @default(cuid())
+  academicYear Int       // ปีการศึกษาไทย พ.ศ. เช่น 2569
+  semester     Int       // ภาคเรียน (1, 2, 3)
+  budgetYear   Int       // ปีงบประมาณไทย พ.ศ. เช่น 2569
+  isCurrent    Boolean   @default(false) // เป็นภาคเรียนปัจจุบันที่เปิดใช้งานอยู่
+  startDate    DateTime? // วันเริ่มต้นภาคเรียน
+  endDate      DateTime? // วันสิ้นสุดภาคเรียน
+  note         String?   @db.VarChar(255)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([academicYear, semester])
+  @@index([isCurrent])
+  @@map("academic_terms")
+}
+
