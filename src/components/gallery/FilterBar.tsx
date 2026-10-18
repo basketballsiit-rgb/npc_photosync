@@ -61,6 +61,20 @@ export function FilterBar({
     },
   ];
 
+  // Group available terms by academic year
+  const termGroups = React.useMemo(() => {
+    const map = new Map<number, any[]>();
+    availableTerms.forEach((t) => {
+      const year = t.academicYear;
+      if (!map.has(year)) map.set(year, []);
+      map.get(year)!.push(t);
+    });
+    // Sort terms within each year descending
+    map.forEach((terms) => terms.sort((a, b) => b.semester - a.semester));
+    // Sort years descending
+    return Array.from(map.entries()).sort((a, b) => b[0] - a[0]);
+  }, [availableTerms]);
+
   return (
     <div className="space-y-4 rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 sm:p-5 shadow-xl backdrop-blur-xl">
       {/* Top Row: Omnibox Search + Quick Academic Term Filter */}
@@ -102,23 +116,55 @@ export function FilterBar({
               }}
               className="w-full appearance-none rounded-2xl border border-purple-800/50 bg-[#1B0E44]/80 py-2.5 pl-3.5 pr-8 text-purple-200 focus:border-pink-500 focus:outline-none transition-colors"
             >
-              <option value="ALL_ALL" className="bg-[#140A32] text-white">ทุกปีการศึกษา & ภาคเรียน</option>
-              {availableTerms.length > 0 ? (
-                availableTerms.map((t) => (
-                  <option
-                    key={`${t.academicYear}_${t.semester}`}
-                    value={`${t.academicYear}_${t.semester}`}
-                    className="bg-[#140A32] text-white"
-                  >
-                    ภาคเรียนที่ {t.semester}/{t.academicYear} {t.isCurrent ? "★ (ภาคเรียนปัจจุบัน)" : ""}
-                  </option>
-                ))
+              <option value="ALL_ALL" className="bg-[#140A32] text-white">
+                🌐 ทุกปีการศึกษา & ภาคเรียน (ทั้งหมดในระบบ)
+              </option>
+
+              {termGroups.length > 0 ? (
+                termGroups.map(([year, terms]) => {
+                  const hasCurrentTerm = terms.some((t) => t.isCurrent);
+                  return (
+                    <React.Fragment key={year}>
+                      {/* Entire Academic Year Option */}
+                      <option
+                        value={`${year}_ALL`}
+                        className="bg-[#180C3E] text-pink-300 font-bold"
+                      >
+                        📂 ปีการศึกษา {year} (ทั้งหมด) {hasCurrentTerm ? "★ (ปีการศึกษาปัจจุบัน)" : ""}
+                      </option>
+                      {/* Specific Semesters */}
+                      {terms.map((t) => (
+                        <option
+                          key={`${t.academicYear}_${t.semester}`}
+                          value={`${t.academicYear}_${t.semester}`}
+                          className="bg-[#140A32] text-white pl-4"
+                        >
+                          &nbsp;&nbsp;&nbsp;↳ ภาคเรียนที่ {t.semester}/{t.academicYear} {t.isCurrent ? "★ (ภาคเรียนปัจจุบัน)" : ""}
+                        </option>
+                      ))}
+                    </React.Fragment>
+                  );
+                })
               ) : (
                 <>
-                  <option value="2569_1" className="bg-[#140A32] text-white">ภาคเรียนที่ 1/2569 ★ (ปัจจุบัน)</option>
-                  <option value="2569_2" className="bg-[#140A32] text-white">ภาคเรียนที่ 2/2569</option>
-                  <option value="2569_ALL" className="bg-[#140A32] text-white">ปีการศึกษา 2569 (ทั้งหมด)</option>
-                  <option value="2568_ALL" className="bg-[#140A32] text-white">ปีการศึกษา 2568</option>
+                  <option value="2569_ALL" className="bg-[#180C3E] text-pink-300 font-bold">
+                    📂 ปีการศึกษา 2569 (ทั้งหมด) ★ (ปีการศึกษาปัจจุบัน)
+                  </option>
+                  <option value="2569_2" className="bg-[#140A32] text-white">
+                    &nbsp;&nbsp;&nbsp;↳ ภาคเรียนที่ 2/2569 ★ (ภาคเรียนปัจจุบัน)
+                  </option>
+                  <option value="2569_1" className="bg-[#140A32] text-white">
+                    &nbsp;&nbsp;&nbsp;↳ ภาคเรียนที่ 1/2569
+                  </option>
+                  <option value="2568_ALL" className="bg-[#180C3E] text-purple-200 font-bold">
+                    📂 ปีการศึกษา 2568 (ทั้งหมด)
+                  </option>
+                  <option value="2568_2" className="bg-[#140A32] text-white">
+                    &nbsp;&nbsp;&nbsp;↳ ภาคเรียนที่ 2/2568
+                  </option>
+                  <option value="2568_1" className="bg-[#140A32] text-white">
+                    &nbsp;&nbsp;&nbsp;↳ ภาคเรียนที่ 1/2568
+                  </option>
                 </>
               )}
             </select>

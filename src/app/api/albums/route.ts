@@ -7,6 +7,9 @@ import {
   getCurrentConfiguredTerm,
 } from "@/lib/academic-utils";
 import { ensureAlbumDriveFolder } from "@/lib/services/googleDriveService";
+import { ensureSeedData } from "@/lib/services/seedService";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -21,12 +24,16 @@ export async function GET(req: NextRequest) {
   const divisionName = searchParams.get("divisionName") || undefined;
   const departmentName = searchParams.get("departmentName") || undefined;
   const hasProject = searchParams.get("hasProject");
+  const sortBy = searchParams.get("sortBy") || "latest";
 
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "24", 10)));
   const skip = (page - 1) * limit;
 
   try {
+    // Auto-seed baseline albums if database is empty
+    await ensureSeedData();
+
     const where: any = {};
 
     if (academicYear) where.academicYear = academicYear;
@@ -55,6 +62,14 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    // Determine sorting: default to latest first (eventDate desc, createdAt desc)
+    let orderBy: any = [{ eventDate: "desc" }, { createdAt: "desc" }];
+    if (sortBy === "oldest") {
+      orderBy = [{ eventDate: "asc" }, { createdAt: "asc" }];
+    } else if (sortBy === "photos") {
+      orderBy = [{ photoCount: "desc" }, { eventDate: "desc" }];
+    }
+
     const [total, albums] = await Promise.all([
       prisma.album.count({ where }),
       prisma.album.findMany({
@@ -72,7 +87,7 @@ export async function GET(req: NextRequest) {
             select: { name: true, email: true },
           },
         },
-        orderBy: { eventDate: "desc" },
+        orderBy,
         skip,
         take: limit,
       }),

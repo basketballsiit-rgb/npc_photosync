@@ -18,13 +18,16 @@ import {
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
+import { getAcademicTermInfo } from "@/lib/academic-utils";
 
 export default function HomePage() {
+  const initialTerm = getAcademicTermInfo();
+
   const [filters, setFilters] = useState<FilterState>({
     search: "",
     albumType: "ALL",
-    academicYear: "ALL",
-    semester: "ALL",
+    academicYear: initialTerm.academicYear, // Year 2569 (Current Year by default)
+    semester: "ALL", // Default to entire current academic year
     divisionName: "ALL",
     departmentName: "ALL",
   });
@@ -61,6 +64,7 @@ export default function HomePage() {
       if (filters.departmentName && filters.departmentName !== "ALL") {
         params.set("departmentName", filters.departmentName);
       }
+      params.set("sortBy", "latest");
 
       const res = await fetch(`/api/albums?${params.toString()}`);
       const data = await res.json();
@@ -111,6 +115,26 @@ export default function HomePage() {
         window.history.replaceState({}, "", window.location.pathname);
       }
     }
+
+    // Dynamically sync configured current term from database if available
+    fetch("/api/admin/academic-terms")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.currentTerm) {
+          const { academicYear } = data.currentTerm;
+          setFilters((prev) => {
+            if (prev.academicYear !== academicYear) {
+              return {
+                ...prev,
+                academicYear,
+                semester: "ALL",
+              };
+            }
+            return prev;
+          });
+        }
+      })
+      .catch((err) => console.warn("Failed to sync current academic term:", err));
   }, []);
 
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
@@ -238,7 +262,7 @@ export default function HomePage() {
                   setFilters({
                     search: "",
                     albumType: "ALL",
-                    academicYear: "ALL",
+                    academicYear: initialTerm.academicYear,
                     semester: "ALL",
                     divisionName: "ALL",
                     departmentName: "ALL",
