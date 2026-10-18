@@ -57,6 +57,13 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
 
   const currentRoleKey = isAdminLoggedIn ? "SUPER_ADMIN" : "GUEST";
 
+  const getBasePath = () => {
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/npc_photosync")) {
+      return "/npc_photosync";
+    }
+    return process.env.NEXT_PUBLIC_BASE_PATH || "";
+  };
+
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b border-purple-900/30 bg-[#0F0728]/85 backdrop-blur-xl">
@@ -65,13 +72,22 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
           <div className="flex items-center gap-3.5">
             <Link href="/" className="group flex items-center gap-3">
               <div className="relative flex h-12 w-12 items-center justify-center transition-transform duration-300 group-hover:scale-105 shrink-0">
-                <Image
-                  src="/assets/npc-logo.png"
+                {/* Direct img tag avoids Next.js /_next/image proxy router issues */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`${getBasePath()}/assets/npc-logo.png`}
                   alt="NPC PhotoSync Emblem"
                   width={48}
                   height={48}
                   className="h-12 w-12 object-contain drop-shadow-[0_0_12px_rgba(6,182,212,0.6)]"
-                  priority
+                  onError={(e) => {
+                    const el = e.currentTarget;
+                    if (!el.src.includes("/npc_photosync")) {
+                      el.src = "/npc_photosync/assets/npc-logo.png";
+                    } else if (el.src.includes("/assets/")) {
+                      el.src = "/npc_photosync/npc-logo.png";
+                    }
+                  }}
                 />
               </div>
               <div>
