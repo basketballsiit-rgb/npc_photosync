@@ -58,10 +58,10 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
   const currentRoleKey = isAdminLoggedIn ? "SUPER_ADMIN" : "GUEST";
 
   const getBasePath = () => {
-    if (typeof window !== "undefined" && window.location.pathname.startsWith("/npc_photosync")) {
-      return "/npc_photosync";
+    if (typeof window !== "undefined") {
+      return window.location.pathname.startsWith("/npc_photosync") ? "/npc_photosync" : "";
     }
-    return process.env.NEXT_PUBLIC_BASE_PATH || "";
+    return process.env.NODE_ENV === "production" ? "/npc_photosync" : "";
   };
 
   return (
