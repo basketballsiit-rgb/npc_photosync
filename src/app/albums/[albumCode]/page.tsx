@@ -28,6 +28,9 @@ import {
   X,
   Loader2,
   Link as LinkIcon,
+  Plus,
+  Upload,
+  MessageSquare,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 
@@ -85,6 +88,12 @@ export default function AlbumDetailPage() {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [isAddPhotosModalOpen, setIsAddPhotosModalOpen] = useState(false);
+  const [addPhotosFiles, setAddPhotosFiles] = useState<File[]>([]);
+  const [addPhotosPreviewUrls, setAddPhotosPreviewUrls] = useState<string[]>([]);
+  const [isUploadingMore, setIsUploadingMore] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState("");
+  const [lineSharedSuccess, setLineSharedSuccess] = useState(false);
 
   useEffect(() => {
     if (albumCode) {
@@ -95,6 +104,18 @@ export default function AlbumDetailPage() {
   const loadAlbum = async () => {
     setIsLoading(true);
     try {
+      // 1. Try direct fetch by albumCode / albumId
+      const directRes = await fetch(`/api/albums/${encodeURIComponent(albumCode)}`);
+      if (directRes.ok) {
+        const directData = await directRes.json();
+        if (directData.success && directData.album) {
+          setAlbum(directData.album);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 2. Fallback to list query
       const res = await fetch(`/api/albums?q=${encodeURIComponent(albumCode)}`);
       const data = await res.json();
       if (data.success && data.data.length > 0) {
@@ -103,42 +124,9 @@ export default function AlbumDetailPage() {
         );
 
         if (found) {
-          // Fetch full media list
-          const byProjRes = await fetch(
-            `/api/v1/media/by-project/${found.project?.projectCode || ""}`,
-            {
-              headers: {
-                "x-photosync-api-key":
-                  "photosync-api-key-live-nan-polytechnic-college",
-              },
-            }
-          );
-
-          // If by project exists, parse; otherwise use sample/direct media
           setAlbum({
             ...found,
-            mediaFiles: found.mediaFiles || [
-              {
-                id: "sample_1",
-                fileName: "NPC_Event_Photo_01.jpg",
-                mimeType: "image/jpeg",
-                fileSizeBytes: 4200000,
-                width: 4000,
-                height: 2667,
-                thumbnailWebpUrl:
-                  found.coverThumbnailUrl ||
-                  "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop",
-                reportReadyJpgUrl:
-                  found.coverThumbnailUrl ||
-                  "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=1920&auto=format&fit=crop",
-                capturedAt: found.eventDate,
-                cameraModel: "Sony Alpha A7 IV",
-                aiCaption:
-                  "ภาพบรรยากาศการดำเนินกิจกรรมและการมีส่วนร่วมของนักเรียนนักศึกษาวิทยาลัยสารพัดช่างน่าน",
-                aiTagsJson: JSON.stringify(["การเรียนการสอน", "กิจกรรม", "นักศึกษา"]),
-                isFeatured: true,
-              },
-            ],
+            mediaFiles: found.mediaFiles || [],
           });
         }
       }
@@ -216,6 +204,71 @@ export default function AlbumDetailPage() {
     navigator.clipboard.writeText(window.location.href);
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2000);
+  };
+
+  // Share formatted message to LINE
+  const handleShareToLine = () => {
+    if (!album) return;
+    const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    const message = `📢 [คลังภาพกิจกรรม วช.น่าน]
+📌 กิจกรรม: ${album.title}
+📅 วันที่: ${formatThaiDate(album.eventDate)}
+🏛️ ${album.divisionName}${album.departmentName ? " • " + album.departmentName : ""}
+📸 มีรูปภาพทั้งหมด: ${album.photoCount} ภาพ
+🌐 เปิดดูและดาวน์โหลดภาพคมชัดระดับ HD (หรืออัปโหลดรูปเพิ่ม):
+${currentUrl}`;
+
+    navigator.clipboard.writeText(message);
+    setLineSharedSuccess(true);
+    setTimeout(() => setLineSharedSuccess(false), 3000);
+
+    const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
+    window.open(lineUrl, "_blank");
+  };
+
+  const handleSelectMoreFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileArr = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    setAddPhotosFiles((prev) => [...prev, ...fileArr]);
+
+    const newUrls = fileArr.map((f) => URL.createObjectURL(f));
+    setAddPhotosPreviewUrls((prev) => [...prev, ...newUrls]);
+  };
+
+  const handleSubmitAddPhotos = async () => {
+    if (!album || addPhotosFiles.length === 0) return;
+    setIsUploadingMore(true);
+    setUploadProgressText(`กำลังอัปโหลดและประมวลผล ${addPhotosFiles.length} รูปภาพ...`);
+
+    try {
+      const formData = new FormData();
+      addPhotosFiles.forEach((f) => formData.append("files", f));
+      formData.append("runAiTagging", "true");
+
+      const res = await fetch(`/api/albums/${album.id}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        alert(`✅ เพิ่มรูปภาพเข้าสู่กิจกรรมเรียบร้อยแล้ว ${data.uploadedCount || addPhotosFiles.length} รูป!`);
+        setIsAddPhotosModalOpen(false);
+        addPhotosPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+        setAddPhotosPreviewUrls([]);
+        setAddPhotosFiles([]);
+        await loadAlbum();
+      } else {
+        alert(`❌ ไม่สามารถเพิ่มรูปได้: ${data.error || "เกิดข้อผิดพลาด"}`);
+      }
+    } catch (err: any) {
+      alert(`❌ เกิดข้อผิดพลาดในการเชื่อมต่อ: ${err.message}`);
+    } finally {
+      setIsUploadingMore(false);
+      setUploadProgressText("");
+    }
   };
 
   const formatThaiDate = (dateStr: string) => {
@@ -363,6 +416,24 @@ export default function AlbumDetailPage() {
 
             {/* Quick Actions Panel */}
             <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
+              {/* Add More Photos Button (Collaborative Mobile Upload) */}
+              <button
+                onClick={() => setIsAddPhotosModalOpen(true)}
+                className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-2.5 text-xs font-bold text-white hover:brightness-110 transition-all shadow-lg shadow-pink-500/25 active:scale-95"
+              >
+                <Plus className="h-4 w-4" />
+                <span>+ เพิ่มรูปภาพเข้าอัลบั้มนี้</span>
+              </button>
+
+              {/* Share to LINE Button */}
+              <button
+                onClick={handleShareToLine}
+                className="flex items-center justify-center gap-2 rounded-full border border-emerald-500/40 bg-gradient-to-r from-emerald-500/20 to-teal-500/25 px-4 py-2.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/35 transition-all shadow-md shadow-emerald-500/10 active:scale-95"
+              >
+                <MessageSquare className="h-4 w-4 text-emerald-400" />
+                <span>{lineSharedSuccess ? "คัดลอกและเปิด LINE แล้ว!" : "แชร์สรุปเข้ากลุ่ม LINE"}</span>
+              </button>
+
               {/* QR Code Button for 5-Chapter Report */}
               <button
                 onClick={() => setIsQrModalOpen(true)}
@@ -707,6 +778,145 @@ export default function AlbumDetailPage() {
               >
                 <Copy className="h-4 w-4" />
                 <span>คัดลอกลิงก์</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* COLLABORATIVE ADD PHOTOS MODAL */}
+      {isAddPhotosModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl border border-purple-800/60 bg-[#13072E]/95 p-6 shadow-2xl text-left space-y-4 backdrop-blur-xl max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                if (!isUploadingMore) {
+                  setIsAddPhotosModalOpen(false);
+                  addPhotosPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+                  setAddPhotosPreviewUrls([]);
+                  setAddPhotosFiles([]);
+                }
+              }}
+              disabled={isUploadingMore}
+              className="absolute top-4 right-4 text-purple-400 hover:text-white disabled:opacity-30"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="space-y-1">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500/20 to-purple-600/30 text-pink-400 border border-pink-500/30 mb-1 shadow-lg shadow-pink-500/20">
+                <Camera className="h-5 w-5" />
+              </div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <span>เพิ่มรูปภาพเข้าสู่อัลบั้มนี้</span>
+              </h3>
+              <p className="text-xs text-purple-300/80 line-clamp-1">
+                กิจกรรม: <span className="font-semibold text-white">{album.title}</span> ({album.albumCode})
+              </p>
+            </div>
+
+            {/* Upload Selector Box */}
+            <label
+              className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-purple-700/60 bg-[#190C3E]/50 p-6 text-center cursor-pointer hover:border-pink-500/70 hover:bg-[#200F4E]/60 transition-all ${
+                isUploadingMore ? "opacity-50 pointer-events-none" : ""
+              }`}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-pink-500/20 to-purple-600/30 text-pink-300 border border-pink-500/30 mb-2">
+                <Upload className="h-6 w-6" />
+              </div>
+              <span className="text-xs font-bold text-white">
+                แตะเพื่อถ่ายรูป หรือ เลือกรูปจากมือถือ/คอมพิวเตอร์
+              </span>
+              <span className="text-[11px] text-purple-300/70 mt-1">
+                เลือกได้หลายรูปพร้อมกัน (รองรับ JPG, PNG, WebP)
+              </span>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleSelectMoreFiles}
+                disabled={isUploadingMore}
+                className="hidden"
+              />
+            </label>
+
+            {/* Selected Thumbnails Preview Grid */}
+            {addPhotosPreviewUrls.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-purple-200">
+                    รูปภาพที่เลือกไว้ ({addPhotosFiles.length} รูป):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addPhotosPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+                      setAddPhotosPreviewUrls([]);
+                      setAddPhotosFiles([]);
+                    }}
+                    disabled={isUploadingMore}
+                    className="text-[11px] text-pink-400 hover:underline"
+                  >
+                    ล้างทั้งหมด
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-44 overflow-y-auto p-1 rounded-xl bg-[#0B051B] border border-purple-900/40">
+                  {addPhotosPreviewUrls.map((url, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-purple-800/40">
+                      <img src={url} alt={`preview_${idx}`} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Cloud Storage & Processing Notice */}
+            <div className="rounded-xl bg-purple-950/40 border border-purple-800/40 p-3 text-[11px] text-purple-300/80 space-y-1">
+              <div className="flex items-center gap-1.5 text-cyan-300 font-semibold">
+                <HardDrive className="h-3.5 w-3.5" />
+                <span>ซิงค์ตรงเข้า Google Drive อัตโนมัติ</span>
+              </div>
+              <p>
+                ภาพต้นฉบับจะถูกนำไปรวมในโฟลเดอร์ Google Drive ของกิจกรรมนี้ทันที พร้อมประมวลผลย่อขนาดระดับ HD เพื่อใช้ประกอบรายงาน 5 บท
+              </p>
+            </div>
+
+            {/* Submit & Cancel Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-purple-900/40">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isUploadingMore) {
+                    setIsAddPhotosModalOpen(false);
+                    addPhotosPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+                    setAddPhotosPreviewUrls([]);
+                    setAddPhotosFiles([]);
+                  }
+                }}
+                disabled={isUploadingMore}
+                className="rounded-2xl border border-purple-800/50 bg-[#190C3E] px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSubmitAddPhotos}
+                disabled={isUploadingMore || addPhotosFiles.length === 0}
+                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isUploadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{uploadProgressText || "กำลังอัปโหลด..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    <span>บันทึก {addPhotosFiles.length > 0 ? `${addPhotosFiles.length} รูปภาพ` : ""}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
