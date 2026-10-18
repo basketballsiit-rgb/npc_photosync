@@ -7,7 +7,6 @@ import {
   getCurrentConfiguredTerm,
 } from "@/lib/academic-utils";
 import { ensureAlbumDriveFolder } from "@/lib/services/googleDriveService";
-import { clearDemoData } from "@/lib/services/seedService";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +30,6 @@ export async function GET(req: NextRequest) {
   const skip = (page - 1) * limit;
 
   try {
-    // Purge mock/sample demo data
-    await clearDemoData();
-
     const where: any = {};
 
     if (academicYear) where.academicYear = academicYear;

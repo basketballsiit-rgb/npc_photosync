@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import { processAndSaveImage } from "@/lib/services/imageProcessor";
-import { uploadOriginalToDrive } from "@/lib/services/googleDriveService";
+import { uploadOriginalToDrive, ensureAlbumDriveFolder } from "@/lib/services/googleDriveService";
 import { analyzeActivityPhoto } from "@/lib/services/geminiVisionService";
 import { sendNewAlbumFlexMessage } from "@/lib/services/lineNotifyService";
 
@@ -46,6 +46,40 @@ export async function POST(
     let addedSizeBytes = BigInt(0);
     const newTagsCollector = new Set<string>();
 
+    // Auto-recover Google Drive folder if missing, mock, or previously errored
+    let driveFolderId = album.driveFolderId;
+    if (
+      !driveFolderId ||
+      driveFolderId.startsWith("mock_") ||
+      driveFolderId.startsWith("err_")
+    ) {
+      try {
+        const driveResult = await ensureAlbumDriveFolder(
+          album.academicYear,
+          album.albumType,
+          album.albumCode
+        );
+        if (
+          driveResult.driveFolderId &&
+          !driveResult.driveFolderId.startsWith("mock_") &&
+          !driveResult.driveFolderId.startsWith("err_")
+        ) {
+          driveFolderId = driveResult.driveFolderId;
+          await prisma.album.update({
+            where: { id: album.id },
+            data: {
+              driveFolderId: driveResult.driveFolderId,
+              driveFolderUrl: driveResult.driveFolderUrl,
+              drivePathDisplay: driveResult.drivePathDisplay,
+            },
+          });
+          console.log(`[Upload] Auto-recovered Drive folder for ${album.albumCode}: ${driveFolderId}`);
+        }
+      } catch (err) {
+        console.warn(`[Upload] Failed to auto-recover Drive folder for ${album.albumCode}:`, err);
+      }
+    }
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (!file.type.startsWith("image/")) {
@@ -66,13 +100,13 @@ export async function POST(
 
       // 2. Upload Original Master Photo to Google Shared Drive
       let driveFileId = `drive_${mediaId}`;
-      if (album.driveFolderId) {
+      if (driveFolderId) {
         try {
           const driveResult = await uploadOriginalToDrive(
             fileBuffer,
             file.name,
             file.type,
-            album.driveFolderId
+            driveFolderId
           );
           driveFileId = driveResult.driveFileId;
         } catch (driveErr) {

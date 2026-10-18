@@ -102,11 +102,19 @@ export default function AlbumDetailPage() {
     }
   }, [albumCode]);
 
+  const getClientBasePath = () => {
+    if (typeof window !== "undefined") {
+      return window.location.pathname.startsWith("/npc_photosync") ? "/npc_photosync" : "";
+    }
+    return "";
+  };
+
   const loadAlbum = async () => {
     setIsLoading(true);
     try {
+      const base = getClientBasePath();
       // 1. Try direct fetch by albumCode / albumId
-      const directRes = await fetch(`/api/albums/${encodeURIComponent(albumCode)}`);
+      const directRes = await fetch(`${base}/api/albums/${encodeURIComponent(albumCode)}`);
       if (directRes.ok) {
         const directData = await directRes.json();
         if (directData.success && directData.album) {
@@ -117,9 +125,9 @@ export default function AlbumDetailPage() {
       }
 
       // 2. Fallback to list query
-      const res = await fetch(`/api/albums?q=${encodeURIComponent(albumCode)}`);
+      const res = await fetch(`${base}/api/albums?q=${encodeURIComponent(albumCode)}`);
       const data = await res.json();
-      if (data.success && data.data.length > 0) {
+      if (data.success && data.data && data.data.length > 0) {
         const found = data.data.find(
           (a: any) => a.albumCode === albumCode || a.id === albumCode
         );
@@ -172,7 +180,8 @@ export default function AlbumDetailPage() {
     setIsDownloadingZip(true);
 
     try {
-      const res = await fetch(`/api/albums/${album.id}/download-zip`, {
+      const base = getClientBasePath();
+      const res = await fetch(`${base}/api/albums/${album.id}/download-zip`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -248,7 +257,8 @@ ${currentUrl}`;
       addPhotosFiles.forEach((f) => formData.append("files", f));
       formData.append("runAiTagging", "true");
 
-      const res = await fetch(`/api/albums/${album.id}/upload`, {
+      const base = getClientBasePath();
+      const res = await fetch(`${base}/api/albums/${album.id}/upload`, {
         method: "POST",
         body: formData,
       });

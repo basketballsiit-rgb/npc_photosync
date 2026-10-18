@@ -31,7 +31,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                var basePath = "${basePath}";
+                var basePath = window.location.pathname.startsWith("/npc_photosync") ? "/npc_photosync" : ("${basePath}" || "");
                 if (!basePath) return;
                 var origFetch = window.fetch;
                 window.fetch = function(input, init) {

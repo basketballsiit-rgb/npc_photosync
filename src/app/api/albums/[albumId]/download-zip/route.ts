@@ -69,7 +69,12 @@ export async function POST(
           );
 
           // 1. If Original and Drive stream available, use it directly
-          if (quality === "original" && file.driveFileId && !file.driveFileId.startsWith("mock_")) {
+          if (
+            quality === "original" &&
+            file.driveFileId &&
+            !file.driveFileId.startsWith("mock_") &&
+            !file.driveFileId.startsWith("err_")
+          ) {
             try {
               const stream = await getOriginalFileStream(file.driveFileId);
               archive.append(stream, { name: file.fileName });

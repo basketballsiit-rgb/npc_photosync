@@ -154,7 +154,6 @@ async function findOrCreateFolder(
     fields: "files(id, name)",
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
-    corpora: "allDrives",
   });
 
   const existingFolder = response.data.files?.[0];
@@ -220,8 +219,8 @@ export async function ensureAlbumDriveFolder(
       driveFolderUrl: `https://drive.google.com/drive/folders/${albumFolderId}`,
       drivePathDisplay: pathDisplay,
     };
-  } catch (error) {
-    console.error("Error in ensureAlbumDriveFolder:", error);
+  } catch (error: any) {
+    console.error("Error in ensureAlbumDriveFolder:", error?.response?.data || error?.message || error);
     const fallbackFolderId = `err_folder_${Date.now()}`;
     return {
       driveFolderId: fallbackFolderId,
@@ -251,27 +250,32 @@ export async function uploadOriginalToDrive(
     };
   }
 
-  const stream = Readable.from(fileBuffer);
+  try {
+    const stream = Readable.from(fileBuffer);
 
-  const response = await drive.files.create({
-    requestBody: {
-      name: fileName,
-      parents: [folderId],
-    },
-    media: {
-      mimeType,
-      body: stream,
-    },
-    fields: "id, webViewLink",
-    supportsAllDrives: true,
-  });
+    const response = await drive.files.create({
+      requestBody: {
+        name: fileName,
+        parents: [folderId],
+      },
+      media: {
+        mimeType,
+        body: stream,
+      },
+      fields: "id, webViewLink",
+      supportsAllDrives: true,
+    });
 
-  return {
-    driveFileId: response.data.id || `file_${Date.now()}`,
-    webViewLink:
-      response.data.webViewLink ||
-      `https://drive.google.com/file/d/${response.data.id}/view`,
-  };
+    return {
+      driveFileId: response.data.id || `file_${Date.now()}`,
+      webViewLink:
+        response.data.webViewLink ||
+        `https://drive.google.com/file/d/${response.data.id}/view`,
+    };
+  } catch (error: any) {
+    console.error(`Error uploading "${fileName}" to Google Drive (folderId: ${folderId}):`, error?.response?.data || error?.message || error);
+    throw error;
+  }
 }
 
 /**
