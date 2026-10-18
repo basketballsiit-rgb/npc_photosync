@@ -10,6 +10,7 @@ import {
   Lock,
   LogOut,
   Users,
+  Camera,
 } from "lucide-react";
 import { AdminLoginModal } from "@/components/auth/AdminLoginModal";
 
@@ -64,10 +65,9 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
             <Link href="/" className="group flex items-center gap-3">
               <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 via-purple-600 to-cyan-400 p-0.5 shadow-lg shadow-purple-500/25 transition-transform duration-300 group-hover:scale-105 group-hover:shadow-pink-500/40">
                 <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#0F0728]">
-                  {/* NPC emblem symbol */}
+                  {/* NPC PhotoSync Camera emblem */}
                   <div className="relative flex h-6 w-6 items-center justify-center">
-                    <div className="absolute h-5 w-5 rounded-full border-2 border-pink-400/80 border-t-transparent animate-spin duration-1000" />
-                    <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400" />
+                    <Camera className="h-5 w-5 text-cyan-300 group-hover:text-pink-400 transition-colors drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
                   </div>
                 </div>
               </div>
