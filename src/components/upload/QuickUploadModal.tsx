@@ -73,6 +73,7 @@ export function QuickUploadModal({
   const [uploadStatusText, setUploadStatusText] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [configuredCurrentTerm, setConfiguredCurrentTerm] = useState<any | null>(null);
+  const [departmentsList, setDepartmentsList] = useState<string[]>(Array.from(NPC_DEPARTMENTS));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -97,14 +98,28 @@ export function QuickUploadModal({
 
   const drivePathPreview = `/${termInfo.academicYear}/${driveCategory}/${estimatedCode}`;
 
-  // Load SmartFlow Projects when modal opens
+  // Load SmartFlow Projects & Dynamic Departments when modal opens
   useEffect(() => {
     if (isOpen) {
       loadProjects();
+      loadDepartments();
     } else {
       resetForm();
     }
   }, [isOpen]);
+
+  const loadDepartments = async () => {
+    try {
+      const res = await fetch("/api/departments");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.departments) && data.departments.length > 0) {
+        const names = data.departments.map((d: any) => d.name);
+        setDepartmentsList(names);
+      }
+    } catch (err) {
+      console.warn("Could not load departments:", err);
+    }
+  };
 
   const loadProjects = async () => {
     setIsProjectsLoading(true);
@@ -538,7 +553,7 @@ export function QuickUploadModal({
                   onChange={(e) => setDepartmentName(e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
                 >
-                  {NPC_DEPARTMENTS.map((dept) => (
+                  {departmentsList.map((dept) => (
                     <option key={dept} value={dept}>
                       {dept}
                     </option>

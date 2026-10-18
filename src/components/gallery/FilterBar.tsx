@@ -27,6 +27,8 @@ export function FilterBar({
 }: FilterBarProps) {
   const [availableTerms, setAvailableTerms] = React.useState<any[]>([]);
 
+  const [departmentsList, setDepartmentsList] = React.useState<string[]>(Array.from(NPC_DEPARTMENTS));
+
   React.useEffect(() => {
     fetch("/api/admin/academic-terms")
       .then((res) => res.json())
@@ -36,6 +38,15 @@ export function FilterBar({
         }
       })
       .catch((err) => console.warn("Could not load terms for filter:", err));
+
+    fetch("/api/departments")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.departments) && data.departments.length > 0) {
+          setDepartmentsList(data.departments.map((d: any) => d.name));
+        }
+      })
+      .catch((err) => console.warn("Could not load departments for filter:", err));
   }, []);
   const typePills = [
     { key: "ALL", label: "ทั้งหมด", icon: "🌐" },
@@ -204,7 +215,7 @@ export function FilterBar({
               className="w-full appearance-none rounded-2xl border border-purple-800/50 bg-[#1B0E44]/80 py-2.5 pl-3.5 pr-8 text-purple-200 focus:border-pink-500 focus:outline-none transition-colors"
             >
               <option value="ALL" className="bg-[#140A32] text-white">ทุกแผนกวิชา / งาน</option>
-              {NPC_DEPARTMENTS.map((dept) => (
+              {departmentsList.map((dept) => (
                 <option key={dept} value={dept} className="bg-[#140A32] text-white">
                   {dept}
                 </option>

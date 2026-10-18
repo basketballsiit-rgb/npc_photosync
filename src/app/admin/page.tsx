@@ -31,7 +31,13 @@ import {
   Loader2,
   Upload,
   Save,
+  Edit,
+  Plus,
+  Search,
+  X,
 } from "lucide-react";
+import { NPC_DIVISIONS } from "@/lib/academic-utils";
+import { DepartmentItem } from "@/lib/services/departmentService";
 
 interface AdminStats {
   totalAlbums: number;
@@ -53,7 +59,9 @@ interface SystemHealth {
 }
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"orphans" | "smartflow" | "pr_report" | "academic_terms" | "google_drive">("academic_terms");
+  const [activeTab, setActiveTab] = useState<
+    "academic_terms" | "departments" | "orphans" | "smartflow" | "pr_report" | "google_drive"
+  >("academic_terms");
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +79,15 @@ export default function AdminPage() {
   });
   const [isSubmittingTerm, setIsSubmittingTerm] = useState(false);
   const [isTermsLoading, setIsTermsLoading] = useState(false);
+
+  // Tab: Departments & Divisions Settings
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+  const [isDepartmentsLoading, setIsDepartmentsLoading] = useState(false);
+  const [newDeptName, setNewDeptName] = useState("");
+  const [newDeptDivision, setNewDeptDivision] = useState<string>("ฝ่ายวิชาการ");
+  const [isSubmittingDept, setIsSubmittingDept] = useState(false);
+  const [deptSearchQuery, setDeptSearchQuery] = useState("");
+  const [editingDept, setEditingDept] = useState<DepartmentItem | null>(null);
 
   // Tab 1: Orphan Albums
   const [orphanAlbums, setOrphanAlbums] = useState<any[]>([]);
@@ -121,6 +138,7 @@ export default function AdminPage() {
   useEffect(() => {
     loadDashboardData();
     fetchAcademicTerms();
+    fetchDepartments();
     fetchDriveSettings();
     fetchWatermarkInfo();
   }, []);
@@ -148,6 +166,145 @@ export default function AdminPage() {
       console.error("Failed to load academic terms:", err);
     } finally {
       setIsTermsLoading(false);
+    }
+  };
+
+  // Independent fetch for Departments & Works
+  const fetchDepartments = async () => {
+    setIsDepartmentsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/departments?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.departments)) {
+        setDepartments(data.departments);
+      }
+    } catch (err) {
+      console.error("Failed to load departments:", err);
+    } finally {
+      setIsDepartmentsLoading(false);
+    }
+  };
+
+  // Add Department
+  const handleAddDepartment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDeptName.trim()) {
+      alert("กรุณาระบุชื่อแผนกวิชา/งาน");
+      return;
+    }
+    setIsSubmittingDept(true);
+    try {
+      const res = await fetch("/api/admin/departments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newDeptName.trim(),
+          divisionName: newDeptDivision,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        if (Array.isArray(data.departments)) {
+          setDepartments(data.departments);
+        } else {
+          fetchDepartments();
+        }
+        setNewDeptName("");
+      } else {
+        alert(data.error || "เกิดข้อผิดพลาดในการเพิ่มแผนกวิชา/งาน");
+      }
+    } catch (err) {
+      alert("ไม่สามารถเชื่อมต่อเพื่อเพิ่มแผนกวิชาได้");
+    } finally {
+      setIsSubmittingDept(false);
+    }
+  };
+
+  // Update Department
+  const handleUpdateDepartment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDept || !editingDept.name.trim()) return;
+    setIsSubmittingDept(true);
+    try {
+      const res = await fetch("/api/admin/departments", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingDept.id,
+          name: editingDept.name.trim(),
+          divisionName: editingDept.divisionName,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        if (Array.isArray(data.departments)) {
+          setDepartments(data.departments);
+        } else {
+          fetchDepartments();
+        }
+        setEditingDept(null);
+      } else {
+        alert(data.error || "เกิดข้อผิดพลาดในการแก้ไข");
+      }
+    } catch (err) {
+      alert("ไม่สามารถเชื่อมต่อเพื่อแก้ไขแผนกวิชาได้");
+    } finally {
+      setIsSubmittingDept(false);
+    }
+  };
+
+  // Delete Department
+  const handleDeleteDepartment = async (id: string, name: string) => {
+    if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบแผนกวิชา/งาน "${name}" ออกจากระบบ?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/departments?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        if (Array.isArray(data.departments)) {
+          setDepartments(data.departments);
+        } else {
+          fetchDepartments();
+        }
+      } else {
+        alert(data.error || "เกิดข้อผิดพลาดในการลบ");
+      }
+    } catch (err) {
+      alert("ไม่สามารถลบแผนกวิชาได้");
+    }
+  };
+
+  // Reset Departments to Default
+  const handleResetDepartments = async () => {
+    if (!confirm("คุณต้องการคืนค่ารายการแผนกวิชาและงานทั้งหมดเป็นค่าเริ่มต้นของระบบใช่หรือไม่?")) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/departments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        if (Array.isArray(data.departments)) {
+          setDepartments(data.departments);
+        } else {
+          fetchDepartments();
+        }
+      }
+    } catch (err) {
+      alert("ไม่สามารถคืนค่าเริ่มต้นได้");
     }
   };
 
@@ -743,6 +900,24 @@ export default function AdminPage() {
           </button>
 
           <button
+            onClick={() => {
+              setActiveTab("departments");
+              fetchDepartments();
+            }}
+            className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
+              activeTab === "departments"
+                ? "border-pink-500 text-pink-300"
+                : "border-transparent text-purple-400 hover:text-white"
+            }`}
+          >
+            <Building className="h-4 w-4" />
+            <span>🏛️ จัดการแผนกวิชา & งาน</span>
+            <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] font-mono text-pink-300 border border-purple-500/30">
+              {departments.length}
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab("orphans")}
             className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
               activeTab === "orphans"
@@ -1063,6 +1238,291 @@ export default function AdminPage() {
                             </td>
                           </tr>
                         ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* TAB: DEPARTMENTS & DIVISIONS MANAGEMENT */}
+        {activeTab === "departments" && (
+          <section className="space-y-6">
+            {/* Banner: Department Management Overview */}
+            <div className="relative overflow-hidden rounded-3xl border border-purple-700/50 bg-gradient-to-r from-[#1E0E46]/90 via-[#160B3A]/90 to-[#0F0728]/95 p-6 shadow-2xl backdrop-blur-xl">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                    <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+                      โครงสร้างองค์กร (Organizational Structure)
+                    </span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-2.5">
+                    <Building className="h-7 w-7 text-pink-400" />
+                    <span>จัดการแผนกวิชา & งานภายในวิทยาลัย</span>
+                  </h2>
+                  <p className="text-xs text-slate-300">
+                    กำหนดและเพิ่มแผนกวิชา/งาน เพื่อใช้เป็นตัวเลือกในการอัปโหลดภาพกิจกรรม การคัดกรองอัลบั้ม และการออกรายงานประชาสัมพันธ์
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-purple-700/50 bg-[#13072E]/90 p-4 text-center shrink-0 shadow-lg">
+                  <div className="text-[11px] text-purple-300 font-medium">แผนกวิชา/งาน ทั้งหมด</div>
+                  <div className="text-3xl font-black text-cyan-300 mt-0.5">
+                    {departments.length}
+                  </div>
+                  <div className="text-[10px] text-purple-400/80 mt-0.5">
+                    แผนก/งานในระบบ
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Form & Table Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Form: Add or Edit Department */}
+              <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-5 space-y-4 backdrop-blur-md shadow-xl h-fit">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    {editingDept ? (
+                      <>
+                        <Edit className="h-4 w-4 text-amber-400" />
+                        <span>แก้ไขแผนกวิชา / งาน</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 text-pink-400" />
+                        <span>เพิ่มแผนกวิชา / งานใหม่</span>
+                      </>
+                    )}
+                  </h3>
+                  <p className="text-xs text-purple-300/80">
+                    {editingDept
+                      ? "แก้ไขข้อมูลแผนกวิชาหรือเปลี่ยนฝ่ายที่สังกัด"
+                      : "เพิ่มแผนกวิชาหรือสายงานใหม่เข้าสู่ตัวเลือกของระบบ"}
+                  </p>
+                </div>
+
+                <form
+                  onSubmit={editingDept ? handleUpdateDepartment : handleAddDepartment}
+                  className="space-y-3.5 text-xs"
+                >
+                  <div className="space-y-1">
+                    <label className="text-purple-200 font-semibold">ชื่อแผนกวิชา / งาน *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="เช่น แผนกวิชาเทคโนโลยีธุรกิจดิจิทัล, งานแนะแนว..."
+                      value={editingDept ? editingDept.name : newDeptName}
+                      onChange={(e) => {
+                        if (editingDept) {
+                          setEditingDept({ ...editingDept, name: e.target.value });
+                        } else {
+                          setNewDeptName(e.target.value);
+                        }
+                      }}
+                      className="w-full rounded-2xl border border-purple-800/50 bg-[#1B0E44] px-3.5 py-2.5 text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-purple-200 font-semibold">ฝ่ายที่สังกัด *</label>
+                    <select
+                      value={editingDept ? editingDept.divisionName : newDeptDivision}
+                      onChange={(e) => {
+                        if (editingDept) {
+                          setEditingDept({ ...editingDept, divisionName: e.target.value });
+                        } else {
+                          setNewDeptDivision(e.target.value);
+                        }
+                      }}
+                      className="w-full rounded-2xl border border-purple-800/50 bg-[#1B0E44] px-3.5 py-2.5 text-white focus:border-pink-500 focus:outline-none"
+                    >
+                      {NPC_DIVISIONS.map((div) => (
+                        <option key={div} value={div} className="bg-[#140A32]">
+                          {div}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingDept}
+                      className="flex-1 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 py-2.5 font-bold text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      {isSubmittingDept ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : editingDept ? (
+                        <>
+                          <Save className="h-4 w-4" />
+                          <span>บันทึกการแก้ไข</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4" />
+                          <span>เพิ่มแผนกวิชา/งาน</span>
+                        </>
+                      )}
+                    </button>
+
+                    {editingDept && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingDept(null)}
+                        className="rounded-full border border-purple-700/50 bg-purple-900/30 px-3 py-2.5 font-bold text-purple-300 hover:text-white hover:bg-purple-900/50 transition-all"
+                      >
+                        ยกเลิก
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              {/* Table: All Departments & Works */}
+              <div className="lg:col-span-2 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-purple-300/80">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-white">
+                      รายการแผนกวิชาและงาน ({departments.length} รายการ)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => fetchDepartments()}
+                      disabled={isDepartmentsLoading}
+                      title="รีเฟรชข้อมูล"
+                      className="p-1 rounded-lg text-purple-400 hover:text-white hover:bg-purple-900/40 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${isDepartmentsLoading ? "animate-spin text-pink-400" : ""}`} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetDepartments}
+                      title="คืนค่าเริ่มต้น"
+                      className="text-[10px] text-purple-400/70 hover:text-pink-300 transition-colors ml-2 underline underline-offset-2"
+                    >
+                      คืนค่าเริ่มต้น
+                    </button>
+                  </div>
+
+                  {/* Search box */}
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-purple-400" />
+                    <input
+                      type="text"
+                      placeholder="ค้นหาแผนกวิชา / งาน..."
+                      value={deptSearchQuery}
+                      onChange={(e) => setDeptSearchQuery(e.target.value)}
+                      className="w-full sm:w-60 rounded-full border border-purple-800/50 bg-[#1B0E44] py-1.5 pl-8 pr-3 text-xs text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-3xl border border-purple-800/40 bg-[#140A32]/85 shadow-xl backdrop-blur-md">
+                  <table className="w-full text-left text-xs text-purple-200">
+                    <thead className="border-b border-purple-800/50 bg-[#180C3E] text-purple-300 uppercase text-[10px]">
+                      <tr>
+                        <th className="py-3.5 px-4 w-12 text-center">ลำดับ</th>
+                        <th className="py-3.5 px-4">ชื่อแผนกวิชา / งาน</th>
+                        <th className="py-3.5 px-4">ฝ่ายที่สังกัด</th>
+                        <th className="py-3.5 px-4 text-center">อัลบั้ม</th>
+                        <th className="py-3.5 px-4 text-right">การจัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-purple-900/30">
+                      {isDepartmentsLoading && departments.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-purple-300">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-pink-400" />
+                            <span>กำลังโหลดข้อมูลแผนกวิชา/งาน...</span>
+                          </td>
+                        </tr>
+                      ) : departments.filter((d) =>
+                          !deptSearchQuery.trim() ||
+                          d.name.toLowerCase().includes(deptSearchQuery.toLowerCase()) ||
+                          d.divisionName.toLowerCase().includes(deptSearchQuery.toLowerCase())
+                        ).length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-purple-400">
+                            <Building className="h-8 w-8 mx-auto text-purple-500/60 mb-2" />
+                            <div className="text-purple-300 font-medium">ไม่พบแผนกวิชา/งานที่ค้นหา</div>
+                          </td>
+                        </tr>
+                      ) : (
+                        departments
+                          .filter((d) =>
+                            !deptSearchQuery.trim() ||
+                            d.name.toLowerCase().includes(deptSearchQuery.toLowerCase()) ||
+                            d.divisionName.toLowerCase().includes(deptSearchQuery.toLowerCase())
+                          )
+                          .map((dept, index) => {
+                            const isDivAcademic = dept.divisionName === "ฝ่ายวิชาการ";
+                            const isDivResource = dept.divisionName === "ฝ่ายบริหารทรัพยากร";
+                            const isDivStudent = dept.divisionName === "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา";
+
+                            const badgeColor = isDivAcademic
+                              ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
+                              : isDivResource
+                              ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
+                              : isDivStudent
+                              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                              : "bg-amber-500/15 text-amber-300 border-amber-500/30";
+
+                            return (
+                              <tr
+                                key={dept.id || dept.name}
+                                className={`transition-colors ${
+                                  editingDept?.id === dept.id
+                                    ? "bg-purple-900/40"
+                                    : "hover:bg-[#1C0E46]/50"
+                                }`}
+                              >
+                                <td className="py-3 px-4 text-center font-mono text-purple-400/80">
+                                  {index + 1}
+                                </td>
+                                <td className="py-3 px-4 font-bold text-white">
+                                  <span>{dept.name}</span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium border ${badgeColor}`}
+                                  >
+                                    {dept.divisionName}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono font-bold text-pink-300">
+                                  {dept.albumCount || 0}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingDept(dept);
+                                        window.scrollTo({ top: 350, behavior: "smooth" });
+                                      }}
+                                      title="แก้ไข"
+                                      className="p-1.5 rounded-lg text-purple-300 hover:text-white hover:bg-purple-800/40 transition-colors"
+                                    >
+                                      <Edit className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteDepartment(dept.id, dept.name)}
+                                      title="ลบ"
+                                      className="p-1.5 rounded-lg text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 transition-colors"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
                       )}
                     </tbody>
                   </table>
