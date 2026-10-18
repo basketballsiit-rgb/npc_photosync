@@ -61,3 +61,33 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function GET(req: NextRequest) {
+  const auth = validatePhotoSyncApiKey(req);
+  if (!auth.authorized) {
+    return auth.response!;
+  }
+
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const projects = await prisma.smartFlowProject.findMany({
+      orderBy: { academicYear: "desc" },
+    });
+
+    return NextResponse.json({
+      success: true,
+      count: projects.length,
+      projects,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error in GET /api/v1/sync/projects:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Internal Server Error",
+      },
+      { status: 500 }
+    );
+  }
+}

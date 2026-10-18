@@ -244,6 +244,7 @@ export async function setActiveAcademicTerm(
   academicYear: number,
   semester: number,
   budgetYear?: number,
+  note?: string,
   prismaClient?: PrismaClient
 ): Promise<AcademicTermRecord> {
   if (!prismaClient) {
@@ -270,12 +271,14 @@ export async function setActiveAcademicTerm(
       update: {
         isCurrent: true,
         budgetYear: finalBudgetYear,
+        ...(note !== undefined && note.trim() !== "" ? { note } : {}),
       },
       create: {
         academicYear,
         semester,
         budgetYear: finalBudgetYear,
         isCurrent: true,
+        note: note || undefined,
       },
     });
   });

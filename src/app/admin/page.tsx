@@ -70,6 +70,7 @@ export default function AdminPage() {
     note: "",
   });
   const [isSubmittingTerm, setIsSubmittingTerm] = useState(false);
+  const [isTermsLoading, setIsTermsLoading] = useState(false);
 
   // Tab 1: Orphan Albums
   const [orphanAlbums, setOrphanAlbums] = useState<any[]>([]);
@@ -119,9 +120,36 @@ export default function AdminPage() {
 
   useEffect(() => {
     loadDashboardData();
+    fetchAcademicTerms();
     fetchDriveSettings();
     fetchWatermarkInfo();
   }, []);
+
+  // Independent, non-cached fetch for Academic Terms
+  const fetchAcademicTerms = async () => {
+    setIsTermsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/academic-terms?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.terms)) {
+        setAcademicTerms(data.terms);
+        if (data.currentTerm) {
+          setCurrentTerm(data.currentTerm);
+        }
+      } else {
+        console.warn("Could not load academic terms:", data.error);
+      }
+    } catch (err) {
+      console.error("Failed to load academic terms:", err);
+    } finally {
+      setIsTermsLoading(false);
+    }
+  };
 
   const loadDashboardData = async () => {
     setIsLoading(true);
@@ -146,11 +174,12 @@ export default function AdminPage() {
       }
 
       // 3. Load Synced Projects
-      const projectsRes = await fetch("/api/v1/sync/projects?t=" + Date.now(), {
+      fetch("/api/v1/sync/projects?t=" + Date.now(), {
         headers: {
           "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
         },
-      });
+      }).catch((e) => console.warn("Sync projects check:", e));
+
       // Fallback seed projects for list view
       setProjects([
         {
@@ -185,14 +214,6 @@ export default function AdminPage() {
       if (prData.success) {
         setPrReportRows(prData.rows);
       }
-
-      // 5. Load Academic Terms
-      const termsRes = await fetch("/api/admin/academic-terms");
-      const termsData = await termsRes.json();
-      if (termsData.success) {
-        setAcademicTerms(termsData.terms);
-        setCurrentTerm(termsData.currentTerm);
-      }
     } catch (err) {
       console.error("Failed to load admin dashboard data:", err);
     } finally {
@@ -201,22 +222,32 @@ export default function AdminPage() {
   };
 
   // Set Current Active Term
-  const handleSetCurrentTerm = async (academicYear: number, semester: number, budgetYear?: number) => {
+  const handleSetCurrentTerm = async (academicYear: number, semester: number, budgetYear?: number, note?: string) => {
     try {
+      setIsTermsLoading(true);
       const res = await fetch("/api/admin/academic-terms", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ academicYear, semester, budgetYear }),
+        body: JSON.stringify({ academicYear, semester, budgetYear, note }),
       });
       const data = await res.json();
       if (data.success) {
         alert(data.message);
-        loadDashboardData();
+        if (data.terms && Array.isArray(data.terms)) {
+          setAcademicTerms(data.terms);
+          if (data.currentTerm) {
+            setCurrentTerm(data.currentTerm);
+          }
+        } else {
+          fetchAcademicTerms();
+        }
       } else {
         alert(data.error || "เกิดข้อผิดพลาดในการเปลี่ยนภาคเรียน");
       }
     } catch (err) {
       alert("ไม่สามารถเปลี่ยนภาคเรียนปัจจุบันได้");
+    } finally {
+      setIsTermsLoading(false);
     }
   };
 
@@ -233,6 +264,14 @@ export default function AdminPage() {
       const data = await res.json();
       if (data.success) {
         alert(data.message);
+        if (data.terms && Array.isArray(data.terms)) {
+          setAcademicTerms(data.terms);
+          if (data.currentTerm) {
+            setCurrentTerm(data.currentTerm);
+          }
+        } else {
+          fetchAcademicTerms();
+        }
         setNewTermForm({
           academicYear: 2569,
           semester: 2,
@@ -240,7 +279,6 @@ export default function AdminPage() {
           isCurrent: false,
           note: "",
         });
-        loadDashboardData();
       } else {
         alert(data.error || "เกิดข้อผิดพลาด");
       }
@@ -685,7 +723,10 @@ export default function AdminPage() {
         {/* SECTION 3: Tab Navigation */}
         <div className="flex flex-wrap items-center gap-2 border-b border-purple-900/40 text-xs font-bold">
           <button
-            onClick={() => setActiveTab("academic_terms")}
+            onClick={() => {
+              setActiveTab("academic_terms");
+              fetchAcademicTerms();
+            }}
             className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
               activeTab === "academic_terms"
                 ? "border-pink-500 text-pink-300"
@@ -907,9 +948,20 @@ export default function AdminPage() {
               {/* Table: All Academic Terms */}
               <div className="lg:col-span-2 space-y-3">
                 <div className="flex items-center justify-between text-xs text-purple-300/80">
-                  <span className="font-semibold text-white">
-                    รายการภาคเรียนทั้งหมดในระบบ ({academicTerms.length} ภาคเรียน)
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-white">
+                      รายการภาคเรียนทั้งหมดในระบบ ({academicTerms.length} ภาคเรียน)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => fetchAcademicTerms()}
+                      disabled={isTermsLoading}
+                      title="รีเฟรชข้อมูลภาคเรียน"
+                      className="p-1 rounded-lg text-purple-400 hover:text-white hover:bg-purple-900/40 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${isTermsLoading ? "animate-spin text-pink-400" : ""}`} />
+                    </button>
+                  </div>
                   <span>คลิกปุ่ม "ตั้งเป็นภาคเรียนปัจจุบัน" เพื่อสลับการทำงานทันที</span>
                 </div>
 
@@ -925,68 +977,93 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-purple-900/30">
-                      {academicTerms.map((term) => (
-                        <tr
-                          key={`${term.academicYear}_${term.semester}`}
-                          className={`transition-colors ${
-                            term.isCurrent
-                              ? "bg-purple-950/40 hover:bg-purple-950/60"
-                              : "hover:bg-[#1C0E46]/50"
-                          }`}
-                        >
-                          <td className="py-3.5 px-4 font-bold text-white">
-                            <div className="flex items-center gap-2">
-                              <span>
-                                ภาคเรียนที่ {term.semester}/{term.academicYear}
-                              </span>
-                              {term.note && (
-                                <span className="text-[10px] font-normal text-purple-400">
-                                  ({term.note})
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-purple-400">
-                            {term.budgetYear}
-                          </td>
-                          <td className="py-3.5 px-4 text-center font-mono font-bold text-pink-300">
-                            {term.albumCount || 0}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            {term.isCurrent ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/40">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                ภาคเรียนปัจจุบัน
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-purple-500">
-                                ทั่วไป
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3.5 px-4 text-right">
-                            {term.isCurrent ? (
-                              <span className="text-[11px] font-semibold text-emerald-300">
-                                กำลังใช้งานอยู่
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() =>
-                                  handleSetCurrentTerm(
-                                    term.academicYear,
-                                    term.semester,
-                                    term.budgetYear
-                                  )
-                                }
-                                className="inline-flex items-center gap-1.5 rounded-full border border-pink-500/40 bg-pink-500/10 px-3 py-1 text-[11px] font-bold text-pink-300 hover:bg-pink-500 hover:text-white transition-all shadow-sm"
-                              >
-                                <CheckCircle2 className="h-3 w-3" />
-                                <span>ตั้งเป็นภาคเรียนปัจจุบัน</span>
-                              </button>
-                            )}
+                      {isTermsLoading && academicTerms.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-purple-300">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-pink-400" />
+                            <span>กำลังโหลดข้อมูลภาคเรียนในระบบ...</span>
                           </td>
                         </tr>
-                      ))}
+                      ) : academicTerms.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-purple-400">
+                            <Calendar className="h-8 w-8 mx-auto text-purple-500/60 mb-2" />
+                            <div className="text-purple-300 font-medium mb-3">ยังไม่พบรายการภาคเรียนในระบบ หรือกำลังเชื่อมต่อฐานข้อมูล</div>
+                            <button
+                              type="button"
+                              onClick={() => fetchAcademicTerms()}
+                              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-pink-600/30 hover:bg-pink-600 border border-pink-500/50 text-white text-xs font-semibold transition-all shadow-md"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                              <span>โหลดข้อมูลภาคเรียนใหม่</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ) : (
+                        academicTerms.map((term) => (
+                          <tr
+                            key={`${term.academicYear}_${term.semester}`}
+                            className={`transition-colors ${
+                              term.isCurrent
+                                ? "bg-purple-950/40 hover:bg-purple-950/60"
+                                : "hover:bg-[#1C0E46]/50"
+                            }`}
+                          >
+                            <td className="py-3.5 px-4 font-bold text-white">
+                              <div className="flex items-center gap-2">
+                                <span>
+                                  ภาคเรียนที่ {term.semester}/{term.academicYear}
+                                </span>
+                                {term.note && (
+                                  <span className="text-[10px] font-normal text-purple-400">
+                                    ({term.note})
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono text-purple-400">
+                              {term.budgetYear}
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-mono font-bold text-pink-300">
+                              {term.albumCount || 0}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {term.isCurrent ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/40">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  ภาคเรียนปัจจุบัน
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-purple-500">
+                                  ทั่วไป
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              {term.isCurrent ? (
+                                <span className="text-[11px] font-semibold text-emerald-300">
+                                  กำลังใช้งานอยู่
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() =>
+                                    handleSetCurrentTerm(
+                                      term.academicYear,
+                                      term.semester,
+                                      term.budgetYear,
+                                      term.note
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1.5 rounded-full border border-pink-500/40 bg-pink-500/10 px-3 py-1 text-[11px] font-bold text-pink-300 hover:bg-pink-500 hover:text-white transition-all shadow-sm"
+                                >
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  <span>ตั้งเป็นภาคเรียนปัจจุบัน</span>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
