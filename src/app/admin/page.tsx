@@ -895,7 +895,7 @@ export default function AdminPage() {
                     required
                     value={loginUser}
                     onChange={(e) => setLoginUser(e.target.value)}
-                    placeholder="เช่น admin หรือ admin@npc.ac.th"
+                    placeholder="ระบุชื่อผู้ใช้หรืออีเมลผู้ดูแลระบบ"
                     className="w-full rounded-2xl border border-purple-700/40 bg-[#1c0d3a]/80 px-4 py-2.5 text-sm text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all"
                   />
                 </div>
@@ -911,7 +911,7 @@ export default function AdminPage() {
                       required
                       value={loginPass}
                       onChange={(e) => setLoginPass(e.target.value)}
-                      placeholder="กรอกรหัสผ่าน..."
+                      placeholder="ระบุรหัสผ่านผู้ดูแลระบบ"
                       className="w-full rounded-2xl border border-purple-700/40 bg-[#1c0d3a]/80 px-4 py-2.5 pr-10 text-sm text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all"
                     />
                     <button
@@ -927,7 +927,7 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={isLoggingIn}
-                  className="w-full mt-2 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-pink-500/25 hover:opacity-95 active:scale-[0.99] disabled:opacity-50 transition-all"
+                  className="w-full mt-3 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-pink-500/25 hover:opacity-95 active:scale-[0.99] disabled:opacity-50 transition-all"
                 >
                   {isLoggingIn ? (
                     <>
@@ -942,37 +942,6 @@ export default function AdminPage() {
                   )}
                 </button>
               </form>
-
-              {/* Default Credentials Helper Card */}
-              <div className="mt-6 rounded-2xl border border-purple-700/30 bg-purple-950/30 p-3.5 text-xs text-purple-300 space-y-1.5">
-                <div className="font-semibold text-pink-300 flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>ข้อมูลบัญชีเริ่มต้นสำหรับผู้ดูแลระบบ (Default Account)</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
-                  <div className="rounded-xl bg-purple-900/40 p-2 border border-purple-800/40">
-                    <span className="text-purple-400 block text-[10px]">User:</span>
-                    <strong className="text-white">admin</strong>
-                  </div>
-                  <div className="rounded-xl bg-purple-900/40 p-2 border border-purple-800/40">
-                    <span className="text-purple-400 block text-[10px]">Password:</span>
-                    <strong className="text-pink-300">npcadmin2026</strong>
-                  </div>
-                </div>
-                <p className="text-[10px] text-purple-400/80 pt-0.5">
-                  * สามารถคลิกปุ่มด้านล่างเพื่อกรอกข้อมูลเริ่มต้นอัตโนมัติ
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginUser("admin");
-                    setLoginPass("npcadmin2026");
-                  }}
-                  className="text-[11px] text-cyan-300 hover:text-cyan-200 underline font-medium"
-                >
-                  คลิกเพื่อกรอกข้อมูลเริ่มต้นอัตโนมัติ
-                </button>
-              </div>
 
               <div className="mt-5 text-center">
                 <Link

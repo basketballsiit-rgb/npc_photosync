@@ -12,8 +12,6 @@ import {
   Loader2,
   X,
   AlertCircle,
-  KeyRound,
-  Sparkles,
 } from "lucide-react";
 
 interface AdminLoginModalProps {
@@ -80,11 +78,6 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
     }
   };
 
-  const handleFillDefaultCredentials = () => {
-    setUsername("admin");
-    setPassword("npcadmin2026");
-  };
-
   const modalContent = (
     <div
       className="fixed inset-0 z-[99999] flex min-h-screen items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
@@ -142,7 +135,7 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
               type="text"
               required
               autoFocus
-              placeholder="admin หรือ admin@npc.ac.th"
+              placeholder="ระบุชื่อผู้ใช้หรืออีเมลผู้ดูแลระบบ"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-2xl border border-purple-800/60 bg-[#1A0D42] px-4 py-2.5 text-sm text-white placeholder-purple-400/40 focus:border-pink-500 focus:outline-none transition-colors"
@@ -177,31 +170,10 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
             </div>
           </div>
 
-          {/* Credentials Info Badge */}
-          <div className="rounded-2xl border border-purple-800/30 bg-purple-950/30 p-3 text-[11px] text-purple-300/80 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 font-semibold text-pink-300">
-                <KeyRound className="h-3.5 w-3.5 text-amber-400" />
-                <span>บัญชีผู้ดูแลระบบเริ่มต้น:</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleFillDefaultCredentials}
-                className="inline-flex items-center gap-1 text-[10px] text-cyan-300 hover:text-cyan-200 underline font-medium"
-              >
-                <Sparkles className="h-3 w-3" />
-                <span>กรอกอัตโนมัติ</span>
-              </button>
-            </div>
-            <div className="font-mono text-purple-300 text-[11px] bg-[#140A32]/60 px-2.5 py-1 rounded-xl border border-purple-800/40">
-              User: <span className="text-white font-bold">admin</span> | รหัสผ่าน: <span className="text-pink-300 font-bold">npcadmin2026</span>
-            </div>
-          </div>
-
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 py-2.5 sm:py-3 font-bold text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-50 text-sm mt-2"
+            className="w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 py-2.5 sm:py-3 font-bold text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-50 text-sm mt-3"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
