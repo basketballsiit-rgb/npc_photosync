@@ -27,9 +27,10 @@ export async function POST(req: NextRequest) {
     const bodyText = await req.text();
     let body: any = {};
     try {
-      body = JSON.parse(bodyText);
+      body = bodyText ? JSON.parse(bodyText) : {};
     } catch {
-      return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
+      // LINE verification or ping might send empty or non-JSON; always return 200 OK
+      return NextResponse.json({ success: true, message: "Handled non-JSON" }, { status: 200 });
     }
 
     const events = body.events || [];
