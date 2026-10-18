@@ -56,7 +56,7 @@ export function QuickUploadModal({
   const [albumType, setAlbumType] = useState<AlbumType>(AlbumType.ROUTINE);
   const [projectId, setProjectId] = useState<string>("");
   const [divisionName, setDivisionName] = useState<string>("ฝ่ายบริหารทรัพยากร");
-  const [departmentName, setDepartmentName] = useState<string>("งานประชาสัมพันธ์");
+  const [departmentName, setDepartmentName] = useState<string>("งานศูนย์ดิจิทัลและสื่อสารองค์กร");
 
   // Options Toggles
   const [autoOptimize, setAutoOptimize] = useState(true);
@@ -159,7 +159,7 @@ export function QuickUploadModal({
     setAlbumType(AlbumType.ROUTINE);
     setProjectId("");
     setDivisionName("ฝ่ายบริหารทรัพยากร");
-    setDepartmentName("งานประชาสัมพันธ์");
+    setDepartmentName("งานศูนย์ดิจิทัลและสื่อสารองค์กร");
     setSelectedFiles([]);
     previewUrls.forEach((u) => URL.revokeObjectURL(u));
     setPreviewUrls([]);

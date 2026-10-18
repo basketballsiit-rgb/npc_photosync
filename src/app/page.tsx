@@ -312,7 +312,7 @@ export default function HomePage() {
             <span>• วิทยาลัยสารพัดช่างน่าน (Nan Polytechnic College)</span>
           </div>
           <div className="text-[11px] text-purple-400/60">
-            งานประชาสัมพันธ์ • แผนกวิชาเทคโนโลยีสารสนเทศ • สำนักงานคณะกรรมการการอาชีวศึกษา (สอศ.)
+            งานศูนย์ดิจิทัลและสื่อสารองค์กร • สำนักงานคณะกรรมการการอาชีวศึกษา (สอศ.)
           </div>
         </div>
       </footer>

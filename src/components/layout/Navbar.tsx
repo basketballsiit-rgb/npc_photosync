@@ -21,7 +21,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
 
   const roles = [
     { key: "SUPER_ADMIN", label: "ผู้ดูแลระบบ (Admin)", color: "text-amber-400" },
-    { key: "PR_STAFF", label: "งานประชาสัมพันธ์ (PR)", color: "text-cyan-400" },
+    { key: "PR_STAFF", label: "งานศูนย์ดิจิทัลและสื่อสารองค์กร (PR)", color: "text-cyan-400" },
     { key: "TEACHER", label: "ครูผู้สอน / เจ้าของโครงการ", color: "text-emerald-400" },
     { key: "PUBLIC", label: "ผู้เยี่ยมชมทั่วไป (Guest)", color: "text-slate-400" },
   ];
