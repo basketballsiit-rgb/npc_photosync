@@ -109,8 +109,11 @@ export async function POST(
             driveFolderId
           );
           driveFileId = driveResult.driveFileId;
-        } catch (driveErr) {
-          console.warn("Failed to upload to Google Drive, using local fallback ID:", driveErr);
+        } catch (driveErr: any) {
+          console.warn(
+            "Failed to upload to Google Drive, using local fallback ID:",
+            driveErr?.response?.data || driveErr?.message || driveErr
+          );
         }
       }
 

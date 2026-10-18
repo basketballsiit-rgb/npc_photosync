@@ -253,13 +253,16 @@ export async function uploadOriginalToDrive(
   try {
     const stream = Readable.from(fileBuffer);
 
+    const safeMimeType =
+      mimeType && mimeType.trim() !== "" ? mimeType : "image/jpeg";
+
     const response = await drive.files.create({
       requestBody: {
         name: fileName,
         parents: [folderId],
       },
       media: {
-        mimeType,
+        mimeType: safeMimeType,
         body: stream,
       },
       fields: "id, webViewLink",

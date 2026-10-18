@@ -72,11 +72,24 @@ export function AlbumCard({ album, onRetroactiveLinkClick }: AlbumCardProps) {
       album.albumType === AlbumType.ADHOC ||
       album.albumType === AlbumType.PORTFOLIO);
 
-  // Fallback image
-  const coverUrl =
+  const getClientBasePath = () => {
+    if (typeof window !== "undefined") {
+      return window.location.pathname.startsWith("/npc_photosync") ? "/npc_photosync" : "";
+    }
+    return process.env.NODE_ENV === "production" ? "/npc_photosync" : "";
+  };
+
+  // Fallback image with basePath prefix
+  const rawCover =
     album.coverThumbnailUrl && album.coverThumbnailUrl.trim() !== ""
       ? album.coverThumbnailUrl
-      : "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop";
+      : null;
+
+  const coverUrl = rawCover
+    ? rawCover.startsWith("http")
+      ? rawCover
+      : `${getClientBasePath()}${rawCover.startsWith("/") ? rawCover : `/${rawCover}`}`
+    : "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop";
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-3xl border border-purple-800/30 bg-[#130A2E]/85 shadow-xl transition-all duration-300 hover:-translate-y-1.5 hover:border-pink-500/50 hover:shadow-2xl hover:shadow-purple-500/20 backdrop-blur-md">
@@ -86,6 +99,7 @@ export function AlbumCard({ album, onRetroactiveLinkClick }: AlbumCardProps) {
           src={coverUrl}
           alt={album.title}
           fill
+          unoptimized
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />

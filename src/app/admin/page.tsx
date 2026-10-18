@@ -1961,7 +1961,13 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2.5">
                             <div className="relative h-10 w-14 rounded-xl overflow-hidden bg-[#180C3E] border border-purple-700/50 shrink-0">
                               <img
-                                src={album.coverThumbnailUrl || "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=200"}
+                                src={
+                                  album.coverThumbnailUrl
+                                    ? album.coverThumbnailUrl.startsWith("http")
+                                      ? album.coverThumbnailUrl
+                                      : `${getClientBasePath()}${album.coverThumbnailUrl.startsWith("/") ? album.coverThumbnailUrl : `/${album.coverThumbnailUrl}`}`
+                                    : "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=200"
+                                }
                                 alt=""
                                 className="h-full w-full object-cover"
                               />

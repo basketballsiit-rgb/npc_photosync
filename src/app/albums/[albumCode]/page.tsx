@@ -109,6 +109,27 @@ export default function AlbumDetailPage() {
     return "";
   };
 
+  const formatMediaUrl = (
+    url?: string | null,
+    fallbackMediaId?: string,
+    fallbackType: "thumb" | "report" = "thumb"
+  ) => {
+    const base = getClientBasePath();
+    if (!url) {
+      return fallbackMediaId
+        ? `${base}/api/v1/image-proxy/${fallbackMediaId}?type=${fallbackType}`
+        : "";
+    }
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    if (url.startsWith("/npc_photosync/")) {
+      return url;
+    }
+    const cleanUrl = url.startsWith("/") ? url : `/${url}`;
+    return `${base}${cleanUrl}`;
+  };
+
   const loadAlbum = async () => {
     setIsLoading(true);
     try {
@@ -554,9 +575,16 @@ ${currentUrl}`;
                   className="relative aspect-[4/3] w-full cursor-pointer overflow-hidden bg-[#0F0728]"
                 >
                   <img
-                    src={media.thumbnailWebpUrl || media.reportReadyJpgUrl}
+                    src={formatMediaUrl(media.thumbnailWebpUrl || media.reportReadyJpgUrl, media.id, "thumb")}
                     alt={media.fileName}
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      const proxyUrl = `${getClientBasePath()}/api/v1/image-proxy/${media.id}?type=thumb`;
+                      if (!target.src.includes(`/api/v1/image-proxy/${media.id}`)) {
+                        target.src = proxyUrl;
+                      }
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
 
@@ -600,7 +628,7 @@ ${currentUrl}`;
                   {/* Individual Image Quick Actions */}
                   <div className="flex items-center justify-between pt-2 border-t border-purple-900/40 text-[11px]">
                     <a
-                      href={`/api/v1/image-proxy/${media.id}?type=report`}
+                      href={`${getClientBasePath()}/api/v1/image-proxy/${media.id}?type=report`}
                       target="_blank"
                       rel="noreferrer"
                       className="text-pink-300 hover:text-pink-200 hover:underline flex items-center gap-1 font-semibold"
@@ -696,9 +724,16 @@ ${currentUrl}`;
 
           <div className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center">
             <img
-              src={activeLightboxMedia.reportReadyJpgUrl}
+              src={formatMediaUrl(activeLightboxMedia.reportReadyJpgUrl, activeLightboxMedia.id, "report")}
               alt={activeLightboxMedia.fileName}
               className="max-h-[70vh] w-auto rounded-2xl object-contain shadow-2xl border border-purple-800/40"
+              onError={(e) => {
+                const target = e.currentTarget;
+                const proxyUrl = `${getClientBasePath()}/api/v1/image-proxy/${activeLightboxMedia.id}?type=report`;
+                if (!target.src.includes(`/api/v1/image-proxy/${activeLightboxMedia.id}`)) {
+                  target.src = proxyUrl;
+                }
+              }}
             />
 
             <div className="mt-4 w-full rounded-3xl bg-[#140832]/95 p-5 border border-purple-800/50 text-xs text-purple-200 space-y-2 backdrop-blur-xl">
@@ -716,7 +751,7 @@ ${currentUrl}`;
 
                 <div className="flex items-center gap-2">
                   <a
-                    href={`/api/v1/image-proxy/${activeLightboxMedia.id}?type=report`}
+                    href={`${getClientBasePath()}/api/v1/image-proxy/${activeLightboxMedia.id}?type=report`}
                     download
                     className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-all"
                   >
@@ -724,7 +759,7 @@ ${currentUrl}`;
                     <span>HD 1920px</span>
                   </a>
                   <a
-                    href={`/api/v1/image-proxy/${activeLightboxMedia.id}?type=watermark`}
+                    href={`${getClientBasePath()}/api/v1/image-proxy/${activeLightboxMedia.id}?type=watermark`}
                     download
                     className="flex items-center gap-1.5 rounded-full border border-purple-700/60 bg-[#1F0F4C] px-4 py-2 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white transition-all"
                   >
