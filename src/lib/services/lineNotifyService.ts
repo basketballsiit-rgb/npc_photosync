@@ -89,7 +89,17 @@ export async function sendNewAlbumFlexMessage(
 
   const token = (overrideConfig?.token || config.channelAccessToken).trim();
   const targetId = (overrideConfig?.targetId || config.targetGroupId).trim();
-  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const rawBaseUrl =
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://service.npc.ac.th/npc_photosync";
+
+  // Force HTTPS for LINE Messaging API (Flex Messages strictly require HTTPS)
+  let baseUrl = rawBaseUrl.replace(/^http:\/\//i, "https://");
+  if (!baseUrl.startsWith("https://")) {
+    baseUrl = `https://${baseUrl.replace(/^\/+/, "")}`;
+  }
+  baseUrl = baseUrl.replace(/\/+$/, "");
 
   // Graceful fallback for development / test mode without active LINE tokens
   if (
@@ -112,12 +122,27 @@ export async function sendNewAlbumFlexMessage(
     textColor: "#FFFFFF",
   };
 
-  const coverUrl =
-    album.coverThumbnailUrl && album.coverThumbnailUrl.startsWith("http")
-      ? album.coverThumbnailUrl
-      : `${baseUrl}/assets/npc-watermark.png`;
+  let coverUrl = "";
+  if (album.coverThumbnailUrl && album.coverThumbnailUrl.startsWith("https://")) {
+    coverUrl = album.coverThumbnailUrl;
+  } else if (album.coverThumbnailUrl && album.coverThumbnailUrl.startsWith("http://")) {
+    coverUrl = album.coverThumbnailUrl.replace(/^http:\/\//i, "https://");
+  } else if (album.coverThumbnailUrl && album.coverThumbnailUrl.startsWith("/")) {
+    coverUrl = `${baseUrl}${album.coverThumbnailUrl}`;
+  } else {
+    // High-quality, reliable default HTTPS cover image for college events
+    coverUrl = "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
+  }
 
-  const albumPageUrl = `${baseUrl}/albums/${album.albumCode}`;
+  // Ensure coverUrl is strictly https://
+  if (!coverUrl.startsWith("https://")) {
+    coverUrl = "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
+  }
+
+  let albumPageUrl = `${baseUrl}/albums/${album.albumCode}`;
+  if (!albumPageUrl.startsWith("https://")) {
+    albumPageUrl = albumPageUrl.replace(/^http:\/\//i, "https://");
+  }
   const thaiDateStr = formatThaiDate(album.eventDate);
   const sizeStr = formatFileSize(album.totalSizeBytes);
 
@@ -394,6 +419,7 @@ export async function sendLineTestMessage(params?: {
     eventDate: new Date(),
     divisionName: "ฝ่ายบริหารทรัพยากร",
     departmentName: "งานศูนย์ดิจิทัลและสื่อสารองค์กร",
+    coverThumbnailUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80",
   };
 
   return sendNewAlbumFlexMessage(testPayload, {
