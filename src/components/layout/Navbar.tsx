@@ -4,14 +4,10 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Cloud,
   Layers,
   Zap,
   ShieldCheck,
   User,
-  HardDrive,
-  RefreshCw,
-  FolderSync,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -57,28 +53,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
           </Link>
         </div>
 
-        {/* Live System Status Badges */}
-        <div className="hidden lg:flex items-center gap-3 text-xs">
-          {/* Google Shared Drive Badge */}
-          <div className="flex items-center gap-1.5 rounded-full border border-purple-800/40 bg-[#180C3E]/80 px-3 py-1.5 text-purple-200 shadow-sm backdrop-blur-md">
-            <HardDrive className="h-3.5 w-3.5 text-cyan-400" />
-            <span className="text-purple-300/80 font-medium">Drive:</span>
-            <span className="flex items-center gap-1 text-emerald-300 font-semibold">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Shared Drive
-            </span>
-          </div>
 
-          {/* SmartFlow Sync Status Badge */}
-          <div className="flex items-center gap-1.5 rounded-full border border-purple-800/40 bg-[#180C3E]/80 px-3 py-1.5 text-purple-200 shadow-sm backdrop-blur-md">
-            <FolderSync className="h-3.5 w-3.5 text-pink-400" />
-            <span className="text-purple-300/80 font-medium">SmartFlow:</span>
-            <span className="flex items-center gap-1 text-cyan-300 font-semibold">
-              <RefreshCw className="h-3 w-3 animate-spin text-cyan-400" />
-              ซิงค์ 2 ทาง
-            </span>
-          </div>
-        </div>
 
         {/* Action Controls & Role Switcher */}
         <div className="flex items-center gap-2.5 sm:gap-3">
