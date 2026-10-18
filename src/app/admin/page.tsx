@@ -648,6 +648,14 @@ export default function AdminPage() {
     return process.env.NEXT_PUBLIC_BASE_PATH || "";
   };
 
+  const getLineWebhookUrl = () => {
+    const base = getClientBasePath();
+    if (typeof window !== "undefined") {
+      return `${window.location.origin}${base}/api/line/webhook`;
+    }
+    return "https://service.npc.ac.th/npc_photosync/api/line/webhook";
+  };
+
   // Watermark Handlers
   const fetchWatermarkInfo = async () => {
     try {
@@ -2854,7 +2862,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const url = typeof window !== "undefined" ? `${window.location.origin}/api/line/webhook` : "https://service.npc.ac.th/api/line/webhook";
+                      const url = getLineWebhookUrl();
                       navigator.clipboard.writeText(url);
                       showAlert.success("คัดลอกสำเร็จ", `คัดลอก Webhook URL:\n${url}`);
                     }}
@@ -2879,11 +2887,7 @@ export default function AdminPage() {
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-cyan-300">🔗 Webhook Endpoint ของระบบนี้:</label>
                   <div className="p-3 rounded-2xl bg-[#07131e] border border-cyan-800/50 font-mono text-xs text-cyan-200 break-all select-all flex items-center justify-between">
-                    <span>
-                      {typeof window !== "undefined"
-                        ? `${window.location.origin}/api/line/webhook`
-                        : "https://service.npc.ac.th/api/line/webhook"}
-                    </span>
+                    <span>{getLineWebhookUrl()}</span>
                   </div>
                   <p className="text-[11px] text-purple-400">
                     💡 เมื่อตั้งค่า Webhook เสร็จ ให้พิมพ์คำว่า <code className="text-cyan-300 font-bold bg-purple-950/60 px-1 py-0.5 rounded">!id</code> หรือ <code className="text-cyan-300 font-bold bg-purple-950/60 px-1 py-0.5 rounded">id</code> ในกลุ่ม LINE บอทจะตอบกลับเลข Group ID ในกลุ่มให้ทันที
