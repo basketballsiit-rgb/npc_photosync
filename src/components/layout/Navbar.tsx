@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Layers,
   Zap,
   ShieldCheck,
   User,
+  Lock,
+  LogOut,
 } from "lucide-react";
+import { AdminLoginModal } from "@/components/auth/AdminLoginModal";
 
 interface NavbarProps {
   onQuickUploadClick?: () => void;
@@ -18,6 +20,33 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
   const router = useRouter();
   const [currentRole, setCurrentRole] = useState<string>("PR_STAFF");
   const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  useEffect(() => {
+    checkAdminSession();
+  }, []);
+
+  const checkAdminSession = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      setIsAdminLoggedIn(Boolean(data.isAuthenticated));
+    } catch {
+      setIsAdminLoggedIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setIsAdminLoggedIn(false);
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      console.warn("Logout error:", err);
+    }
+  };
 
   const roles = [
     { key: "SUPER_ADMIN", label: "ผู้ดูแลระบบ (Admin)", color: "text-amber-400" },
@@ -34,7 +63,11 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
           <Link href="/" className="group flex items-center gap-3">
             <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 via-purple-600 to-cyan-400 p-0.5 shadow-lg shadow-purple-500/25 transition-transform duration-300 group-hover:scale-105 group-hover:shadow-pink-500/40">
               <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#0F0728]">
-                <Layers className="h-5 w-5 text-pink-400 group-hover:text-cyan-300 transition-colors" />
+                {/* NPC emblem symbol */}
+                <div className="relative flex h-6 w-6 items-center justify-center">
+                  <div className="absolute h-5 w-5 rounded-full border-2 border-pink-400/80 border-t-transparent animate-spin duration-1000" />
+                  <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400" />
+                </div>
               </div>
             </div>
             <div>
@@ -53,11 +86,9 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
           </Link>
         </div>
 
-
-
         {/* Action Controls & Role Switcher */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* Quick Upload Button (Warm Sunset Gradient) */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Quick Upload Button */}
           <button
             onClick={() => {
               if (onQuickUploadClick) {
@@ -72,14 +103,35 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
             <span>อัปโหลดภาพด่วน</span>
           </button>
 
-          {/* Link to Admin Console */}
-          <Link
-            href="/admin"
-            className="hidden md:flex items-center gap-1.5 rounded-full border border-purple-800/50 bg-[#1C0E46]/80 px-3.5 py-2 text-xs font-semibold text-purple-200 transition-all hover:border-purple-600 hover:bg-[#281464] hover:text-white"
-          >
-            <ShieldCheck className="h-4 w-4 text-purple-300" />
-            <span>จัดการระบบ</span>
-          </Link>
+          {/* Admin Settings Button (Login Protected) */}
+          {isAdminLoggedIn ? (
+            <div className="flex items-center gap-1.5">
+              <Link
+                href="/admin"
+                className="flex items-center gap-1.5 rounded-full border border-pink-500/40 bg-pink-500/15 px-3.5 py-2 text-xs font-bold text-pink-300 transition-all hover:bg-pink-500 hover:text-white shadow-sm"
+              >
+                <ShieldCheck className="h-4 w-4 text-pink-400" />
+                <span className="hidden sm:inline">จัดการระบบ</span>
+                <span className="sm:hidden">จัดการ</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+              </Link>
+              <button
+                onClick={handleLogout}
+                title="ออกจากระบบผู้ดูแล"
+                className="p-2 rounded-full border border-purple-800/40 bg-[#1C0E46]/80 text-purple-300 hover:text-rose-300 hover:bg-rose-950/40 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsLoginModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-purple-800/60 bg-[#1C0E46]/80 px-3.5 py-2 text-xs font-semibold text-purple-200 transition-all hover:border-pink-500/60 hover:bg-[#281464] hover:text-white"
+            >
+              <Lock className="h-3.5 w-3.5 text-pink-400" />
+              <span>เข้าสู่ระบบ (จัดการ)</span>
+            </button>
+          )}
 
           {/* User Role Switcher Dropdown */}
           <div className="relative">
@@ -92,7 +144,9 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
               </div>
               <div className="hidden sm:block text-left">
                 <div className="text-[11px] font-bold text-slate-100">
-                  {roles.find((r) => r.key === currentRole)?.label.split(" ")[0]}
+                  {isAdminLoggedIn
+                    ? "ผู้ดูแลระบบ (Admin)"
+                    : roles.find((r) => r.key === currentRole)?.label.split(" ")[0]}
                 </div>
                 <div className="text-[9px] text-pink-400 font-mono font-semibold">
                   npc.ac.th
@@ -111,6 +165,9 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
                     onClick={() => {
                       setCurrentRole(role.key);
                       setShowRoleMenu(false);
+                      if (role.key === "SUPER_ADMIN" && !isAdminLoggedIn) {
+                        setIsLoginModalOpen(true);
+                      }
                     }}
                     className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs transition-colors ${
                       currentRole === role.key
@@ -124,11 +181,36 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
                     )}
                   </button>
                 ))}
+
+                {isAdminLoggedIn && (
+                  <div className="border-t border-purple-900/40 pt-1.5 mt-1">
+                    <button
+                      onClick={() => {
+                        setShowRoleMenu(false);
+                        handleLogout();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-rose-300 hover:bg-rose-950/40 transition-colors"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>ออกจากระบบผู้ดูแล</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Admin Login Modal */}
+      <AdminLoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onSuccess={() => {
+          checkAdminSession();
+          router.push("/admin");
+        }}
+      />
     </header>
   );
 }
