@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Cloud,
   Layers,
@@ -18,6 +19,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ onQuickUploadClick }: NavbarProps) {
+  const router = useRouter();
   const [currentRole, setCurrentRole] = useState<string>("PR_STAFF");
   const [showRoleMenu, setShowRoleMenu] = useState(false);
 
@@ -82,7 +84,13 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
         <div className="flex items-center gap-2.5 sm:gap-3">
           {/* Quick Upload Button (Warm Sunset Gradient) */}
           <button
-            onClick={onQuickUploadClick}
+            onClick={() => {
+              if (onQuickUploadClick) {
+                onQuickUploadClick();
+              } else {
+                router.push("/?upload=true");
+              }
+            }}
             className="flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-pink-500/30 transition-all duration-300 hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Zap className="h-4 w-4 fill-white text-white animate-pulse" />

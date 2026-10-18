@@ -103,6 +103,16 @@ export default function HomePage() {
     return () => clearTimeout(timer);
   }, [fetchAlbums]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("upload") === "true") {
+        setIsUploadModalOpen(true);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+  }, []);
+
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };

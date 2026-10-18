@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { LinkProjectModal } from "@/components/gallery/LinkProjectModal";
+import { QuickUploadModal } from "@/components/upload/QuickUploadModal";
 import {
   ShieldCheck,
   HardDrive,
@@ -56,6 +57,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Tab 0: Academic Terms Settings
   const [academicTerms, setAcademicTerms] = useState<any[]>([]);
@@ -536,7 +538,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col pb-20">
-      <Navbar />
+      <Navbar onQuickUploadClick={() => setIsUploadModalOpen(true)} />
 
       <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Header Breadcrumb */}
@@ -1786,6 +1788,13 @@ export default function AdminPage() {
         onClose={() => setSelectedAlbumToLink(null)}
         album={selectedAlbumToLink}
         onLinkSuccess={() => loadDashboardData()}
+      />
+
+      {/* Quick Upload Modal */}
+      <QuickUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onSuccess={() => loadDashboardData()}
       />
     </div>
   );
