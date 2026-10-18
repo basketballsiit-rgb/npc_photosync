@@ -89,15 +89,23 @@ export async function sendNewAlbumFlexMessage(
 
   const token = (overrideConfig?.token || config.channelAccessToken).trim();
   const targetId = (overrideConfig?.targetId || config.targetGroupId).trim();
-  const rawBaseUrl =
-    process.env.NEXTAUTH_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "https://service.npc.ac.th/npc_photosync";
-
-  // Force HTTPS for LINE Messaging API (Flex Messages strictly require HTTPS)
-  let baseUrl = rawBaseUrl.replace(/^http:\/\//i, "https://");
-  if (!baseUrl.startsWith("https://")) {
-    baseUrl = `https://${baseUrl.replace(/^\/+/, "")}`;
+  // Determine public base URL for LINE Flex Message actions
+  // Never use raw internal IPs (e.g. 202.29.243.82:3005) or localhost
+  let baseUrl = "https://service.npc.ac.th/npc_photosync";
+  const customUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "").trim();
+  if (
+    customUrl &&
+    !customUrl.includes("localhost") &&
+    !customUrl.includes("202.29.243.82") &&
+    !customUrl.includes(":3005") &&
+    !customUrl.includes(":3006") &&
+    !customUrl.includes(":3000") &&
+    customUrl.startsWith("http")
+  ) {
+    baseUrl = customUrl.replace(/^http:\/\//i, "https://");
+    if (!baseUrl.includes("/npc_photosync")) {
+      baseUrl = `${baseUrl}/npc_photosync`;
+    }
   }
   baseUrl = baseUrl.replace(/\/+$/, "");
 
@@ -139,7 +147,11 @@ export async function sendNewAlbumFlexMessage(
     coverUrl = "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
   }
 
-  let albumPageUrl = `${baseUrl}/albums/${album.albumCode}`;
+  // If this is a test album, link directly to the main PhotoSync gallery
+  let albumPageUrl = album.albumCode.startsWith("TEST-")
+    ? baseUrl
+    : `${baseUrl}/albums/${album.albumCode}`;
+
   if (!albumPageUrl.startsWith("https://")) {
     albumPageUrl = albumPageUrl.replace(/^http:\/\//i, "https://");
   }
