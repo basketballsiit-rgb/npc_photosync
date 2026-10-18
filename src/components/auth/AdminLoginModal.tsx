@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   ShieldCheck,
@@ -12,6 +13,7 @@ import {
   X,
   AlertCircle,
   KeyRound,
+  Sparkles,
 } from "lucide-react";
 
 interface AdminLoginModalProps {
@@ -27,8 +29,25 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  // Handle ESC key to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !mounted) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,9 +80,20 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-purple-800/50 bg-gradient-to-b from-[#180C3E] via-[#120730] to-[#0A041E] p-6 sm:p-8 shadow-2xl shadow-purple-950/80">
+  const handleFillDefaultCredentials = () => {
+    setUsername("admin");
+    setPassword("npcadmin2026");
+  };
+
+  const modalContent = (
+    <div
+      className="fixed inset-0 z-[99999] flex min-h-screen items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-md my-auto overflow-hidden rounded-3xl border border-purple-800/60 bg-gradient-to-b from-[#180C3E] via-[#120730] to-[#0A041E] p-6 sm:p-7 shadow-2xl shadow-purple-950/80 text-white"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Glow accent */}
         <div className="absolute -top-24 -left-24 h-48 w-48 rounded-full bg-pink-500/20 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 h-48 w-48 rounded-full bg-cyan-500/20 blur-3xl pointer-events-none" />
@@ -71,23 +101,25 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full text-purple-400 hover:text-white hover:bg-purple-900/50 transition-colors"
+          type="button"
+          aria-label="ปิดหน้าต่าง"
+          className="absolute top-4 right-4 p-2 rounded-full text-purple-400 hover:text-white hover:bg-purple-900/50 transition-colors z-10"
         >
           <X className="h-5 w-5" />
         </button>
 
         {/* Header */}
-        <div className="text-center space-y-2 mb-6">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 p-0.5 shadow-lg shadow-pink-500/30">
-            <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#140A32]">
-              <ShieldCheck className="h-7 w-7 text-pink-400" />
+        <div className="text-center space-y-1.5 mb-5 relative z-10">
+          <div className="mx-auto flex h-13 w-13 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 p-0.5 shadow-lg shadow-pink-500/30">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-[#140A32]">
+              <ShieldCheck className="h-6 w-6 text-pink-400" />
             </div>
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
+          <h2 className="text-lg sm:text-xl font-black text-white tracking-tight pt-1">
             เข้าสู่ระบบผู้ดูแลระบบ
           </h2>
           <p className="text-xs text-purple-300/70">
-            ต้องเข้าสู่ระบบเพื่อเข้าใช้งานและตั้งค่าระบบ NPC_PhotoSync
+            ระบบจัดการและตั้งค่า NPC_PhotoSync
           </p>
         </div>
 
@@ -100,7 +132,7 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs relative z-10">
           <div className="space-y-1.5">
             <label className="text-purple-200 font-semibold flex items-center gap-1.5">
               <User className="h-3.5 w-3.5 text-pink-400" />
@@ -109,6 +141,7 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
             <input
               type="text"
               required
+              autoFocus
               placeholder="admin หรือ admin@npc.ac.th"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -145,20 +178,30 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
           </div>
 
           {/* Credentials Info Badge */}
-          <div className="rounded-2xl border border-purple-800/30 bg-purple-950/30 p-3 flex items-start gap-2.5 text-[11px] text-purple-300/80">
-            <KeyRound className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
-            <div>
-              <span className="font-semibold text-white">บัญชีผู้ดูแลระบบเริ่มต้น:</span>
-              <div className="font-mono text-purple-300 mt-0.5">
-                User: <span className="text-pink-300">admin</span> | รหัสผ่าน: <span className="text-pink-300">npcadmin2026</span>
+          <div className="rounded-2xl border border-purple-800/30 bg-purple-950/30 p-3 text-[11px] text-purple-300/80 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-semibold text-pink-300">
+                <KeyRound className="h-3.5 w-3.5 text-amber-400" />
+                <span>บัญชีผู้ดูแลระบบเริ่มต้น:</span>
               </div>
+              <button
+                type="button"
+                onClick={handleFillDefaultCredentials}
+                className="inline-flex items-center gap-1 text-[10px] text-cyan-300 hover:text-cyan-200 underline font-medium"
+              >
+                <Sparkles className="h-3 w-3" />
+                <span>กรอกอัตโนมัติ</span>
+              </button>
+            </div>
+            <div className="font-mono text-purple-300 text-[11px] bg-[#140A32]/60 px-2.5 py-1 rounded-xl border border-purple-800/40">
+              User: <span className="text-white font-bold">admin</span> | รหัสผ่าน: <span className="text-pink-300 font-bold">npcadmin2026</span>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 py-3 font-bold text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-50 text-sm mt-2"
+            className="w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 py-2.5 sm:py-3 font-bold text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-50 text-sm mt-2"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -173,4 +216,6 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
