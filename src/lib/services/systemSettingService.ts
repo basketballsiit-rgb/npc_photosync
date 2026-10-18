@@ -105,3 +105,69 @@ export async function getGoogleDriveConfig(): Promise<GoogleDriveConfig> {
     source,
   };
 }
+
+export interface LineMessagingConfig {
+  channelAccessToken: string;
+  channelSecret: string;
+  targetGroupId: string;
+  isEnabled: boolean;
+  isConfigured: boolean;
+  lastDetectedGroupId?: string;
+  source: "database" | "env" | "none";
+}
+
+/**
+ * Get LINE Messaging API configuration from database or env fallback
+ */
+export async function getLineMessagingConfig(): Promise<LineMessagingConfig> {
+  const all = await getAllSystemSettings();
+
+  const channelAccessToken = (
+    all["LINE_CHANNEL_ACCESS_TOKEN"] ||
+    process.env.LINE_CHANNEL_ACCESS_TOKEN ||
+    ""
+  ).trim();
+
+  const channelSecret = (
+    all["LINE_CHANNEL_SECRET"] ||
+    process.env.LINE_CHANNEL_SECRET ||
+    ""
+  ).trim();
+
+  const targetGroupId = (
+    all["LINE_TARGET_GROUP_ID"] ||
+    process.env.LINE_TARGET_GROUP_ID ||
+    ""
+  ).trim();
+
+  const isEnabledStr = (
+    all["LINE_NOTIFY_ENABLED"] ??
+    process.env.LINE_NOTIFY_ENABLED ??
+    "true"
+  ).trim().toLowerCase();
+  const isEnabled = isEnabledStr !== "false" && isEnabledStr !== "0";
+
+  const lastDetectedGroupId = all["LINE_LAST_DETECTED_GROUP_ID"];
+
+  const isMock =
+    !channelAccessToken ||
+    channelAccessToken.includes("your-line") ||
+    channelAccessToken.includes("mock-");
+
+  const source = all["LINE_CHANNEL_ACCESS_TOKEN"]
+    ? "database"
+    : process.env.LINE_CHANNEL_ACCESS_TOKEN
+    ? "env"
+    : "none";
+
+  return {
+    channelAccessToken,
+    channelSecret,
+    targetGroupId,
+    isEnabled,
+    isConfigured: Boolean(channelAccessToken && targetGroupId && !isMock),
+    lastDetectedGroupId,
+    source,
+  };
+}
+

@@ -1,4 +1,5 @@
 import { AlbumType } from "@prisma/client";
+import { getLineMessagingConfig } from "@/lib/services/systemSettingService";
 
 export interface LineAlbumNotificationPayload {
   albumCode: string;
@@ -76,10 +77,18 @@ const ALBUM_TYPE_BADGES: Record<
  * Sends a modern LINE Flex Message notification to the specified group or channel
  */
 export async function sendNewAlbumFlexMessage(
-  album: LineAlbumNotificationPayload
+  album: LineAlbumNotificationPayload,
+  overrideConfig?: { token?: string; targetId?: string; bypassEnabledCheck?: boolean }
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  const targetId = process.env.LINE_TARGET_GROUP_ID;
+  const config = await getLineMessagingConfig();
+
+  if (!overrideConfig?.bypassEnabledCheck && !config.isEnabled) {
+    console.log("[LINE Service] LINE notification is disabled in settings");
+    return { success: true, messageId: "skipped_disabled" };
+  }
+
+  const token = (overrideConfig?.token || config.channelAccessToken).trim();
+  const targetId = (overrideConfig?.targetId || config.targetGroupId).trim();
   const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
   // Graceful fallback for development / test mode without active LINE tokens
@@ -357,3 +366,40 @@ export async function sendNewAlbumFlexMessage(
     };
   }
 }
+
+/**
+ * Sends a test push message to verify LINE Messaging API credentials and target group
+ */
+export async function sendLineTestMessage(params?: {
+  channelAccessToken?: string;
+  targetGroupId?: string;
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const config = await getLineMessagingConfig();
+  const token = (params?.channelAccessToken || config.channelAccessToken).trim();
+  const targetId = (params?.targetGroupId || config.targetGroupId).trim();
+
+  if (!token) {
+    return { success: false, error: "กรุณาระบุ Channel Access Token ก่อนทดสอบ" };
+  }
+  if (!targetId) {
+    return { success: false, error: "กรุณาระบุ Target Group ID ก่อนทดสอบ" };
+  }
+
+  const testPayload: LineAlbumNotificationPayload = {
+    albumCode: `TEST-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}`,
+    title: "🔔 ทดสอบการเชื่อมต่อระบบแจ้งเตือน LINE Messaging API",
+    description: "ทดสอบการส่งข้อความแจ้งเตือนอัตโนมัติจากระบบ NPC_PhotoSync วิทยาลัยสารพัดช่างน่าน การเชื่อมต่อสำเร็จสมบูรณ์พร้อมใช้งาน!",
+    albumType: AlbumType.PORTFOLIO,
+    photoCount: 1,
+    eventDate: new Date(),
+    divisionName: "ฝ่ายบริหารทรัพยากร",
+    departmentName: "งานศูนย์ดิจิทัลและสื่อสารองค์กร",
+  };
+
+  return sendNewAlbumFlexMessage(testPayload, {
+    token,
+    targetId,
+    bypassEnabledCheck: true,
+  });
+}
+
