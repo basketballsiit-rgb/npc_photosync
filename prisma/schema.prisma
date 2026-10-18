@@ -48,7 +48,7 @@ model SmartFlowProject {
   projectName      String   @db.VarChar(500)
   academicYear     Int      // ปีการศึกษาไทย (พ.ศ.) เช่น 2569
   budgetYear       Int      // ปีงบประมาณไทย (พ.ศ.) เช่น 2569
-  divisionName     String   @db.VarChar(191)         // ฝ่าย (เช่น ฝ่ายวิชาการ, ฝ่ายพัฒนากิจการฯ)
+  divisionName     String   @db.VarChar(191)         // ฝ่าย (เช่น ฝ่ายวิชาการ, ฝ่ายกิจการนักเรียนนักศึกษา)
   departmentName   String?  @db.VarChar(191)         // แผนกวิชา/งาน (ถ้ามี)
   ownerTeacherName String   @db.VarChar(191)         // ครูผู้รับผิดชอบโครงการ
   ownerEmail       String   @db.VarChar(191)

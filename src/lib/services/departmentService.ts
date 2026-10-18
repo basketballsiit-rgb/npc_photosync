@@ -21,7 +21,7 @@ export const DEFAULT_DEPARTMENTS: DepartmentItem[] = [
   { id: "dept-9", name: "แผนกวิชาการโรงแรมและการท่องเที่ยว", divisionName: "ฝ่ายวิชาการ", isSystem: true },
   { id: "dept-10", name: "แผนกวิชาสามัญสัมพันธ์", divisionName: "ฝ่ายวิชาการ", isSystem: true },
   { id: "dept-11", name: "งานศูนย์ดิจิทัลและสื่อสารองค์กร", divisionName: "ฝ่ายบริหารทรัพยากร", isSystem: true },
-  { id: "dept-12", name: "งานกิจกรรมนักเรียนนักศึกษา", divisionName: "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา", isSystem: true },
+  { id: "dept-12", name: "งานกิจกรรมนักเรียนนักศึกษา", divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา", isSystem: true },
   { id: "dept-13", name: "งานโครงการพิเศษและบริการวิชาชีพ", divisionName: "ฝ่ายแผนงานและความร่วมมือ", isSystem: true },
   { id: "dept-14", name: "งานประชาสัมพันธ์", divisionName: "ฝ่ายบริหารทรัพยากร", isSystem: false },
 ];

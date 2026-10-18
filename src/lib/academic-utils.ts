@@ -6,7 +6,7 @@ import { AlbumType, PrismaClient } from "@prisma/client";
 export const NPC_DIVISIONS = [
   "ฝ่ายบริหารทรัพยากร",
   "ฝ่ายแผนงานและความร่วมมือ",
-  "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา",
+  "ฝ่ายกิจการนักเรียนนักศึกษา",
   "ฝ่ายวิชาการ",
 ] as const;
 

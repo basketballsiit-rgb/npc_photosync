@@ -89,7 +89,7 @@ export function RetroactiveLinkModal({
           id: "p2",
           projectCode: "PRJ-69-002",
           projectName: "โครงการสืบสานประเพณีแข่งเรือเมืองน่านและพัฒนาจิตอาสาชุมชน",
-          divisionName: "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา",
+          divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา",
           departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
           ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
         },

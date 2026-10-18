@@ -85,7 +85,7 @@ async function main() {
       projectName: "โครงการสืบสานประเพณีแข่งเรือเมืองน่านและพัฒนาจิตอาสาชุมชน",
       academicYear: 2569,
       budgetYear: 2569,
-      divisionName: "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา",
+      divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา",
       departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
       ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
       ownerEmail: "kanya.m@npc.ac.th",

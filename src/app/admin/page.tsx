@@ -350,7 +350,7 @@ export default function AdminPage() {
         {
           projectCode: "PRJ-69-002",
           projectName: "โครงการสืบสานประเพณีแข่งเรือเมืองน่านและพัฒนาจิตอาสาชุมชน",
-          divisionName: "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา",
+          divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา",
           departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
           ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
           projectStatus: "APPROVED",
@@ -1462,7 +1462,7 @@ export default function AdminPage() {
                           .map((dept, index) => {
                             const isDivAcademic = dept.divisionName === "ฝ่ายวิชาการ";
                             const isDivResource = dept.divisionName === "ฝ่ายบริหารทรัพยากร";
-                            const isDivStudent = dept.divisionName === "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา";
+                            const isDivStudent = dept.divisionName === "ฝ่ายกิจการนักเรียนนักศึกษา";
 
                             const badgeColor = isDivAcademic
                               ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"

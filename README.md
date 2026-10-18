@@ -159,7 +159,7 @@ Content-Type: application/json
   "projectCode": "PRJ-69-004",
   "projectName": "โครงการส่งเสริมคุณธรรมจริยธรรมนักศึกษาอาชีวศึกษา",
   "academicYear": 2569,
-  "divisionName": "ฝ่ายพัฒนากิจการนักเรียนนักศึกษา",
+  "divisionName": "ฝ่ายกิจการนักเรียนนักศึกษา",
   "ownerTeacherName": "นางสาวกัญญา พัฒนกิจ",
   "ownerEmail": "kanya.m@npc.ac.th"
 }
