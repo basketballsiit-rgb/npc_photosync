@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Zap,
@@ -63,13 +64,15 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
           {/* College Logo & App Title */}
           <div className="flex items-center gap-3.5">
             <Link href="/" className="group flex items-center gap-3">
-              <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 via-purple-600 to-cyan-400 p-0.5 shadow-lg shadow-purple-500/25 transition-transform duration-300 group-hover:scale-105 group-hover:shadow-pink-500/40">
-                <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#0F0728]">
-                  {/* NPC PhotoSync Camera emblem */}
-                  <div className="relative flex h-6 w-6 items-center justify-center">
-                    <Camera className="h-5 w-5 text-cyan-300 group-hover:text-pink-400 transition-colors drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
-                  </div>
-                </div>
+              <div className="relative flex h-12 w-12 items-center justify-center transition-transform duration-300 group-hover:scale-105 shrink-0">
+                <Image
+                  src="/assets/npc-logo.png"
+                  alt="NPC PhotoSync Emblem"
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 object-contain drop-shadow-[0_0_12px_rgba(6,182,212,0.6)]"
+                  priority
+                />
               </div>
               <div>
                 <div className="flex items-center gap-2">
