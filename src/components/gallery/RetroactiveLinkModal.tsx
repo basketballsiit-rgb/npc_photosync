@@ -97,7 +97,7 @@ export function RetroactiveLinkModal({
           id: "p3",
           projectCode: "PRJ-69-003",
           projectName: "โครงการศูนย์ซ่อมสร้างเพื่อชุมชน (Fix It Center) ประจำปีงบประมาณ 2569",
-          divisionName: "ฝ่ายแผนงานและความร่วมมือ",
+          divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน",
           departmentName: "งานโครงการพิเศษและบริการวิชาชีพ",
           ownerTeacherName: "นายเกรียงไกร ช่างยนต์",
         },

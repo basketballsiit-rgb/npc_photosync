@@ -22,7 +22,7 @@ export const DEFAULT_DEPARTMENTS: DepartmentItem[] = [
   { id: "dept-10", name: "แผนกวิชาสามัญสัมพันธ์", divisionName: "ฝ่ายวิชาการ", isSystem: true },
   { id: "dept-11", name: "งานศูนย์ดิจิทัลและสื่อสารองค์กร", divisionName: "ฝ่ายบริหารทรัพยากร", isSystem: true },
   { id: "dept-12", name: "งานกิจกรรมนักเรียนนักศึกษา", divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา", isSystem: true },
-  { id: "dept-13", name: "งานโครงการพิเศษและบริการวิชาชีพ", divisionName: "ฝ่ายแผนงานและความร่วมมือ", isSystem: true },
+  { id: "dept-13", name: "งานโครงการพิเศษและบริการวิชาชีพ", divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน", isSystem: true },
   { id: "dept-14", name: "งานประชาสัมพันธ์", divisionName: "ฝ่ายบริหารทรัพยากร", isSystem: false },
 ];
 
@@ -37,7 +37,27 @@ export async function getDepartmentsList(): Promise<DepartmentItem[]> {
     if (rawJson) {
       const parsed = JSON.parse(rawJson);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        let hasChanges = false;
+        const normalized = parsed.map((d: DepartmentItem) => {
+          if (d.divisionName === "ฝ่ายแผนงานและความร่วมมือ") {
+            hasChanges = true;
+            return { ...d, divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน" };
+          }
+          if (d.divisionName === "ฝ่ายพัฒนากิจการนักเรียน นักศึกษา") {
+            hasChanges = true;
+            return { ...d, divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา" };
+          }
+          return d;
+        });
+
+        if (hasChanges) {
+          await saveSystemSetting(
+            SETTING_KEY,
+            JSON.stringify(normalized),
+            "รายการแผนกวิชาและงานภายในวิทยาลัยสารพัดช่างน่าน"
+          ).catch(() => {});
+        }
+        return normalized;
       }
     }
   } catch (error) {

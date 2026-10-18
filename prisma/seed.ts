@@ -102,7 +102,7 @@ async function main() {
       projectName: "โครงการศูนย์ซ่อมสร้างเพื่อชุมชน (Fix It Center) ประจำปีงบประมาณ 2569",
       academicYear: 2569,
       budgetYear: 2569,
-      divisionName: "ฝ่ายแผนงานและความร่วมมือ",
+      divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน",
       departmentName: "งานโครงการพิเศษและบริการวิชาชีพ",
       ownerTeacherName: "นายเกรียงไกร ช่างยนต์",
       ownerEmail: "kriengkrai.c@npc.ac.th",
