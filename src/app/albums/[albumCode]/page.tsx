@@ -33,6 +33,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
+import { showAlert } from "@/lib/sweetalert";
 
 interface MediaItem {
   id: string;
@@ -193,7 +194,7 @@ export default function AlbumDetailPage() {
       document.body.removeChild(a);
     } catch (err) {
       console.error("Download failed:", err);
-      alert("เกิดข้อผิดพลาดในการดาวน์โหลด กรุณาลองใหม่อีกครั้ง");
+      showAlert.error("ดาวน์โหลดล้มเหลว", "เกิดข้อผิดพลาดในการดาวน์โหลด กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsDownloadingZip(false);
     }
@@ -254,17 +255,20 @@ ${currentUrl}`;
       const data = await res.json();
 
       if (data.success) {
-        alert(`✅ เพิ่มรูปภาพเข้าสู่กิจกรรมเรียบร้อยแล้ว ${data.uploadedCount || addPhotosFiles.length} รูป!`);
+        showAlert.success(
+          "เพิ่มรูปภาพสำเร็จ",
+          `เพิ่มรูปภาพเข้าสู่กิจกรรมเรียบร้อยแล้ว ${data.uploadedCount || addPhotosFiles.length} รูป!`
+        );
         setIsAddPhotosModalOpen(false);
         addPhotosPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
         setAddPhotosPreviewUrls([]);
         setAddPhotosFiles([]);
         await loadAlbum();
       } else {
-        alert(`❌ ไม่สามารถเพิ่มรูปได้: ${data.error || "เกิดข้อผิดพลาด"}`);
+        showAlert.error("อัปโหลดไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการเพิ่มรูปภาพ");
       }
     } catch (err: any) {
-      alert(`❌ เกิดข้อผิดพลาดในการเชื่อมต่อ: ${err.message}`);
+      showAlert.error("ข้อผิดพลาด", err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
       setIsUploadingMore(false);
       setUploadProgressText("");

@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { NPC_DIVISIONS } from "@/lib/academic-utils";
 import { DepartmentItem } from "@/lib/services/departmentService";
+import { showAlert } from "@/lib/sweetalert";
 
 interface AdminStats {
   totalAlbums: number;
@@ -201,7 +202,8 @@ export default function AdminPage() {
   };
 
   const handleAdminLogout = async () => {
-    if (!confirm("คุณต้องการออกจากระบบจัดการใช่หรือไม่?")) return;
+    const confirmed = await showAlert.confirm("ออกจากระบบ", "คุณต้องการออกจากระบบจัดการใช่หรือไม่?", "ออกจากระบบ", "ยกเลิก");
+    if (!confirmed) return;
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       setIsAuthenticated(false);
@@ -261,7 +263,7 @@ export default function AdminPage() {
   const handleAddDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDeptName.trim()) {
-      alert("กรุณาระบุชื่อแผนกวิชา/งาน");
+      showAlert.warning("ข้อมูลไม่ครบถ้วน", "กรุณาระบุชื่อแผนกวิชา/งาน");
       return;
     }
     setIsSubmittingDept(true);
@@ -276,7 +278,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
+        showAlert.success("เพิ่มข้อมูลสำเร็จ", data.message || `เพิ่มแผนกวิชา/งาน "${newDeptName.trim()}" สำเร็จเรียบร้อยแล้ว`);
         if (Array.isArray(data.departments)) {
           setDepartments(data.departments);
         } else {
@@ -284,10 +286,10 @@ export default function AdminPage() {
         }
         setNewDeptName("");
       } else {
-        alert(data.error || "เกิดข้อผิดพลาดในการเพิ่มแผนกวิชา/งาน");
+        showAlert.error("ไม่สามารถเพิ่มข้อมูลได้", data.error || "เกิดข้อผิดพลาดในการเพิ่มแผนกวิชา/งาน");
       }
     } catch (err) {
-      alert("ไม่สามารถเชื่อมต่อเพื่อเพิ่มแผนกวิชาได้");
+      showAlert.error("ข้อผิดพลาด", "ไม่สามารถเชื่อมต่อเพื่อเพิ่มแผนกวิชาได้");
     } finally {
       setIsSubmittingDept(false);
     }
@@ -310,7 +312,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
+        showAlert.success("บันทึกการแก้ไขสำเร็จ", data.message);
         if (Array.isArray(data.departments)) {
           setDepartments(data.departments);
         } else {
@@ -318,10 +320,10 @@ export default function AdminPage() {
         }
         setEditingDept(null);
       } else {
-        alert(data.error || "เกิดข้อผิดพลาดในการแก้ไข");
+        showAlert.error("แก้ไขไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการแก้ไข");
       }
     } catch (err) {
-      alert("ไม่สามารถเชื่อมต่อเพื่อแก้ไขแผนกวิชาได้");
+      showAlert.error("ข้อผิดพลาด", "ไม่สามารถเชื่อมต่อเพื่อแก้ไขแผนกวิชาได้");
     } finally {
       setIsSubmittingDept(false);
     }
@@ -329,7 +331,11 @@ export default function AdminPage() {
 
   // Delete Department
   const handleDeleteDepartment = async (id: string, name: string) => {
-    if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบแผนกวิชา/งาน "${name}" ออกจากระบบ?`)) {
+    const confirmed = await showAlert.confirmDelete(
+      "ยืนยันการลบ",
+      `คุณแน่ใจหรือไม่ว่าต้องการลบแผนกวิชา/งาน "${name}" ออกจากระบบ?`
+    );
+    if (!confirmed) {
       return;
     }
     try {
@@ -338,23 +344,29 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
+        showAlert.success("ลบข้อมูลสำเร็จ", data.message);
         if (Array.isArray(data.departments)) {
           setDepartments(data.departments);
         } else {
           fetchDepartments();
         }
       } else {
-        alert(data.error || "เกิดข้อผิดพลาดในการลบ");
+        showAlert.error("ลบไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการลบ");
       }
     } catch (err) {
-      alert("ไม่สามารถลบแผนกวิชาได้");
+      showAlert.error("ข้อผิดพลาด", "ไม่สามารถลบแผนกวิชาได้");
     }
   };
 
   // Reset Departments to Default
   const handleResetDepartments = async () => {
-    if (!confirm("คุณต้องการคืนค่ารายการแผนกวิชาและงานทั้งหมดเป็นค่าเริ่มต้นของระบบใช่หรือไม่?")) {
+    const confirmed = await showAlert.confirm(
+      "คืนค่าเริ่มต้น",
+      "คุณต้องการคืนค่ารายการแผนกวิชาและงานทั้งหมดเป็นค่าเริ่มต้นของระบบใช่หรือไม่?",
+      "ยืนยันคืนค่า",
+      "ยกเลิก"
+    );
+    if (!confirmed) {
       return;
     }
     try {
@@ -365,7 +377,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
+        showAlert.success("คืนค่าสำเร็จ", data.message);
         if (Array.isArray(data.departments)) {
           setDepartments(data.departments);
         } else {
@@ -373,7 +385,7 @@ export default function AdminPage() {
         }
       }
     } catch (err) {
-      alert("ไม่สามารถคืนค่าเริ่มต้นได้");
+      showAlert.error("ข้อผิดพลาด", "ไม่สามารถคืนค่าเริ่มต้นได้");
     }
   };
 
@@ -458,7 +470,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
+        showAlert.success("ตั้งค่าสำเร็จ", data.message || `ตั้งค่าภาคเรียนที่ ${semester}/${academicYear} เป็นภาคเรียนปัจจุบันเรียบร้อยแล้ว`);
         if (data.terms && Array.isArray(data.terms)) {
           setAcademicTerms(data.terms);
           if (data.currentTerm) {
@@ -468,10 +480,10 @@ export default function AdminPage() {
           fetchAcademicTerms();
         }
       } else {
-        alert(data.error || "เกิดข้อผิดพลาดในการเปลี่ยนภาคเรียน");
+        showAlert.error("ตั้งค่าไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการเปลี่ยนภาคเรียน");
       }
     } catch (err) {
-      alert("ไม่สามารถเปลี่ยนภาคเรียนปัจจุบันได้");
+      showAlert.error("ข้อผิดพลาด", "ไม่สามารถเปลี่ยนภาคเรียนปัจจุบันได้");
     } finally {
       setIsTermsLoading(false);
     }
@@ -489,7 +501,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
+        showAlert.success("บันทึกสำเร็จ", data.message || `บันทึกภาคเรียนที่ ${newTermForm.semester}/${newTermForm.academicYear} สำเร็จ`);
         if (data.terms && Array.isArray(data.terms)) {
           setAcademicTerms(data.terms);
           if (data.currentTerm) {
@@ -506,10 +518,10 @@ export default function AdminPage() {
           note: "",
         });
       } else {
-        alert(data.error || "เกิดข้อผิดพลาด");
+        showAlert.error("บันทึกไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการบันทึก");
       }
     } catch (err) {
-      alert("เกิดข้อผิดพลาดในการบันทึกภาคเรียน");
+      showAlert.error("ข้อผิดพลาด", "เกิดข้อผิดพลาดในการบันทึกภาคเรียน");
     } finally {
       setIsSubmittingTerm(false);
     }
@@ -522,11 +534,11 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/sync-smartflow", { method: "POST" });
       const data = await res.json();
       if (data.success) {
-        alert(`ซิงค์ข้อมูลโครงการสำเร็จ! อัปเดต ${data.projects?.length || 3} โครงการ`);
+        showAlert.success("ซิงค์ข้อมูลสำเร็จ", `อัปเดตข้อมูล ${data.projects?.length || 3} โครงการเรียบร้อยแล้ว`);
         loadDashboardData();
       }
     } catch (err) {
-      alert("การซิงค์ข้อมูลล้มเหลว กรุณาตรวจสอบการเชื่อมต่อ");
+      showAlert.error("ซิงค์ล้มเหลว", "การซิงค์ข้อมูลล้มเหลว กรุณาตรวจสอบการเชื่อมต่อ");
     } finally {
       setIsSyncing(false);
     }
@@ -552,7 +564,11 @@ export default function AdminPage() {
 
   // Delete Album
   const handleDeleteAlbum = async (albumId: string, albumCode: string) => {
-    if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบอัลบั้ม [${albumCode}] อย่างถาวร?`)) {
+    const confirmed = await showAlert.confirmDelete(
+      "ยืนยันการลบอัลบั้ม",
+      `คุณแน่ใจหรือไม่ว่าต้องการลบอัลบั้ม [${albumCode}] อย่างถาวร?`
+    );
+    if (!confirmed) {
       return;
     }
     try {
@@ -561,10 +577,10 @@ export default function AdminPage() {
       });
       if (res.ok) {
         setOrphanAlbums((prev) => prev.filter((a) => a.id !== albumId));
-        alert(`ลบอัลบั้ม ${albumCode} เรียบร้อยแล้ว`);
+        showAlert.success("ลบอัลบั้มสำเร็จ", `ลบอัลบั้ม ${albumCode} เรียบร้อยแล้ว`);
       }
     } catch (err) {
-      alert("เกิดข้อผิดพลาดในการลบอัลบั้ม");
+      showAlert.error("ข้อผิดพลาด", "เกิดข้อผิดพลาดในการลบอัลบั้ม");
     }
   };
 
@@ -661,7 +677,13 @@ export default function AdminPage() {
   };
 
   const handleResetWatermark = async () => {
-    if (!confirm("ต้องการคืนค่าลายน้ำเป็นตราสัญลักษณ์มาตรฐานเริ่มต้นของวิทยาลัยหรือไม่?")) return;
+    const confirmed = await showAlert.confirm(
+      "คืนค่าลายน้ำเริ่มต้น",
+      "ต้องการคืนค่าลายน้ำเป็นตราสัญลักษณ์มาตรฐานเริ่มต้นของวิทยาลัยหรือไม่?",
+      "ยืนยันคืนค่า",
+      "ยกเลิก"
+    );
+    if (!confirmed) return;
 
     setIsResettingWatermark(true);
     setWatermarkMessage(null);
@@ -733,16 +755,22 @@ export default function AdminPage() {
         setDriveTestFeedback(data.status);
         await fetchDriveSettings();
         await loadDashboardData();
-        alert(
-          data.status?.success
-            ? "✅ บันทึกการตั้งค่าและเชื่อมต่อ Google Drive ของวิทยาลัยสำเร็จเรียบร้อยแล้ว!"
-            : "⚠️ บันทึกการตั้งค่าแล้ว แต่การทดสอบเชื่อมต่อแจ้งเตือน: " + (data.status?.message || "")
-        );
+        if (data.status?.success) {
+          showAlert.success(
+            "เชื่อมต่อสำเร็จ",
+            "บันทึกการตั้งค่าและเชื่อมต่อ Google Drive ของวิทยาลัยสำเร็จเรียบร้อยแล้ว!"
+          );
+        } else {
+          showAlert.warning(
+            "แจ้งเตือนการเชื่อมต่อ",
+            "บันทึกการตั้งค่าแล้ว แต่การทดสอบเชื่อมต่อแจ้งเตือน: " + (data.status?.message || "")
+          );
+        }
       } else {
-        alert("❌ บันทึกไม่สำเร็จ: " + (data.error || "เกิดข้อผิดพลาด"));
+        showAlert.error("บันทึกไม่สำเร็จ", data.error || "เกิดข้อผิดพลาด");
       }
     } catch (err: any) {
-      alert("❌ เกิดข้อผิดพลาด: " + err.message);
+      showAlert.error("ข้อผิดพลาด", err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
       setIsSavingDrive(false);
     }
@@ -776,7 +804,10 @@ export default function AdminPage() {
       try {
         const parsed = JSON.parse(content);
         if (!parsed.client_email && !parsed.private_key) {
-          alert("❌ ไฟล์ JSON ไม่ถูกต้อง ต้องเป็นไฟล์ Service Account Credentials จาก Google Cloud Console");
+          showAlert.error(
+            "รูปแบบไฟล์ไม่ถูกต้อง",
+            "ไฟล์ JSON ไม่ถูกต้อง ต้องเป็นไฟล์ Service Account Credentials จาก Google Cloud Console"
+          );
           return;
         }
         setDriveForm((prev) => ({
@@ -785,9 +816,12 @@ export default function AdminPage() {
           clientEmail: parsed.client_email || prev.clientEmail,
           privateKey: parsed.private_key || prev.privateKey,
         }));
-        alert(`✅ อ่านไฟล์ "${file.name}" สำเร็จ!\nตรวจพบอีเมล Service Account: ${parsed.client_email}`);
+        showAlert.success(
+          "อ่านไฟล์สำเร็จ",
+          `อ่านไฟล์ "${file.name}" สำเร็จ!\nตรวจพบอีเมล Service Account: ${parsed.client_email}`
+        );
       } catch (jsonErr) {
-        alert("❌ ไฟล์ที่เลือกไม่ใช่รูปแบบ JSON ที่ถูกต้อง");
+        showAlert.error("รูปแบบไฟล์ไม่ถูกต้อง", "ไฟล์ที่เลือกไม่ใช่รูปแบบ JSON ที่ถูกต้อง");
       }
     };
     reader.readAsText(file);
