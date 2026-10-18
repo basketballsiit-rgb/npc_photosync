@@ -10,30 +10,29 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/settings/google-drive
- * Retrieve current Google Drive settings (with masked private key)
+ * Retrieve current Google Drive settings
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const config = await getGoogleDriveConfig();
     const testResult = await testDriveConnection();
 
-    // Mask private key for security
-    let maskedKey = "";
-    if (config.privateKey) {
-      if (config.privateKey.length > 50) {
-        maskedKey = `${config.privateKey.substring(0, 30)}...[ซ่อนคีย์ ${config.privateKey.length} ตัวอักษร]...${config.privateKey.substring(config.privateKey.length - 25)}`;
-      } else {
-        maskedKey = "••••••••••••••••••••••••••••••";
-      }
-    }
+    const host = req.headers.get("host") || "service.npc.ac.th";
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    const redirectUri = `${proto}://${host}/npc_photosync/api/admin/settings/google-drive/oauth-callback`;
 
     return NextResponse.json({
       success: true,
       settings: {
-        clientEmail: config.clientEmail,
+        authType: config.authType,
+        isOAuthConnected: Boolean(config.oauthRefreshToken),
+        oauthUserEmail: config.oauthUserEmail,
+        oauthClientId: config.oauthClientId,
+        oauthClientSecretMasked: config.oauthClientSecret
+          ? "••••••••••••••••••••••••••••••"
+          : "",
+        redirectUri,
         rootFolderId: config.rootFolderId,
-        hasPrivateKey: Boolean(config.privateKey && !config.isMock),
-        privateKeyMasked: maskedKey,
         isConfigured: config.isConfigured,
         isMock: config.isMock,
         source: config.source,
@@ -51,42 +50,22 @@ export async function GET() {
 
 /**
  * POST /api/admin/settings/google-drive
- * Update Google Drive settings from Web Admin UI
+ * Update Google Drive OAuth & Folder settings from Web Admin UI
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      credentialsJson,
-      clientEmail,
-      privateKey,
+      oauthClientId,
+      oauthClientSecret,
       rootFolderId,
     } = body;
 
-    let finalEmail = (clientEmail || "").trim();
-    let finalPrivateKey = (privateKey || "").trim();
+    let finalClientId = (oauthClientId || "").trim();
+    let finalClientSecret = (oauthClientSecret || "").trim();
     let finalRootId = (rootFolderId || "").trim();
 
-    // 1. If user provided a raw JSON service account file content, parse it automatically
-    if (credentialsJson && credentialsJson.trim().startsWith("{")) {
-      try {
-        const parsed = JSON.parse(credentialsJson);
-        if (parsed.client_email) {
-          finalEmail = parsed.client_email;
-        }
-        if (parsed.private_key) {
-          finalPrivateKey = parsed.private_key;
-        }
-      } catch (jsonErr) {
-        return NextResponse.json(
-          { success: false, error: "ไฟล์ JSON Service Account ไม่ถูกต้องตามรูปแบบ (Invalid JSON format)" },
-          { status: 400 }
-        );
-      }
-    }
-
     // Extract folder ID if user pasted full Google Drive folder URL
-    // e.g., https://drive.google.com/drive/folders/1a2b3c4d5e6f... or https://drive.google.com/drive/u/0/folders/...
     if (finalRootId.includes("drive.google.com")) {
       const match = finalRootId.match(/folders\/([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {
@@ -94,31 +73,43 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Save into database
-    if (finalEmail) {
-      await saveSystemSetting("GOOGLE_SERVICE_ACCOUNT_EMAIL", finalEmail, "Google Service Account Client Email");
+    if (finalClientId) {
+      await saveSystemSetting(
+        "GOOGLE_OAUTH_CLIENT_ID",
+        finalClientId,
+        "Google OAuth 2.0 Client ID"
+      );
     }
-    if (finalPrivateKey && !finalPrivateKey.includes("[ซ่อนคีย์")) {
-      await saveSystemSetting("GOOGLE_PRIVATE_KEY", finalPrivateKey, "Google Service Account RSA Private Key");
+
+    if (finalClientSecret && !finalClientSecret.includes("••••")) {
+      await saveSystemSetting(
+        "GOOGLE_OAUTH_CLIENT_SECRET",
+        finalClientSecret,
+        "Google OAuth 2.0 Client Secret"
+      );
     }
+
     if (finalRootId) {
-      await saveSystemSetting("GOOGLE_SHARED_DRIVE_ROOT_ID", finalRootId, "Google Shared Drive / Folder Root ID");
+      await saveSystemSetting(
+        "GOOGLE_SHARED_DRIVE_ROOT_ID",
+        finalRootId,
+        "Google Drive Root Folder ID"
+      );
     }
 
     invalidateSettingsCache();
 
-    // Test connection with new credentials immediately
     const testResult = await testDriveConnection();
 
     return NextResponse.json({
       success: true,
-      message: "บันทึกการตั้งค่า Google Drive สำเร็จเรียบร้อยแล้ว",
+      message: "บันทึกข้อมูลการตั้งค่าเรียบร้อยแล้ว",
       status: testResult,
     });
   } catch (error: any) {
     console.error("Error saving Google Drive settings:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to save Google Drive settings" },
+      { success: false, error: error.message || "Failed to save settings" },
       { status: 500 }
     );
   }

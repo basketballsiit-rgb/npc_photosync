@@ -61,6 +61,11 @@ export async function saveSystemSetting(key: string, value: string, description?
 }
 
 export interface GoogleDriveConfig {
+  oauthClientId: string;
+  oauthClientSecret: string;
+  oauthRefreshToken: string;
+  oauthUserEmail: string;
+  authType: "oauth" | "service_account" | "none";
   clientEmail: string;
   privateKey: string;
   rootFolderId: string;
@@ -75,32 +80,57 @@ export interface GoogleDriveConfig {
 export async function getGoogleDriveConfig(): Promise<GoogleDriveConfig> {
   const all = await getAllSystemSettings();
 
+  const oauthClientId = (all["GOOGLE_OAUTH_CLIENT_ID"] || process.env.GOOGLE_OAUTH_CLIENT_ID || "").trim();
+  const oauthClientSecret = (all["GOOGLE_OAUTH_CLIENT_SECRET"] || process.env.GOOGLE_OAUTH_CLIENT_SECRET || "").trim();
+  const oauthRefreshToken = (all["GOOGLE_OAUTH_REFRESH_TOKEN"] || process.env.GOOGLE_OAUTH_REFRESH_TOKEN || "").trim();
+  const oauthUserEmail = (all["GOOGLE_OAUTH_USER_EMAIL"] || process.env.GOOGLE_OAUTH_USER_EMAIL || "").trim();
+
   const clientEmail = (all["GOOGLE_SERVICE_ACCOUNT_EMAIL"] || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "").trim();
   let privateKey = (all["GOOGLE_PRIVATE_KEY"] || process.env.GOOGLE_PRIVATE_KEY || "").trim();
-  const rootFolderId = (all["GOOGLE_SHARED_DRIVE_ROOT_ID"] || process.env.GOOGLE_SHARED_DRIVE_ROOT_ID || "").trim();
+  const rootFolderId = (
+    all["GOOGLE_SHARED_DRIVE_ROOT_ID"] ||
+    process.env.GOOGLE_SHARED_DRIVE_ROOT_ID ||
+    "1hYayVdA3Bm7-HIWiutHcJ3j8PI808CwV"
+  ).trim();
 
   if (privateKey.includes("\\n")) {
     privateKey = privateKey.replace(/\\n/g, "\n");
   }
 
-  const isMock =
-    !clientEmail ||
-    clientEmail.includes("npc-photosync-sa@pvc-nan.iam") ||
-    clientEmail.includes("your-gcp-project") ||
-    privateKey.length < 500 ||
-    privateKey.includes("MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC...");
+  const isOAuthValid = Boolean(oauthClientId && oauthClientSecret && oauthRefreshToken);
+  const isSaValid = Boolean(
+    clientEmail &&
+    privateKey &&
+    !clientEmail.includes("your-gcp-project") &&
+    privateKey.length > 500
+  );
 
-  const source = all["GOOGLE_SERVICE_ACCOUNT_EMAIL"]
+  let authType: "oauth" | "service_account" | "none" = "none";
+  if (isOAuthValid) {
+    authType = "oauth";
+  } else if (isSaValid) {
+    authType = "service_account";
+  }
+
+  const isConfigured = isOAuthValid || isSaValid;
+  const isMock = !isConfigured;
+
+  const source = all["GOOGLE_OAUTH_REFRESH_TOKEN"] || all["GOOGLE_SERVICE_ACCOUNT_EMAIL"]
     ? "database"
-    : process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+    : process.env.GOOGLE_OAUTH_REFRESH_TOKEN || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
     ? "env"
     : "none";
 
   return {
+    oauthClientId,
+    oauthClientSecret,
+    oauthRefreshToken,
+    oauthUserEmail,
+    authType,
     clientEmail,
     privateKey,
     rootFolderId,
-    isConfigured: Boolean(clientEmail && privateKey && !isMock),
+    isConfigured,
     isMock,
     source,
   };

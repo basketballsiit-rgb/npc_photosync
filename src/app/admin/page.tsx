@@ -123,25 +123,26 @@ export default function AdminPage() {
   const [isResettingWatermark, setIsResettingWatermark] = useState<boolean>(false);
   const [watermarkMessage, setWatermarkMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Tab 4: Google Drive & Cloud Settings
+  // Tab 4: Google Drive & Cloud Settings (OAuth 2.0)
   const [driveSettings, setDriveSettings] = useState<any | null>(null);
   const [driveStatus, setDriveStatus] = useState<any | null>(null);
   const [driveForm, setDriveForm] = useState({
-    rootFolderId: "",
-    clientEmail: "",
-    privateKey: "",
-    credentialsJson: "",
+    rootFolderId: "1hYayVdA3Bm7-HIWiutHcJ3j8PI808CwV",
+    oauthClientId: "",
+    oauthClientSecret: "",
   });
   const [isSavingDrive, setIsSavingDrive] = useState(false);
   const [isTestingDrive, setIsTestingDrive] = useState(false);
+  const [isConnectingOAuth, setIsConnectingOAuth] = useState(false);
+  const [isDisconnectingOAuth, setIsDisconnectingOAuth] = useState(false);
   const [driveTestFeedback, setDriveTestFeedback] = useState<{
     success: boolean;
     message: string;
     folderName?: string;
     folderId?: string;
     clientEmail?: string;
+    authType?: string;
   } | null>(null);
-  const [credentialsInputMode, setCredentialsInputMode] = useState<"json" | "manual">("json");
 
   // Tab 5: LINE Messaging API Settings
   const [lineSettings, setLineSettings] = useState<{
@@ -756,10 +757,11 @@ export default function AdminPage() {
     }
   };
 
-  // Google Drive Settings Handlers
+  // Google Drive Settings Handlers (OAuth 2.0)
   const fetchDriveSettings = async () => {
     try {
-      const res = await fetch("/api/admin/settings/google-drive");
+      const base = getClientBasePath();
+      const res = await fetch(`${base}/api/admin/settings/google-drive`);
       if (res.ok) {
         const data = await res.json();
         setDriveSettings(data.settings);
@@ -767,8 +769,8 @@ export default function AdminPage() {
         if (data.settings) {
           setDriveForm((prev) => ({
             ...prev,
-            rootFolderId: data.settings.rootFolderId || "",
-            clientEmail: data.settings.clientEmail || "",
+            rootFolderId: data.settings.rootFolderId || "1hYayVdA3Bm7-HIWiutHcJ3j8PI808CwV",
+            oauthClientId: data.settings.oauthClientId || prev.oauthClientId,
           }));
         }
       }
@@ -777,12 +779,71 @@ export default function AdminPage() {
     }
   };
 
+  const handleConnectOAuth = async () => {
+    if (!driveForm.oauthClientId) {
+      showAlert.error("ข้อมูลไม่ครบถ้วน", "กรุณาระบุ Google Client ID ให้เรียบร้อยก่อนกดเชื่อมต่อ");
+      return;
+    }
+    setIsConnectingOAuth(true);
+    try {
+      const base = getClientBasePath();
+      // First save current Client ID & Secret
+      await fetch(`${base}/api/admin/settings/google-drive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(driveForm),
+      });
+
+      // Get OAuth Consent URL
+      const res = await fetch(`${base}/api/admin/settings/google-drive/oauth-url`);
+      const data = await res.json();
+      if (data.success && data.authUrl) {
+        window.location.href = data.authUrl;
+      } else {
+        showAlert.error("ไม่สามารถเริ่มการเชื่อมต่อได้", data.error || "กรุณากรอก Client ID และ Client Secret ให้ครบถ้วน");
+      }
+    } catch (err: any) {
+      showAlert.error("ข้อผิดพลาด", err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
+    } finally {
+      setIsConnectingOAuth(false);
+    }
+  };
+
+  const handleDisconnectOAuth = async () => {
+    const confirmed = await showAlert.confirm(
+      "ยืนยันการตัดการเชื่อมต่อ?",
+      "ระบบจะยกเลิกการผูกบัญชี Google Drive นี้ออกจากระบบ",
+      "ตัดการเชื่อมต่อ",
+      "ยกเลิก"
+    );
+    if (!confirmed) return;
+
+    setIsDisconnectingOAuth(true);
+    try {
+      const base = getClientBasePath();
+      const res = await fetch(`${base}/api/admin/settings/google-drive/oauth-disconnect`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        showAlert.success("ตัดการเชื่อมต่อสำเร็จ", "ยกเลิกการผูกบัญชี Google Drive เรียบร้อยแล้ว");
+        await fetchDriveSettings();
+        setDriveTestFeedback(null);
+      }
+    } catch (err: any) {
+      showAlert.error("ข้อผิดพลาด", err.message || "เกิดข้อผิดพลาด");
+    } finally {
+      setIsDisconnectingOAuth(false);
+    }
+  };
+
   const handleSaveDriveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingDrive(true);
     setDriveTestFeedback(null);
     try {
-      const res = await fetch("/api/admin/settings/google-drive", {
+      const base = getClientBasePath();
+      const res = await fetch(`${base}/api/admin/settings/google-drive`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(driveForm),
@@ -791,18 +852,10 @@ export default function AdminPage() {
       if (data.success) {
         setDriveTestFeedback(data.status);
         await fetchDriveSettings();
-        await loadDashboardData();
-        if (data.status?.success) {
-          showAlert.success(
-            "เชื่อมต่อสำเร็จ",
-            "บันทึกการตั้งค่าและเชื่อมต่อ Google Drive ของวิทยาลัยสำเร็จเรียบร้อยแล้ว!"
-          );
-        } else {
-          showAlert.warning(
-            "แจ้งเตือนการเชื่อมต่อ",
-            "บันทึกการตั้งค่าแล้ว แต่การทดสอบเชื่อมต่อแจ้งเตือน: " + (data.status?.message || "")
-          );
-        }
+        showAlert.success(
+          "บันทึกสำเร็จ",
+          "บันทึกข้อมูลการตั้งค่า Google Drive เรียบร้อยแล้ว"
+        );
       } else {
         showAlert.error("บันทึกไม่สำเร็จ", data.error || "เกิดข้อผิดพลาด");
       }
@@ -817,7 +870,8 @@ export default function AdminPage() {
     setIsTestingDrive(true);
     setDriveTestFeedback(null);
     try {
-      const res = await fetch("/api/admin/settings/google-drive");
+      const base = getClientBasePath();
+      const res = await fetch(`${base}/api/admin/settings/google-drive`);
       const data = await res.json();
       if (data.status) {
         setDriveTestFeedback(data.status);
@@ -830,38 +884,6 @@ export default function AdminPage() {
     } finally {
       setIsTestingDrive(false);
     }
-  };
-
-  const handleJsonFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      try {
-        const parsed = JSON.parse(content);
-        if (!parsed.client_email && !parsed.private_key) {
-          showAlert.error(
-            "รูปแบบไฟล์ไม่ถูกต้อง",
-            "ไฟล์ JSON ไม่ถูกต้อง ต้องเป็นไฟล์ Service Account Credentials จาก Google Cloud Console"
-          );
-          return;
-        }
-        setDriveForm((prev) => ({
-          ...prev,
-          credentialsJson: content,
-          clientEmail: parsed.client_email || prev.clientEmail,
-          privateKey: parsed.private_key || prev.privateKey,
-        }));
-        showAlert.success(
-          "อ่านไฟล์สำเร็จ",
-          `อ่านไฟล์ "${file.name}" สำเร็จ!\nตรวจพบอีเมล Service Account: ${parsed.client_email}`
-        );
-      } catch (jsonErr) {
-        showAlert.error("รูปแบบไฟล์ไม่ถูกต้อง", "ไฟล์ที่เลือกไม่ใช่รูปแบบ JSON ที่ถูกต้อง");
-      }
-    };
-    reader.readAsText(file);
   };
 
   // LINE Settings Handlers
@@ -2402,7 +2424,7 @@ export default function AdminPage() {
           </section>
         )}
 
-        {/* TAB 4: GOOGLE DRIVE & CLOUD STORAGE SETTINGS */}
+        {/* TAB 4: GOOGLE DRIVE & CLOUD STORAGE SETTINGS (OAUTH 2.0) */}
         {activeTab === "google_drive" && (
           <section className="space-y-6">
             {/* Status & Connection Overview Banner */}
@@ -2412,27 +2434,25 @@ export default function AdminPage() {
                   <div className="flex items-center gap-2">
                     <span
                       className={`flex h-2.5 w-2.5 rounded-full ${
-                        driveStatus?.success
+                        driveSettings?.isOAuthConnected
                           ? "bg-emerald-400 animate-pulse"
                           : "bg-amber-400"
                       }`}
                     />
                     <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
-                      สถานะการเชื่อมต่อ Google Shared Drive วิทยาลัย
+                      สถานะการเชื่อมต่อ Google Drive (โควตา 2 TB)
                     </span>
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-3">
                     <HardDrive className="h-7 w-7 text-cyan-400" />
                     <span>
-                      {driveStatus?.success
-                        ? `เชื่อมต่อคลาวด์วิทยาลัยแล้ว: ${driveStatus.folderName || "Shared Drive"}`
-                        : driveSettings?.isMock
-                        ? "โหมดพัฒนา (Mock Drive Active)"
+                      {driveSettings?.isOAuthConnected
+                        ? `เชื่อมต่อบัญชี Google แล้ว: ${driveSettings.oauthUserEmail || "Google Account"}`
                         : "ยังไม่ได้เชื่อมต่อ Google Drive"}
                     </span>
                   </h2>
                   <p className="text-xs text-purple-300/80 max-w-2xl leading-relaxed">
-                    พื้นที่จัดเก็บภาพถ่ายต้นฉบับ 100% ไม่บีบอัด ผ่าน Google Drive / Shared Drive ของบัญชีสถานศึกษา (@npc.ac.th) เพื่อรองรับภาพกิจกรรมความละเอียดสูงไม่จำกัด
+                    บันทึกภาพถ่ายกิจกรรมต้นฉบับ 100% ไม่บีบอัด เข้าสู่ Google Drive โฟลเดอร์ &ldquo;คลังภาพกิจกรรม วช.น่าน (NPC_PhotoSync)&rdquo; โดยตรงผ่าน Google OAuth 2.0 ไม่จำกัดโควตา Service Account
                   </p>
                 </div>
 
@@ -2445,32 +2465,39 @@ export default function AdminPage() {
                     <RefreshCw className={`h-4 w-4 ${isTestingDrive ? "animate-spin" : ""}`} />
                     <span>{isTestingDrive ? "กำลังทดสอบ..." : "⚡ ทดสอบการเชื่อมต่อสด"}</span>
                   </button>
+
+                  {driveSettings?.isOAuthConnected && (
+                    <button
+                      onClick={handleDisconnectOAuth}
+                      disabled={isDisconnectingOAuth}
+                      className="flex items-center gap-2 rounded-2xl bg-rose-500/20 border border-rose-500/40 px-4 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-500/30 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>{isDisconnectingOAuth ? "กำลังตัด..." : "ตัดการเชื่อมต่อบัญชีนี้"}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* Status details pills */}
               <div className="mt-6 pt-5 border-t border-purple-800/40 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="rounded-2xl bg-[#09051E]/70 border border-purple-800/40 p-3">
-                  <div className="text-[10px] text-purple-400 uppercase font-semibold">Service Account Email</div>
-                  <div className="font-mono text-cyan-300 truncate mt-0.5" title={driveSettings?.clientEmail}>
-                    {driveSettings?.clientEmail || "ยังไม่ได้กำหนด"}
+                  <div className="text-[10px] text-purple-400 uppercase font-semibold">บัญชี Google ที่ผูกไว้</div>
+                  <div className="font-mono text-cyan-300 truncate mt-0.5" title={driveSettings?.oauthUserEmail}>
+                    {driveSettings?.oauthUserEmail || "ยังไม่ได้ผูกบัญชี"}
                   </div>
                 </div>
                 <div className="rounded-2xl bg-[#09051E]/70 border border-purple-800/40 p-3">
-                  <div className="text-[10px] text-purple-400 uppercase font-semibold">Root Folder / Drive ID</div>
+                  <div className="text-[10px] text-purple-400 uppercase font-semibold">โฟลเดอร์หลักเป้าหมาย (Root ID)</div>
                   <div className="font-mono text-pink-300 truncate mt-0.5" title={driveSettings?.rootFolderId}>
-                    {driveSettings?.rootFolderId || "ยังไม่ได้กำหนด"}
+                    {driveSettings?.rootFolderId || "1hYayVdA3Bm7-HIWiutHcJ3j8PI808CwV"}
                   </div>
                 </div>
                 <div className="rounded-2xl bg-[#09051E]/70 border border-purple-800/40 p-3">
-                  <div className="text-[10px] text-purple-400 uppercase font-semibold">แหล่งที่มาข้อมูลคอนฟิก</div>
+                  <div className="text-[10px] text-purple-400 uppercase font-semibold">สถานะโควตาพื้นที่</div>
                   <div className="font-medium text-emerald-300 mt-0.5 flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    {driveSettings?.source === "database"
-                      ? "ฐานข้อมูลระบบ (System Settings)"
-                      : driveSettings?.source === "env"
-                      ? "ไฟล์ .env เซิร์ฟเวอร์"
-                      : "ค่าเริ่มต้น"}
+                    {driveSettings?.isOAuthConnected ? "ใช้งานโควตา 2 TB ของบัญชีผู้ใช้" : "รอการเชื่อมต่อ"}
                   </div>
                 </div>
               </div>
@@ -2510,11 +2537,11 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* 3-Step Setup Guide for College Staff */}
+            {/* Google OAuth Quick Guide */}
             <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-6 shadow-xl backdrop-blur-md space-y-4">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-cyan-400" />
-                <span>คำแนะนำ: 3 ขั้นตอนการเชื่อมต่อ Google Drive ของสถานศึกษา (@npc.ac.th)</span>
+                <span>คำแนะนำ: ขั้นตอนการเชื่อมต่อ Google Drive ผ่าน OAuth 2.0 (ทำเพียงครั้งเดียว)</span>
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -2523,10 +2550,10 @@ export default function AdminPage() {
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-400 font-bold border border-cyan-500/40 text-[11px]">
                       1
                     </span>
-                    <span className="font-bold text-white">สร้าง Service Account</span>
+                    <span className="font-bold text-white">สร้าง OAuth Client ID</span>
                   </div>
                   <p className="text-purple-300/80 leading-relaxed text-[11px]">
-                    สร้าง Service Account ใน Google Cloud Console (เปิด Google Drive API) และดาวน์โหลดคีย์เป็นไฟล์ <strong>JSON</strong>
+                    เปิด <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-cyan-400 underline font-semibold">Google Cloud Console</a> เลือกโปรเจกต์ <code>npc-photosync</code> ไปที่ <strong>Credentials &gt; Create Credentials &gt; OAuth client ID</strong> (เลือกประเภท <strong>Web application</strong>)
                   </p>
                 </div>
 
@@ -2535,10 +2562,10 @@ export default function AdminPage() {
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pink-500/20 text-pink-400 font-bold border border-pink-500/40 text-[11px]">
                       2
                     </span>
-                    <span className="font-bold text-white">แชร์โฟลเดอร์ให้สิทธิ์</span>
+                    <span className="font-bold text-white">ใส่ Redirect URI</span>
                   </div>
                   <p className="text-purple-300/80 leading-relaxed text-[11px]">
-                    เปิด Google Drive ของวิทยาลัย สร้าง Shared Drive หรือโฟลเดอร์ กด <strong>แชร์</strong> แล้วใส่อีเมล Service Account เป็น <strong>ผู้จัดการเนื้อหา (Content Manager)</strong>
+                    คัดลอก <strong>Authorized Redirect URI</strong> ในกล่องสีม่วงด้านล่างนี้ ไปวางในช่อง Authorized redirect URIs ของ Google Cloud Console แล้วกด Create
                   </p>
                 </div>
 
@@ -2547,10 +2574,10 @@ export default function AdminPage() {
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40 text-[11px]">
                       3
                     </span>
-                    <span className="font-bold text-white">กรอกข้อมูลและบันทึก</span>
+                    <span className="font-bold text-white">เชื่อมต่อในคลิกเดียว</span>
                   </div>
                   <p className="text-purple-300/80 leading-relaxed text-[11px]">
-                    คัดลอก Folder ID หรือลิงก์โฟลเดอร์ และวางไฟล์ JSON ลงในฟอร์มด้านล่างนี้ ระบบจะเชื่อมต่อและสร้างโฟลเดอร์กิจกรรมให้อัตโนมัติ
+                    นำ Client ID และ Client Secret มาวางในฟอร์มด้านล่าง แล้วกดปุ่ม <strong>&ldquo;เชื่อมต่อกับบัญชี Google Drive&rdquo;</strong> และกด Allow ให้สิทธิ์
                   </p>
                 </div>
               </div>
@@ -2559,48 +2586,45 @@ export default function AdminPage() {
             {/* Google Drive Configuration Form */}
             <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-6 shadow-xl backdrop-blur-md">
               <form onSubmit={handleSaveDriveSettings} className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/40">
-                  <div>
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <FolderSync className="h-5 w-5 text-pink-400" />
-                      <span>แบบฟอร์มกำหนดค่า Google Cloud & Drive Storage</span>
-                    </h3>
-                    <p className="text-xs text-purple-300/80 mt-1">
-                      สามารถบันทึกการตั้งค่าได้โดยตรงจากหน้านี้ โดยไม่ต้องเข้าไปแก้ไขไฟล์บนเซิร์ฟเวอร์
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Key className="h-5 w-5 text-pink-400" />
+                    <span>ตั้งค่าและเชื่อมต่อบัญชี Google Drive (OAuth 2.0)</span>
+                  </h3>
+                  <p className="text-xs text-purple-300/80 mt-1">
+                    เชื่อมต่อสิทธิ์เข้าถึง Google Drive ของคุณครูโดยตรงเพื่อรับส่งไฟล์ความละเอียดสูงเข้าสู่พื้นที่ 2 TB
+                  </p>
+                </div>
 
-                  {/* Mode Selector */}
-                  <div className="flex rounded-2xl bg-[#09051E] p-1 border border-purple-800/40 text-xs font-semibold self-start sm:self-auto">
+                {/* Authorized Redirect URI Box */}
+                <div className="rounded-2xl border border-purple-700/50 bg-[#0E0628] p-4 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-pink-300 flex items-center gap-1.5">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Authorized Redirect URI (นำไปวางใน Google Cloud Console):
+                    </span>
                     <button
                       type="button"
-                      onClick={() => setCredentialsInputMode("json")}
-                      className={`px-3 py-1.5 rounded-xl transition-all ${
-                        credentialsInputMode === "json"
-                          ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md"
-                          : "text-purple-400 hover:text-white"
-                      }`}
+                      onClick={() => {
+                        const uri = `${getClientBasePath() ? "https://service.npc.ac.th/npc_photosync" : window.location.origin}/api/admin/settings/google-drive/oauth-callback`;
+                        navigator.clipboard.writeText(uri);
+                        showAlert.success("คัดลอกแล้ว", "คัดลอก Authorized Redirect URI เรียบร้อยแล้ว!");
+                      }}
+                      className="flex items-center gap-1 rounded-xl bg-purple-900/50 hover:bg-purple-800/60 border border-purple-700/60 px-3 py-1 text-[11px] font-semibold text-purple-200 transition-all active:scale-95"
                     >
-                      📄 วางไฟล์ JSON (แนะนำ)
+                      <Copy className="h-3 w-3" />
+                      <span>คัดลอกลิงก์</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setCredentialsInputMode("manual")}
-                      className={`px-3 py-1.5 rounded-xl transition-all ${
-                        credentialsInputMode === "manual"
-                          ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md"
-                          : "text-purple-400 hover:text-white"
-                      }`}
-                    >
-                      ✍️ กรอกแยกช่อง
-                    </button>
+                  </div>
+                  <div className="font-mono text-xs text-cyan-300 break-all select-all bg-[#080318] p-2.5 rounded-xl border border-purple-900/50">
+                    https://service.npc.ac.th/npc_photosync/api/admin/settings/google-drive/oauth-callback
                   </div>
                 </div>
 
                 {/* Target Google Drive Root Folder ID or URL */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-white flex items-center justify-between">
-                    <span>1. โฟลเดอร์หลัก Google Drive (Shared Drive Root Folder ID หรือ ลิงก์โฟลเดอร์) *</span>
+                    <span>1. โฟลเดอร์หลัก Google Drive (Folder ID หรือ ลิงก์โฟลเดอร์) *</span>
                     <span className="text-[11px] font-normal text-cyan-300">
                       รองรับการวาง URL เต็ม เช่น https://drive.google.com/drive/folders/...
                     </span>
@@ -2609,102 +2633,72 @@ export default function AdminPage() {
                     type="text"
                     value={driveForm.rootFolderId}
                     onChange={(e) => setDriveForm({ ...driveForm, rootFolderId: e.target.value })}
-                    placeholder="วางลิงก์โฟลเดอร์ Google Drive หรือ Folder ID เช่น 1a2B3c4D5e6F7g..."
+                    placeholder="1hYayVdA3Bm7-HIWiutHcJ3j8PI808CwV หรือ วางลิงก์โฟลเดอร์"
                     className="w-full rounded-2xl border border-purple-800/40 bg-[#0A051E] px-4 py-3 text-xs text-white placeholder-purple-500/50 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
                     required
                   />
                   <p className="text-[11px] text-purple-400">
-                    รูปภาพทั้งหมดจะถูกจัดหมวดหมู่สร้างโฟลเดอร์ย่อยตามปีการศึกษาและประเภทกิจกรรม เช่น <code>/[2569]/01_โครงการตามแผน/[ชื่อกิจกรรม]</code> ให้อัตโนมัติภายในโฟลเดอร์นี้
+                    โฟลเดอร์ปัจจุบัน: <code>1hYayVdA3Bm7-HIWiutHcJ3j8PI808CwV</code> (คลังภาพกิจกรรม วช.น่าน) ภาพจะถูกแยกโฟลเดอร์ย่อยตามปีการศึกษาและหมวดหมู่ให้อัตโนมัติ
                   </p>
                 </div>
 
-                {/* JSON Input Mode */}
-                {credentialsInputMode === "json" ? (
-                  <div className="space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <label className="text-xs font-bold text-white">
-                        2. ไฟล์คีย์ Service Account (Credentials JSON) *
-                      </label>
-                      <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-xl bg-purple-900/40 hover:bg-purple-800/50 border border-purple-700/50 px-3 py-1.5 text-xs text-purple-200 transition-all">
-                        <Upload className="h-3.5 w-3.5 text-pink-400" />
-                        <span>📁 เลือกไฟล์ JSON จากเครื่อง</span>
-                        <input
-                          type="file"
-                          accept=".json"
-                          onChange={handleJsonFileUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
+                {/* OAuth Client ID */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-white">
+                    2. Google OAuth 2.0 Client ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={driveForm.oauthClientId}
+                    onChange={(e) => setDriveForm({ ...driveForm, oauthClientId: e.target.value })}
+                    placeholder="เช่น 1234567890-abcdefg.apps.googleusercontent.com"
+                    className="w-full rounded-2xl border border-purple-800/40 bg-[#0A051E] px-4 py-3 text-xs text-white placeholder-purple-500/50 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
+                    required
+                  />
+                </div>
 
-                    <textarea
-                      rows={7}
-                      value={driveForm.credentialsJson}
-                      onChange={(e) => setDriveForm({ ...driveForm, credentialsJson: e.target.value })}
-                      placeholder='วางเนื้อหาไฟล์ JSON ที่นี่ (ขึ้นต้นด้วย { "type": "service_account", "client_email": "...", "private_key": "..." })'
-                      className="w-full rounded-2xl border border-purple-800/40 bg-[#0A051E] p-4 text-xs text-cyan-200 placeholder-purple-500/50 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono leading-relaxed"
-                    />
-
-                    {driveForm.clientEmail && (
-                      <div className="rounded-xl bg-cyan-950/30 border border-cyan-800/40 px-3 py-2 text-[11px] text-cyan-300 flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-cyan-400 shrink-0" />
-                        <span>ตรวจพบ Service Account: <strong>{driveForm.clientEmail}</strong></span>
-                      </div>
+                {/* OAuth Client Secret */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-white flex items-center justify-between">
+                    <span>3. Google OAuth 2.0 Client Secret *</span>
+                    {driveSettings?.oauthClientSecretMasked && (
+                      <span className="text-[11px] text-emerald-400 font-mono">
+                        {driveSettings.oauthClientSecretMasked} (มีคีย์เดิมบันทึกอยู่แล้ว)
+                      </span>
                     )}
-                  </div>
-                ) : (
-                  /* Manual Input Mode */
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-white">2.1 อีเมล Service Account (Client Email) *</label>
-                      <input
-                        type="email"
-                        value={driveForm.clientEmail}
-                        onChange={(e) => setDriveForm({ ...driveForm, clientEmail: e.target.value })}
-                        placeholder="เช่น npc-photosync-sa@npc-project.iam.gserviceaccount.com"
-                        className="w-full rounded-2xl border border-purple-800/40 bg-[#0A051E] px-4 py-3 text-xs text-white placeholder-purple-500/50 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-white flex items-center justify-between">
-                        <span>2.2 คีย์ส่วนตัว RSA (Private Key) *</span>
-                        {driveSettings?.hasPrivateKey && (
-                          <span className="text-[11px] text-emerald-400 font-mono">
-                            {driveSettings.privateKeyMasked}
-                          </span>
-                        )}
-                      </label>
-                      <textarea
-                        rows={6}
-                        value={driveForm.privateKey}
-                        onChange={(e) => setDriveForm({ ...driveForm, privateKey: e.target.value })}
-                        placeholder="วาง -----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY-----"
-                        className="w-full rounded-2xl border border-purple-800/40 bg-[#0A051E] p-4 text-xs text-cyan-200 placeholder-purple-500/50 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
-                      />
-                    </div>
-                  </div>
-                )}
+                  </label>
+                  <input
+                    type="password"
+                    value={driveForm.oauthClientSecret}
+                    onChange={(e) => setDriveForm({ ...driveForm, oauthClientSecret: e.target.value })}
+                    placeholder={driveSettings?.oauthClientSecretMasked ? "ปล่อยว่างหากไม่ต้องการเปลี่ยน Client Secret" : "เช่น GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"}
+                    className="w-full rounded-2xl border border-purple-800/40 bg-[#0A051E] px-4 py-3 text-xs text-white placeholder-purple-500/50 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
+                  />
+                </div>
 
                 {/* Submit and Action Buttons */}
                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-4 border-t border-purple-900/40">
                   <button
-                    type="submit"
-                    disabled={isSavingDrive}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-3 text-xs font-bold text-white shadow-lg hover:shadow-cyan-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                    type="button"
+                    onClick={handleConnectOAuth}
+                    disabled={isConnectingOAuth || isSavingDrive}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-600 px-6 py-3.5 text-xs font-bold text-white shadow-xl hover:shadow-pink-500/30 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
                   >
-                    {isSavingDrive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    <span>{isSavingDrive ? "กำลังบันทึกและตรวจสอบ..." : "💾 บันทึกการตั้งค่า Google Drive"}</span>
+                    {isConnectingOAuth ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
+                    <span>
+                      {driveSettings?.isOAuthConnected
+                        ? "🔄 เปลี่ยนบัญชี Google หรือเชื่อมต่อใหม่"
+                        : "🔑 บันทึกและเชื่อมต่อกับบัญชี Google Drive"}
+                    </span>
                   </button>
 
                   <button
-                    type="button"
-                    onClick={handleTestDriveConnection}
-                    disabled={isTestingDrive}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-purple-900/40 border border-purple-700/50 px-5 py-3 text-xs font-bold text-purple-200 hover:bg-purple-800/50 transition-all active:scale-95 disabled:opacity-50"
+                    type="submit"
+                    disabled={isSavingDrive}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-[#1C0F45] border border-purple-700/60 px-5 py-3.5 text-xs font-bold text-purple-200 hover:bg-[#281561] hover:text-white transition-all active:scale-95 disabled:opacity-50"
                   >
-                    <RefreshCw className={`h-4 w-4 ${isTestingDrive ? "animate-spin" : ""}`} />
-                    <span>ทดสอบการเชื่อมต่อ</span>
+                    {isSavingDrive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    <span>บันทึกการตั้งค่า</span>
                   </button>
                 </div>
               </form>

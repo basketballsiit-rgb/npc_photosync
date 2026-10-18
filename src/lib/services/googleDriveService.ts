@@ -40,33 +40,51 @@ function isMockKey(key?: string): boolean {
 export async function getDriveClient(): Promise<{ drive: drive_v3.Drive; rootId: string } | null> {
   const config = await getGoogleDriveConfig();
 
+  // 1. Prioritize OAuth 2.0 (User Google Account / 2TB Storage)
+  if (config.authType === "oauth") {
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        config.oauthClientId,
+        config.oauthClientSecret
+      );
+      oauth2Client.setCredentials({
+        refresh_token: config.oauthRefreshToken,
+      });
+      const drive = google.drive({ version: "v3", auth: oauth2Client });
+      return { drive, rootId: config.rootFolderId };
+    } catch (error) {
+      console.warn("Google Drive OAuth client init failed:", error);
+      return null;
+    }
+  }
+
+  // 2. Service Account Fallback (if configured and valid)
   if (
-    !config.clientEmail ||
-    config.clientEmail.includes("npc-photosync-sa@pvc-nan.iam") ||
-    config.clientEmail.includes("your-gcp-project") ||
-    isMockKey(config.privateKey)
+    config.authType === "service_account" &&
+    config.clientEmail &&
+    !isMockKey(config.privateKey)
   ) {
-    return null;
+    let privateKey = config.privateKey;
+    if (privateKey.includes("\\n")) {
+      privateKey = privateKey.replace(/\\n/g, "\n");
+    }
+
+    try {
+      const auth = new google.auth.JWT({
+        email: config.clientEmail,
+        key: privateKey,
+        scopes: ["https://www.googleapis.com/auth/drive"],
+      });
+
+      const drive = google.drive({ version: "v3", auth });
+      return { drive, rootId: config.rootFolderId };
+    } catch (error) {
+      console.warn("Google Drive service account auth failed:", error);
+      return null;
+    }
   }
 
-  let privateKey = config.privateKey;
-  if (privateKey.includes("\\n")) {
-    privateKey = privateKey.replace(/\\n/g, "\n");
-  }
-
-  try {
-    const auth = new google.auth.JWT({
-      email: config.clientEmail,
-      key: privateKey,
-      scopes: ["https://www.googleapis.com/auth/drive"],
-    });
-
-    const drive = google.drive({ version: "v3", auth });
-    return { drive, rootId: config.rootFolderId };
-  } catch (error) {
-    console.warn("Google Drive service account auth skipped (dev fallback active):", error);
-    return null;
-  }
+  return null;
 }
 
 /**
@@ -79,13 +97,15 @@ export async function testDriveConnection(): Promise<{
   folderId?: string;
   clientEmail?: string;
   isMock: boolean;
+  authType: "oauth" | "service_account" | "none";
 }> {
   const config = await getGoogleDriveConfig();
   if (config.isMock || !config.isConfigured) {
     return {
       success: false,
-      message: "ยังไม่ได้ระบุ Google Service Account หรือ Private Key ที่ถูกต้อง (อยู่ในโหมดจำลอง Mock)",
+      message: "ยังไม่ได้เชื่อมต่อ Google Drive กรุณากำหนดค่าหรือกดเชื่อมต่อผ่าน Google OAuth 2.0",
       isMock: true,
+      authType: config.authType,
     };
   }
 
@@ -93,8 +113,9 @@ export async function testDriveConnection(): Promise<{
   if (!client) {
     return {
       success: false,
-      message: "ไม่สามารถสร้าง Google Drive Client ได้ กรุณาตรวจสอบ Private Key หรืออีเมล Service Account",
+      message: "ไม่สามารถสร้างการเชื่อมต่อ Google Drive ได้ กรุณาตรวจสอบ Client ID / Secret หรือ Refresh Token",
       isMock: false,
+      authType: config.authType,
     };
   }
 
@@ -105,6 +126,7 @@ export async function testDriveConnection(): Promise<{
         success: false,
         message: "ยังไม่ได้ระบุ Google Drive Root Folder ID",
         isMock: false,
+        authType: config.authType,
       };
     }
 
@@ -114,13 +136,18 @@ export async function testDriveConnection(): Promise<{
       supportsAllDrives: true,
     });
 
+    const accountLabel = config.authType === "oauth"
+      ? (config.oauthUserEmail || "บัญชี Google ที่เชื่อมต่อ")
+      : config.clientEmail;
+
     return {
       success: true,
-      message: `เชื่อมต่อสำเร็จ! ตรวจพบโฟลเดอร์/ไดรฟ์: "${res.data.name}"`,
+      message: `เชื่อมต่อสำเร็จ! ตรวจพบโฟลเดอร์: "${res.data.name}" (${accountLabel})`,
       folderName: res.data.name || undefined,
       folderId: res.data.id || undefined,
-      clientEmail: config.clientEmail,
+      clientEmail: accountLabel,
       isMock: false,
+      authType: config.authType,
     };
   } catch (error: any) {
     console.error("Google Drive test connection failed:", error);
@@ -128,13 +155,14 @@ export async function testDriveConnection(): Promise<{
     if (msg.includes("unregistered callers") || msg.includes("API key not valid")) {
       msg = "Google Drive API ยังไม่ได้เปิดใช้งานใน Google Cloud Console หรือ Key ไม่ถูกต้อง";
     } else if (msg.includes("File not found") || msg.includes("404")) {
-      msg = "ไม่พบโฟลเดอร์นี้ หรือ Service Account ยังไม่ได้รับสิทธิ์ (อย่าลืมกดแชร์โฟลเดอร์ให้ Service Account เป็น Content Manager)";
+      msg = "ไม่พบโฟลเดอร์นี้ หรือบัญชีที่เชื่อมต่อยังไม่มีสิทธิ์เข้าถึงโฟลเดอร์";
     }
     return {
       success: false,
       message: msg,
-      clientEmail: config.clientEmail,
+      clientEmail: config.oauthUserEmail || config.clientEmail,
       isMock: false,
+      authType: config.authType,
     };
   }
 }
