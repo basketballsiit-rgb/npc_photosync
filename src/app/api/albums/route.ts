@@ -7,7 +7,7 @@ import {
   getCurrentConfiguredTerm,
 } from "@/lib/academic-utils";
 import { ensureAlbumDriveFolder } from "@/lib/services/googleDriveService";
-import { ensureSeedData } from "@/lib/services/seedService";
+import { clearDemoData } from "@/lib/services/seedService";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
   const skip = (page - 1) * limit;
 
   try {
-    // Auto-seed baseline albums if database is empty
-    await ensureSeedData();
+    // Purge mock/sample demo data
+    await clearDemoData();
 
     const where: any = {};
 
