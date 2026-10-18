@@ -80,9 +80,20 @@ export default function AdminPage() {
   const [apiTesterResult, setApiTesterResult] = useState<string>("");
   const [isTestingApi, setIsTestingApi] = useState(false);
 
-  // Tab 3: PR Report
+  // Tab 3: PR Report & Watermark
   const [prReportRows, setPrReportRows] = useState<any[]>([]);
   const [copiedJson, setCopiedJson] = useState(false);
+  const [watermarkInfo, setWatermarkInfo] = useState<{
+    width: number;
+    height: number;
+    size: number;
+    updatedAt: number;
+    format: string;
+  } | null>(null);
+  const [watermarkVersion, setWatermarkVersion] = useState<number>(Date.now());
+  const [isUploadingWatermark, setIsUploadingWatermark] = useState<boolean>(false);
+  const [isResettingWatermark, setIsResettingWatermark] = useState<boolean>(false);
+  const [watermarkMessage, setWatermarkMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Tab 4: Google Drive & Cloud Settings
   const [driveSettings, setDriveSettings] = useState<any | null>(null);
@@ -107,6 +118,7 @@ export default function AdminPage() {
   useEffect(() => {
     loadDashboardData();
     fetchDriveSettings();
+    fetchWatermarkInfo();
   }, []);
 
   const loadDashboardData = async () => {
@@ -316,6 +328,107 @@ export default function AdminPage() {
     navigator.clipboard.writeText(apiTesterResult);
     setCopiedJson(true);
     setTimeout(() => setCopiedJson(false), 2000);
+  };
+
+  const getClientBasePath = () => {
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/npc_photosync")) {
+      return "/npc_photosync";
+    }
+    return process.env.NEXT_PUBLIC_BASE_PATH || "";
+  };
+
+  // Watermark Handlers
+  const fetchWatermarkInfo = async () => {
+    try {
+      const res = await fetch("/api/admin/watermark");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.watermark) {
+          setWatermarkInfo(data.watermark);
+          setWatermarkVersion(data.watermark.updatedAt || Date.now());
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load watermark info:", err);
+    }
+  };
+
+  const handleWatermarkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingWatermark(true);
+    setWatermarkMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/admin/watermark", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setWatermarkInfo(data.watermark);
+        setWatermarkVersion(Date.now());
+        setWatermarkMessage({
+          type: "success",
+          text: data.message || "อัปโหลดและอัปเดตลายน้ำของวิทยาลัยสำเร็จแล้ว!",
+        });
+      } else {
+        setWatermarkMessage({
+          type: "error",
+          text: data.error || "เกิดข้อผิดพลาดในการอัปโหลดลายน้ำ",
+        });
+      }
+    } catch (err: any) {
+      setWatermarkMessage({
+        type: "error",
+        text: err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ",
+      });
+    } finally {
+      setIsUploadingWatermark(false);
+      if (e.target) e.target.value = "";
+    }
+  };
+
+  const handleResetWatermark = async () => {
+    if (!confirm("ต้องการคืนค่าลายน้ำเป็นตราสัญลักษณ์มาตรฐานเริ่มต้นของวิทยาลัยหรือไม่?")) return;
+
+    setIsResettingWatermark(true);
+    setWatermarkMessage(null);
+
+    try {
+      const res = await fetch("/api/admin/watermark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset" }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setWatermarkInfo(data.watermark);
+        setWatermarkVersion(Date.now());
+        setWatermarkMessage({
+          type: "success",
+          text: data.message || "คืนค่าลายน้ำเป็นค่าเริ่มต้นเรียบร้อยแล้ว",
+        });
+      } else {
+        setWatermarkMessage({
+          type: "error",
+          text: data.error || "ไม่สามารถคืนค่าได้",
+        });
+      }
+    } catch (err: any) {
+      setWatermarkMessage({
+        type: "error",
+        text: err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ",
+      });
+    } finally {
+      setIsResettingWatermark(false);
+    }
   };
 
   // Google Drive Settings Handlers
@@ -611,7 +724,10 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("pr_report")}
+            onClick={() => {
+              setActiveTab("pr_report");
+              fetchWatermarkInfo();
+            }}
             className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
               activeTab === "pr_report"
                 ? "border-pink-500 text-pink-300"
@@ -1153,7 +1269,7 @@ export default function AdminPage() {
               </div>
 
               <a
-                href="/api/admin/pr-report?format=csv"
+                href={`${getClientBasePath()}/api/admin/pr-report?format=csv`}
                 download
                 className="flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 hover:brightness-110 transition-all"
               >
@@ -1208,25 +1324,121 @@ export default function AdminPage() {
 
             {/* Watermark & LINE Notification Configuration Preview Box */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* College Watermark Preview */}
-              <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-5 space-y-3 backdrop-blur-md shadow-xl">
-                <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-pink-400" />
-                  <span>ตัวอย่างลายน้ำตราสัญลักษณ์วิทยาลัย (Watermark)</span>
-                </h4>
-                <p className="text-xs text-purple-300/80">
-                  ประทับอัตโนมัติเมื่อดาวน์โหลดแบบ "พร้อม PR โซเชียล" พร้อมแถบชื่อภาษาไทย-อังกฤษ
-                </p>
-                <div className="rounded-2xl border border-purple-800/40 bg-[#0F0728] p-4 flex items-center justify-center">
-                  <img
-                    src="/assets/npc-watermark.png"
-                    alt="NPC Watermark"
-                    className="max-h-24 object-contain shadow-lg"
-                  />
+              {/* College Watermark Management */}
+              <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-5 space-y-4 backdrop-blur-md shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-pink-400" />
+                      <span>ตราสัญลักษณ์และลายน้ำวิทยาลัย (Watermark)</span>
+                    </h4>
+                    <span className="flex items-center gap-1.5 rounded-full bg-pink-500/10 border border-pink-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-pink-300">
+                      <span className="h-1.5 w-1.5 rounded-full bg-pink-400 animate-pulse" />
+                      Sharp Pipeline Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-300/80 mt-1">
+                    ประทับอัตโนมัติที่มุมขวาล่างเมื่อดาวน์โหลดแบบ "พร้อม PR โซเชียล" พร้อมแถบชื่อสถานศึกษา
+                  </p>
                 </div>
-                <div className="text-[11px] text-purple-300/80 flex items-center justify-between">
-                  <span>ตำแหน่ง: มุมขวาล่าง + แถบชื่อสถาบัน</span>
-                  <span className="text-pink-400 font-semibold">Active (Sharp Pipeline)</span>
+
+                {/* Watermark Image Preview with Dark Transparent Grid Background */}
+                <div className="relative rounded-2xl border border-purple-800/50 bg-[#0B051B] p-4 flex flex-col items-center justify-center min-h-[130px] overflow-hidden group">
+                  {/* Subtle grid pattern background */}
+                  <div
+                    className="absolute inset-0 opacity-20 pointer-events-none"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(45deg, #2A175B 25%, transparent 25%), linear-gradient(-45deg, #2A175B 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2A175B 75%), linear-gradient(-45deg, transparent 75%, #2A175B 75%)",
+                      backgroundSize: "16px 16px",
+                      backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
+                    }}
+                  />
+
+                  {isUploadingWatermark ? (
+                    <div className="flex flex-col items-center gap-2 py-4 text-cyan-300 z-10">
+                      <Loader2 className="h-8 w-8 animate-spin text-pink-400" />
+                      <span className="text-xs font-semibold">กำลังประมวลผลและอัปเดตลายน้ำ...</span>
+                    </div>
+                  ) : (
+                    <div className="z-10 flex flex-col items-center justify-center">
+                      <img
+                        key={watermarkVersion}
+                        src={`${getClientBasePath()}/assets/npc-watermark.png?v=${watermarkVersion}`}
+                        alt="NPC College Watermark"
+                        className="max-h-24 max-w-full object-contain filter drop-shadow-md transition-transform group-hover:scale-105 duration-200"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (!target.src.includes(".svg")) {
+                            target.src = `${getClientBasePath()}/assets/npc-watermark.svg?v=${watermarkVersion}`;
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {watermarkInfo && (
+                    <div className="absolute bottom-2 right-2 rounded-lg bg-purple-950/80 border border-purple-700/50 px-2 py-0.5 text-[9px] font-mono text-purple-300 backdrop-blur-md">
+                      {watermarkInfo.width}×{watermarkInfo.height} px • {(watermarkInfo.size / 1024).toFixed(1)} KB
+                    </div>
+                  )}
+                </div>
+
+                {/* Upload & Reset Action Buttons */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Upload File Button */}
+                    <label
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-pink-500/20 hover:brightness-110 active:scale-95 transition-all cursor-pointer ${
+                        isUploadingWatermark ? "opacity-50 pointer-events-none" : ""
+                      }`}
+                    >
+                      <Upload className="h-4 w-4" />
+                      <span>{isUploadingWatermark ? "กำลังอัปโหลด..." : "อัปโหลดภาพลายน้ำใหม่"}</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/webp,image/jpeg,image/svg+xml"
+                        onChange={handleWatermarkUpload}
+                        disabled={isUploadingWatermark}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Reset Button */}
+                    <button
+                      type="button"
+                      onClick={handleResetWatermark}
+                      disabled={isResettingWatermark || isUploadingWatermark}
+                      title="คืนค่าลายน้ำเป็นตราสัญลักษณ์มาตรฐานเริ่มต้น"
+                      className="flex items-center gap-1.5 rounded-2xl border border-purple-700/60 bg-[#1A0D3E] px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:text-white hover:bg-purple-800/40 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${isResettingWatermark ? "animate-spin" : ""}`} />
+                      <span>คืนค่าเริ่มต้น</span>
+                    </button>
+                  </div>
+
+                  {/* Feedback Message */}
+                  {watermarkMessage && (
+                    <div
+                      className={`flex items-center gap-2 rounded-xl p-2.5 text-xs border ${
+                        watermarkMessage.type === "success"
+                          ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-300"
+                          : "bg-red-950/40 border-red-800/50 text-red-300"
+                      }`}
+                    >
+                      {watermarkMessage.type === "success" ? (
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+                      )}
+                      <span>{watermarkMessage.text}</span>
+                    </div>
+                  )}
+
+                  {/* Tip guide */}
+                  <p className="text-[11px] text-purple-300/70 leading-relaxed">
+                    💡 <strong>คำแนะนำ:</strong> รองรับไฟล์ <strong>PNG, WebP หรือ SVG</strong> แนะนำภาพพื้นหลังโปร่งใส (Transparent) ขนาดประมาณ 480 × 110 px ระบบจะปรับขนาดและประทับมุมขวาล่างของภาพให้อัตโนมัติ
+                  </p>
                 </div>
               </div>
 
