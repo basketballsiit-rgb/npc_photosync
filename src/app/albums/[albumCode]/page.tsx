@@ -95,6 +95,7 @@ export default function AlbumDetailPage() {
   const [isUploadingMore, setIsUploadingMore] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState("");
   const [lineSharedSuccess, setLineSharedSuccess] = useState(false);
+  const [downloadingMediaId, setDownloadingMediaId] = useState<string | null>(null);
 
   useEffect(() => {
     if (albumCode) {
@@ -227,6 +228,51 @@ export default function AlbumDetailPage() {
       showAlert.error("ดาวน์โหลดล้มเหลว", "เกิดข้อผิดพลาดในการดาวน์โหลด กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsDownloadingZip(false);
+    }
+  };
+
+  // Download single photo directly to device (mobile-ready with blob & Content-Disposition attachment)
+  const handleDownloadSinglePhoto = async (
+    media: MediaItem,
+    quality: "report" | "watermark" | "original" = "report"
+  ) => {
+    setDownloadingMediaId(media.id);
+    try {
+      const base = getClientBasePath();
+      const downloadUrl = `${base}/api/v1/image-proxy/${media.id}?type=${quality}&download=1`;
+
+      const res = await fetch(downloadUrl);
+      if (!res.ok) throw new Error("ไม่สามารถดาวน์โหลดไฟล์รูปภาพได้");
+
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const ext = quality === "original" ? (media.mimeType === "image/png" ? "png" : "jpg") : "jpg";
+      const rawBaseName = (media.fileName || "photo").replace(/\.[^/.]+$/, "");
+      const downloadName = quality === "watermark"
+        ? `${rawBaseName}_PR.${ext}`
+        : quality === "original"
+        ? media.fileName
+        : `${rawBaseName}_HD.${ext}`;
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = downloadName;
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+        document.body.removeChild(a);
+      }, 1500);
+
+      showAlert.toast("ดาวน์โหลดภาพลงเครื่องเรียบร้อยแล้ว", "success");
+    } catch (err: any) {
+      console.warn("Direct blob download error, fallback to direct navigation:", err);
+      const fallbackUrl = `${getClientBasePath()}/api/v1/image-proxy/${media.id}?type=${quality}&download=1`;
+      window.location.href = fallbackUrl;
+    } finally {
+      setDownloadingMediaId(null);
     }
   };
 
@@ -627,15 +673,19 @@ ${currentUrl}`;
 
                   {/* Individual Image Quick Actions */}
                   <div className="flex items-center justify-between pt-2 border-t border-purple-900/40 text-[11px]">
-                    <a
-                      href={`${getClientBasePath()}/api/v1/image-proxy/${media.id}?type=report`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-pink-300 hover:text-pink-200 hover:underline flex items-center gap-1 font-semibold"
+                    <button
+                      onClick={() => handleDownloadSinglePhoto(media, "report")}
+                      disabled={downloadingMediaId === media.id}
+                      className="text-pink-300 hover:text-pink-200 hover:underline flex items-center gap-1 font-semibold disabled:opacity-50"
+                      title="ดาวน์โหลดภาพระดับ HD เข้ามือถือ/คอมพิวเตอร์"
                     >
-                      <Download className="h-3 w-3" />
+                      {downloadingMediaId === media.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-pink-400" />
+                      ) : (
+                        <Download className="h-3 w-3" />
+                      )}
                       <span>HD (300KB)</span>
-                    </a>
+                    </button>
 
                     <button
                       onClick={() => setActiveLightboxMedia(media)}
@@ -714,58 +764,77 @@ ${currentUrl}`;
 
       {/* LIGHTBOX PREVIEW MODAL */}
       {activeLightboxMedia && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-3 sm:p-5 backdrop-blur-md animate-in fade-in overflow-y-auto">
           <button
             onClick={() => setActiveLightboxMedia(null)}
-            className="absolute top-5 right-5 z-50 rounded-full bg-[#1F0F4C]/80 p-2.5 text-white hover:bg-pink-600 transition-colors"
+            className="fixed top-4 right-4 z-50 rounded-full bg-[#1F0F4C]/90 p-2.5 text-white hover:bg-pink-600 transition-colors shadow-lg border border-purple-700/50"
+            aria-label="ปิดหน้าต่างรูปภาพ"
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
 
-          <div className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center">
-            <img
-              src={formatMediaUrl(activeLightboxMedia.reportReadyJpgUrl, activeLightboxMedia.id, "report")}
-              alt={activeLightboxMedia.fileName}
-              className="max-h-[70vh] w-auto rounded-2xl object-contain shadow-2xl border border-purple-800/40"
-              onError={(e) => {
-                const target = e.currentTarget;
-                const proxyUrl = `${getClientBasePath()}/api/v1/image-proxy/${activeLightboxMedia.id}?type=report`;
-                if (!target.src.includes(`/api/v1/image-proxy/${activeLightboxMedia.id}`)) {
-                  target.src = proxyUrl;
-                }
-              }}
-            />
+          <div className="relative max-w-4xl w-full my-auto flex flex-col items-center">
+            {/* Image Preview with mobile touch support */}
+            <div className="relative w-full flex items-center justify-center">
+              <img
+                src={formatMediaUrl(activeLightboxMedia.reportReadyJpgUrl, activeLightboxMedia.id, "report")}
+                alt={activeLightboxMedia.fileName}
+                className="max-h-[50vh] sm:max-h-[70vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-purple-800/40 select-none"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  const proxyUrl = `${getClientBasePath()}/api/v1/image-proxy/${activeLightboxMedia.id}?type=report`;
+                  if (!target.src.includes(`/api/v1/image-proxy/${activeLightboxMedia.id}`)) {
+                    target.src = proxyUrl;
+                  }
+                }}
+              />
+            </div>
 
-            <div className="mt-4 w-full rounded-3xl bg-[#140832]/95 p-5 border border-purple-800/50 text-xs text-purple-200 space-y-2 backdrop-blur-xl">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h4 className="font-bold text-white text-sm">
+            {/* Bottom Floating Control Panel */}
+            <div className="mt-3.5 w-full rounded-2xl sm:rounded-3xl bg-[#140832]/95 p-4 sm:p-5 border border-purple-800/50 text-xs text-purple-200 space-y-3 backdrop-blur-xl shadow-2xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-white text-sm line-clamp-2">
                     {activeLightboxMedia.aiCaption || activeLightboxMedia.fileName}
                   </h4>
-                  <div className="flex items-center gap-3 text-purple-400/80 text-[11px] mt-1">
+                  <div className="flex flex-wrap items-center gap-2 text-purple-400/80 text-[11px] mt-1">
                     <span>{activeLightboxMedia.cameraModel || "กล้องดิจิทัล"}</span>
                     <span>•</span>
                     <span>{activeLightboxMedia.width} x {activeLightboxMedia.height} px</span>
+                    <span>•</span>
+                    <span className="font-mono text-purple-300">{activeLightboxMedia.fileName}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <a
-                    href={`${getClientBasePath()}/api/v1/image-proxy/${activeLightboxMedia.id}?type=report`}
-                    download
-                    className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-2 text-xs font-bold text-white shadow-md hover:brightness-110 transition-all"
+                {/* Direct Mobile Download Buttons */}
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                  <button
+                    onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "report")}
+                    disabled={downloadingMediaId === activeLightboxMedia.id}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
                   >
-                    <Download className="h-3.5 w-3.5" />
-                    <span>HD 1920px</span>
-                  </a>
-                  <a
-                    href={`${getClientBasePath()}/api/v1/image-proxy/${activeLightboxMedia.id}?type=watermark`}
-                    download
-                    className="flex items-center gap-1.5 rounded-full border border-purple-700/60 bg-[#1F0F4C] px-4 py-2 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white transition-all"
+                    {downloadingMediaId === activeLightboxMedia.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    <span>ดาวน์โหลด HD</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "watermark")}
+                    disabled={downloadingMediaId === activeLightboxMedia.id}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full border border-purple-700/60 bg-[#1F0F4C] px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white active:scale-95 transition-all disabled:opacity-50"
                   >
                     <span>ติดโลโก้ PR</span>
-                  </a>
+                  </button>
                 </div>
+              </div>
+
+              {/* Mobile Tip */}
+              <div className="flex items-center gap-2 rounded-xl bg-purple-950/40 border border-purple-800/30 px-3 py-1.5 text-[11px] text-purple-300/90">
+                <span className="text-pink-400 font-bold shrink-0">📱 คำแนะนำมือถือ:</span>
+                <span className="truncate">กดปุ่มดาวน์โหลด หรือแตะค้างที่รูปภาพเพื่อบันทึกลงแกลเลอรีได้ทันที</span>
               </div>
             </div>
           </div>

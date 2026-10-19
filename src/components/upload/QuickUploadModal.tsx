@@ -347,19 +347,19 @@ export function QuickUploadModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-      <div className="relative w-full max-w-4xl my-auto rounded-3xl border border-purple-800/60 bg-[#13072E] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] backdrop-blur-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-0 sm:p-4 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto overflow-x-hidden">
+      <div className="relative w-full max-w-full sm:max-w-4xl h-full sm:h-auto max-h-[100dvh] sm:max-h-[92vh] sm:my-auto rounded-none sm:rounded-3xl border-0 sm:border border-purple-800/60 bg-[#13072E] shadow-2xl overflow-hidden flex flex-col backdrop-blur-xl">
         {/* Full-Screen Blocking Uploading Overlay */}
         {isUploading && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0d041e]/95 backdrop-blur-md p-6 text-center animate-in fade-in duration-200">
-            <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 shadow-2xl shadow-pink-500/40 mb-5 animate-pulse">
-              <Loader2 className="h-10 w-10 text-white animate-spin" />
+            <div className="relative flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 shadow-2xl shadow-pink-500/40 mb-4 animate-pulse">
+              <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 text-white animate-spin" />
             </div>
 
-            <h3 className="text-lg sm:text-xl font-bold text-white mb-2">
+            <h3 className="text-base sm:text-xl font-bold text-white mb-1.5">
               กำลังอัปโหลดและประมวลผลรูปภาพ...
             </h3>
-            <p className="text-sm text-pink-300 font-medium mb-5 max-w-md">
+            <p className="text-xs sm:text-sm text-pink-300 font-medium mb-4 max-w-md">
               {uploadStatusText}
             </p>
 
@@ -369,7 +369,7 @@ export function QuickUploadModal({
                 <span>ความคืบหน้าการซิงค์ข้อมูล</span>
                 <span className="font-mono font-bold text-pink-400">{uploadProgress}%</span>
               </div>
-              <div className="h-3.5 w-full overflow-hidden rounded-full bg-[#180C3E] border border-purple-800/50 shadow-inner p-0.5">
+              <div className="h-3 sm:h-3.5 w-full overflow-hidden rounded-full bg-[#180C3E] border border-purple-800/50 shadow-inner p-0.5">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
@@ -385,31 +385,32 @@ export function QuickUploadModal({
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-purple-900/40 bg-[#180C3E]/95 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-amber-500 text-white shadow-lg shadow-pink-500/30">
-              <Zap className="h-5 w-5 fill-white" />
+        <div className="flex items-center justify-between border-b border-purple-900/40 bg-[#180C3E]/95 px-4 sm:px-6 py-3 sm:py-4 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 pr-2">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-amber-500 text-white shadow-lg shadow-pink-500/30 shrink-0">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 fill-white" />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-white">
-                อัปโหลดภาพด่วน (Quick Upload • Zero Friction)
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm sm:text-lg font-black text-white truncate">
+                อัปโหลดภาพด่วน (Quick Upload)
               </h2>
-              <p className="text-xs text-purple-300/80">
-                ระบบซิงค์อัตโนมัติไปยัง Google Shared Drive & รายงาน 5 บท npc_smartflow
+              <p className="text-[10px] sm:text-xs text-purple-300/80 truncate">
+                ระบบซิงค์ Google Shared Drive & npc_smartflow
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             disabled={isUploading}
-            className="rounded-full p-2 text-purple-400 hover:bg-[#25135A] hover:text-white transition-colors disabled:opacity-50"
+            className="rounded-full p-2 text-purple-400 hover:bg-[#25135A] hover:text-white transition-colors disabled:opacity-50 shrink-0"
+            aria-label="ปิดหน้าต่าง"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6">
           {errorMessage && (
             <div className="flex items-center gap-2.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 p-3.5 text-xs text-rose-300">
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
@@ -419,24 +420,24 @@ export function QuickUploadModal({
 
           {/* STEP 1: Basic Information */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-xs font-bold text-pink-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white text-[10px] font-black">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white text-[10px] font-black shrink-0">
                   1
                 </span>
                 ข้อมูลกิจกรรม
               </span>
 
               {/* Dynamic Academic Term Badge */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {configuredCurrentTerm && (
-                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 text-[10px] font-bold text-emerald-300">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    ภาคเรียนปัจจุบัน: {configuredCurrentTerm.semester}/{configuredCurrentTerm.academicYear}
+                    ภาคเรียน {configuredCurrentTerm.semester}/{configuredCurrentTerm.academicYear}
                   </span>
                 )}
-                <div className="flex items-center gap-1.5 rounded-full bg-[#1B0E44] border border-purple-700/50 px-3 py-1 text-[11px] font-medium text-pink-300">
-                  <Calendar className="h-3.5 w-3.5 text-pink-400" />
+                <div className="flex items-center gap-1.5 rounded-full bg-[#1B0E44] border border-purple-700/50 px-2.5 sm:px-3 py-1 text-[10px] sm:text-[11px] font-medium text-pink-300">
+                  <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-pink-400 shrink-0" />
                   <span>
                     ภาคเรียนที่ {termInfo.semester}/{termInfo.academicYear} (ปีงบฯ {termInfo.budgetYear})
                   </span>
@@ -444,7 +445,7 @@ export function QuickUploadModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-3">
               <div className="md:col-span-2 space-y-1">
                 <label className="text-xs font-semibold text-purple-200">
                   ชื่อกิจกรรม / ชื่องาน <span className="text-pink-400">*</span>
@@ -455,7 +456,7 @@ export function QuickUploadModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="เช่น พิธีไหว้ครูช่าง, กิจกรรมเข้าแถวเคารพธงชาติ, อบรมหุ่นยนต์อัจฉริยะ..."
-                  className="w-full rounded-2xl border border-purple-800/50 bg-[#1A0E42]/80 px-4 py-2.5 text-xs sm:text-sm text-purple-100 placeholder-purple-400/60 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500"
+                  className="w-full rounded-2xl border border-purple-800/50 bg-[#1A0E42]/80 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm text-purple-100 placeholder-purple-400/60 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500"
                 />
               </div>
 
@@ -467,7 +468,7 @@ export function QuickUploadModal({
                   type="date"
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
-                  className="w-full rounded-2xl border border-purple-800/50 bg-[#1A0E42]/80 px-4 py-2.5 text-xs sm:text-sm text-purple-100 focus:border-pink-500 focus:outline-none"
+                  className="w-full rounded-2xl border border-purple-800/50 bg-[#1A0E42]/80 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm text-purple-100 focus:border-pink-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -811,20 +812,24 @@ export function QuickUploadModal({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="flex items-center justify-between border-t border-purple-900/40 bg-[#160B3A]/95 px-6 py-4">
-          <div className="text-xs text-purple-300/80">
-            {selectedFiles.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-purple-900/40 bg-[#160B3A]/95 px-4 sm:px-6 py-3 sm:py-4 gap-2.5 sm:gap-0 shrink-0">
+          <div className="text-xs text-purple-300/80 text-center sm:text-left">
+            {selectedFiles.length > 0 ? (
               <span>
                 พร้อมอัปโหลด: <strong className="text-white">{selectedFiles.length}</strong> ไฟล์ ({totalSizeMb} MB)
+              </span>
+            ) : (
+              <span className="text-[11px] text-purple-400/60">
+                เลือกรูปภาพเพื่อเริ่มอัปโหลด
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={onClose}
               disabled={isUploading}
-              className="rounded-full border border-purple-700/60 bg-[#1F0F4C] px-4 py-2 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white transition-colors disabled:opacity-50"
+              className="rounded-full border border-purple-700/60 bg-[#1F0F4C] px-4 py-2.5 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white transition-colors disabled:opacity-50 shrink-0"
             >
               ยกเลิก
             </button>
@@ -832,7 +837,7 @@ export function QuickUploadModal({
             <button
               onClick={handleUploadSubmit}
               disabled={isUploading || selectedFiles.length === 0}
-              className="flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-pink-500/30 transition-all hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-5 sm:px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-pink-500/30 transition-all hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
             >
               {isUploading ? (
                 <>

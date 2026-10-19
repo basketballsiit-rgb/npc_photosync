@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getAcademicTermInfo } from "@/lib/academic-utils";
+import { apiUrl } from "@/lib/basepath";
 
 export default function HomePage() {
   const initialTerm = getAcademicTermInfo();
@@ -66,7 +67,7 @@ export default function HomePage() {
       }
       params.set("sortBy", "latest");
 
-      const res = await fetch(`/api/albums?${params.toString()}`);
+      const res = await fetch(apiUrl(`/api/albums?${params.toString()}`));
       const data = await res.json();
 
       if (data.success) {
@@ -117,7 +118,7 @@ export default function HomePage() {
     }
 
     // Dynamically sync configured current term from database if available
-    fetch("/api/admin/academic-terms")
+    fetch(apiUrl("/api/admin/academic-terms"))
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.currentTerm) {

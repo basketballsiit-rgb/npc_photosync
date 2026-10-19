@@ -92,11 +92,11 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
                 />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl font-black tracking-tight text-white">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="text-base sm:text-xl font-black tracking-tight text-white">
                     NPC<span className="bg-gradient-to-r from-pink-400 via-rose-300 to-cyan-300 bg-clip-text text-transparent">_PhotoSync</span>
                   </span>
-                  <span className="rounded-full bg-pink-500/10 px-2.5 py-0.5 text-[10px] font-bold text-pink-300 border border-pink-500/30">
+                  <span className="hidden sm:inline-block rounded-full bg-pink-500/10 px-2.5 py-0.5 text-[10px] font-bold text-pink-300 border border-pink-500/30">
                     ✦ PR Cloud
                   </span>
                 </div>
@@ -108,7 +108,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
           </div>
 
           {/* Action Controls & Role Switcher */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Quick Upload Button */}
             <button
               onClick={() => {
@@ -118,20 +118,20 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
                   router.push("/?upload=true");
                 }
               }}
-              className="flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-pink-500/30 transition-all duration-300 hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-pink-500/30 transition-all duration-300 hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Zap className="h-4 w-4 fill-white text-white animate-pulse" />
-              <span>อัปโหลดภาพด่วน</span>
+              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-white text-white animate-pulse" />
+              <span>อัปโหลด<span className="hidden sm:inline">ภาพด่วน</span></span>
             </button>
 
             {/* Admin Settings Button (Login Protected) */}
             {isAdminLoggedIn ? (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5">
                 <Link
                   href="/admin"
-                  className="flex items-center gap-1.5 rounded-full border border-pink-500/40 bg-pink-500/15 px-3.5 py-2 text-xs font-bold text-pink-300 transition-all hover:bg-pink-500 hover:text-white shadow-sm"
+                  className="flex items-center gap-1.5 rounded-full border border-pink-500/40 bg-pink-500/15 px-2.5 sm:px-3.5 py-2 text-xs font-bold text-pink-300 transition-all hover:bg-pink-500 hover:text-white shadow-sm"
                 >
-                  <ShieldCheck className="h-4 w-4 text-pink-400" />
+                  <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-pink-400" />
                   <span className="hidden sm:inline">จัดการระบบ</span>
                   <span className="sm:hidden">จัดการ</span>
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
@@ -139,7 +139,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
                 <button
                   onClick={handleLogout}
                   title="ออกจากระบบผู้ดูแล"
-                  className="p-2 rounded-full border border-purple-800/40 bg-[#1C0E46]/80 text-purple-300 hover:text-rose-300 hover:bg-rose-950/40 transition-colors"
+                  className="p-1.5 sm:p-2 rounded-full border border-purple-800/40 bg-[#1C0E46]/80 text-purple-300 hover:text-rose-300 hover:bg-rose-950/40 transition-colors"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                 </button>
@@ -147,10 +147,11 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
             ) : (
               <button
                 onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-full border border-purple-800/60 bg-[#1C0E46]/80 px-3.5 py-2 text-xs font-semibold text-purple-200 transition-all hover:border-pink-500/60 hover:bg-[#281464] hover:text-white"
+                className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-purple-800/60 bg-[#1C0E46]/80 px-2.5 sm:px-3.5 py-2 text-xs font-semibold text-purple-200 transition-all hover:border-pink-500/60 hover:bg-[#281464] hover:text-white"
               >
                 <Lock className="h-3.5 w-3.5 text-pink-400" />
-                <span>เข้าสู่ระบบ (จัดการ)</span>
+                <span className="hidden sm:inline">เข้าสู่ระบบ (จัดการ)</span>
+                <span className="sm:hidden">เข้าสู่ระบบ</span>
               </button>
             )}
 
@@ -158,7 +159,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
             <div className="relative">
               <button
                 onClick={() => setShowRoleMenu(!showRoleMenu)}
-                className="flex items-center gap-2 rounded-full border border-purple-800/50 bg-[#180C3E]/90 px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:border-pink-500/50"
+                className="flex items-center gap-2 rounded-full border border-purple-800/50 bg-[#180C3E]/90 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:border-pink-500/50"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500/20 to-purple-500/30 text-pink-300 border border-pink-500/30">
                   {isAdminLoggedIn ? (

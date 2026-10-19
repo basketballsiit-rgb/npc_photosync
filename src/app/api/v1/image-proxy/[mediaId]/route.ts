@@ -27,6 +27,7 @@ export async function GET(
   const { mediaId } = params;
   const { searchParams } = new URL(req.url);
   const type = (searchParams.get("type") || "report").toLowerCase(); // thumb, report, watermark, original
+  const isDownload = searchParams.get("download") === "1" || searchParams.has("download");
 
   try {
     const media = await prisma.mediaFile.findUnique({
@@ -45,6 +46,17 @@ export async function GET(
     const baseUploadPath =
       process.env.LOCAL_MEDIA_STORAGE_PATH || "./public/uploads";
 
+    // Formulate safe download filename
+    const rawBaseName = (media.fileName || "photo").replace(/\.[^/.]+$/, "");
+    const ext = type === "thumb" ? "webp" : "jpg";
+    const downloadSuffix = type === "watermark" ? "_PR" : type === "thumb" ? "_thumb" : type === "original" ? "" : "_HD";
+    const downloadFilename = type === "original" ? media.fileName : `${rawBaseName}${downloadSuffix}.${ext}`;
+    const encodedFilename = encodeURIComponent(downloadFilename);
+
+    const contentDisposition = isDownload
+      ? `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`
+      : `inline; filename="${encodedFilename}"`;
+
     if (type === "thumb") {
       const thumbPath = path.resolve(
         baseUploadPath,
@@ -59,7 +71,8 @@ export async function GET(
           headers: {
             ...corsHeaders,
             "Content-Type": "image/webp",
-            "Cache-Control": "public, max-age=604800, immutable",
+            "Content-Disposition": contentDisposition,
+            "Cache-Control": isDownload ? "no-cache" : "public, max-age=604800, immutable",
           },
         });
       }
@@ -78,7 +91,8 @@ export async function GET(
           headers: {
             ...corsHeaders,
             "Content-Type": "image/jpeg",
-            "Cache-Control": "public, max-age=86400",
+            "Content-Disposition": contentDisposition,
+            "Cache-Control": isDownload ? "no-cache" : "public, max-age=86400",
           },
         });
       }
@@ -101,7 +115,7 @@ export async function GET(
             headers: {
               ...corsHeaders,
               "Content-Type": media.mimeType || "image/jpeg",
-              "Content-Disposition": `inline; filename="${encodeURIComponent(media.fileName)}"`,
+              "Content-Disposition": contentDisposition,
             },
           });
         } catch (driveErr) {
@@ -124,7 +138,8 @@ export async function GET(
         headers: {
           ...corsHeaders,
           "Content-Type": "image/jpeg",
-          "Cache-Control": "public, max-age=604800, immutable",
+          "Content-Disposition": contentDisposition,
+          "Cache-Control": isDownload ? "no-cache" : "public, max-age=604800, immutable",
         },
       });
     }
@@ -147,6 +162,7 @@ export async function GET(
       headers: {
         ...corsHeaders,
         "Content-Type": "image/jpeg",
+        "Content-Disposition": contentDisposition,
       },
     });
   } catch (error) {
