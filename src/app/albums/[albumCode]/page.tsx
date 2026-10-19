@@ -33,7 +33,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
-import { showAlert } from "@/lib/sweetalert";
+import { showAlert, npcSwal } from "@/lib/sweetalert";
 
 interface MediaItem {
   id: string;
@@ -96,6 +96,21 @@ export default function AlbumDetailPage() {
   const [uploadProgressText, setUploadProgressText] = useState("");
   const [lineSharedSuccess, setLineSharedSuccess] = useState(false);
   const [downloadingMediaId, setDownloadingMediaId] = useState<string | null>(null);
+  const [isLineBrowser, setIsLineBrowser] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isLine = /Line\//i.test(navigator.userAgent);
+      setIsLineBrowser(isLine);
+      // If user opened inside LINE in-app browser without openExternalBrowser=1,
+      // redirect with parameter to trigger external browser opening on Android
+      if (isLine && !window.location.search.includes("openExternalBrowser=1")) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("openExternalBrowser", "1");
+        window.location.replace(url.toString());
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (albumCode) {
@@ -194,11 +209,48 @@ export default function AlbumDetailPage() {
     );
   };
 
+  // Check if running inside LINE in-app browser and guide user to Chrome / Safari
+  const checkLineBrowserAndPrompt = () => {
+    if (typeof navigator !== "undefined" && /Line\//i.test(navigator.userAgent)) {
+      npcSwal.fire({
+        icon: "warning",
+        title: "แอป LINE บล็อกการดาวน์โหลดไฟล์",
+        html: `
+          <div style="text-align: left; font-size: 13px; line-height: 1.6; color: #f1f5f9; background: rgba(255,255,255,0.05); padding: 14px; border-radius: 16px; border: 1px solid rgba(245,158,11,0.3); margin-top: 10px;">
+            <p style="margin-bottom: 8px;">เบราว์เซอร์ภายในแอป LINE จะบล็อกการบันทึกไฟล์ลงเครื่องโดยตรง</p>
+            <p style="margin-bottom: 8px;"><strong style="color: #38bdf8;">วิธีดาวน์โหลดภาพลงมือถือ:</strong></p>
+            <div style="margin-bottom: 8px;">
+              <strong>1. แนะนำ (ง่ายที่สุด):</strong> กดปุ่มด้านล่างเพื่อเปิดด้วย <strong>Google Chrome / Safari</strong> แล้วจะดาวน์โหลดได้ทันที 100%
+            </div>
+            <div>
+              <strong>2. หรือแตะค้าง:</strong> ในหน้าต่างดูภาพ ให้ <strong>"แตะค้างที่รูปภาพ"</strong> แล้วเลือก <strong>"บันทึกรูปภาพ"</strong>
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: "🌐 เปิดใน Chrome / Safari ทันที",
+        cancelButtonText: "ปิด",
+        confirmButtonColor: "#10b981",
+        cancelButtonColor: "#4c1d95",
+        backdrop: "rgba(9, 5, 20, 0.85)",
+      }).then((res) => {
+        if (res.isConfirmed) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("openExternalBrowser", "1");
+          window.location.href = url.toString();
+        }
+      });
+      return true;
+    }
+    return false;
+  };
+
   // Trigger ZIP Download
   const handleDownloadZip = async (
     quality: "original" | "report" | "watermark"
   ) => {
     if (!album) return;
+    if (checkLineBrowserAndPrompt()) return;
     setIsDownloadingZip(true);
 
     try {
@@ -236,6 +288,7 @@ export default function AlbumDetailPage() {
     media: MediaItem,
     quality: "report" | "watermark" | "original" = "report"
   ) => {
+    if (checkLineBrowserAndPrompt()) return;
     setDownloadingMediaId(media.id);
     try {
       const base = getClientBasePath();
@@ -287,13 +340,16 @@ export default function AlbumDetailPage() {
   const handleShareToLine = () => {
     if (!album) return;
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    const shareUrl = currentUrl.includes("openExternalBrowser=1")
+      ? currentUrl
+      : `${currentUrl}${currentUrl.includes("?") ? "&" : "?"}openExternalBrowser=1`;
     const message = `📢 [คลังภาพกิจกรรม วช.น่าน]
 📌 กิจกรรม: ${album.title}
 📅 วันที่: ${formatThaiDate(album.eventDate)}
 🏛️ ${album.divisionName}${album.departmentName ? " • " + album.departmentName : ""}
 📸 มีรูปภาพทั้งหมด: ${album.photoCount} ภาพ
 🌐 เปิดดูและดาวน์โหลดภาพคมชัดระดับ HD (หรืออัปโหลดรูปเพิ่ม):
-${currentUrl}`;
+${shareUrl}`;
 
     navigator.clipboard.writeText(message);
     setLineSharedSuccess(true);
@@ -405,6 +461,34 @@ ${currentUrl}`;
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col pb-32">
+      {/* LINE In-App Browser Warning & One-Click Chrome/Safari Launcher */}
+      {isLineBrowser && (
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white px-4 py-3 shadow-2xl backdrop-blur-md border-b border-emerald-400/40">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 text-xs sm:text-sm">
+              <span className="text-xl shrink-0">📱</span>
+              <div>
+                <span className="font-bold">กำลังเปิดในแอป LINE:</span>
+                <span className="text-emerald-100 ml-1">
+                  LINE บล็อกการบันทึกไฟล์ แนะนำให้เปิดด้วย Chrome / Safari เพื่อดาวน์โหลดภาพลงมือถือได้ทันที
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const url = new URL(window.location.href);
+                url.searchParams.set("openExternalBrowser", "1");
+                window.location.href = url.toString();
+              }}
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-full bg-white text-emerald-800 font-bold px-4 py-2 text-xs shadow-md hover:bg-emerald-50 active:scale-95 transition-all shrink-0"
+            >
+              <ExternalLink className="h-3.5 w-3.5 text-emerald-700" />
+              <span>เปิดด้วย Chrome / Safari ทันที</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Navbar */}
       <Navbar onQuickUploadClick={() => setIsAddPhotosModalOpen(true)} />
 
@@ -807,7 +891,7 @@ ${currentUrl}`;
                 </div>
 
                 {/* Direct Mobile Download Buttons */}
-                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
                   <button
                     onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "report")}
                     disabled={downloadingMediaId === activeLightboxMedia.id}
@@ -819,6 +903,14 @@ ${currentUrl}`;
                       <Download className="h-3.5 w-3.5" />
                     )}
                     <span>ดาวน์โหลด HD</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "original")}
+                    disabled={downloadingMediaId === activeLightboxMedia.id}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full border border-purple-600 bg-purple-900/60 px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-purple-800 hover:text-white active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    <span>ดาวน์โหลดฉบับเต็ม</span>
                   </button>
 
                   <button

@@ -148,9 +148,10 @@ export async function sendNewAlbumFlexMessage(
   }
 
   // If this is a test album, link directly to the main PhotoSync gallery
+  // Append openExternalBrowser=1 so LINE automatically launches default browser (Chrome/Safari)
   let albumPageUrl = album.albumCode.startsWith("TEST-")
-    ? baseUrl
-    : `${baseUrl}/albums/${album.albumCode}`;
+    ? `${baseUrl}?openExternalBrowser=1`
+    : `${baseUrl}/albums/${album.albumCode}?openExternalBrowser=1`;
 
   if (!albumPageUrl.startsWith("https://")) {
     albumPageUrl = albumPageUrl.replace(/^http:\/\//i, "https://");
