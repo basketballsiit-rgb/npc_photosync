@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   verifySessionToken,
-  verifyAdminCredentials,
+  verifyUserCredentials,
   updateAdminPassword,
+  updatePrPassword,
   AUTH_COOKIE_NAME,
 } from "@/lib/auth-service";
 
@@ -36,8 +37,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const isCurrentValid = await verifyAdminCredentials(session.username, currentPassword);
-    if (!isCurrentValid) {
+    const verifyResult = await verifyUserCredentials(session.username, currentPassword);
+    if (!verifyResult.isValid) {
       return NextResponse.json(
         { success: false, error: "รหัสผ่านเดิมไม่ถูกต้อง" },
         { status: 400 }
@@ -51,11 +52,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await updateAdminPassword(newPassword);
+    if (session.role === "PR_STAFF") {
+      await updatePrPassword(newPassword);
+    } else {
+      await updateAdminPassword(newPassword);
+    }
 
     return NextResponse.json({
       success: true,
-      message: "เปลี่ยนรหัสผ่านผู้ดูแลระบบสำเร็จแล้ว",
+      message: `เปลี่ยนรหัสผ่านสำหรับ ${session.name} สำเร็จแล้ว`,
     });
   } catch (error) {
     console.error("Error changing admin password:", error);

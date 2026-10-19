@@ -182,8 +182,13 @@ export default function AdminPage() {
   const [showLineToken, setShowLineToken] = useState(false);
   const [showLineSecret, setShowLineSecret] = useState(false);
 
-  // Admin Authentication State
+  // User & Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    username: string;
+    name: string;
+    role: "SUPER_ADMIN" | "PR_STAFF";
+  } | null>(null);
   const [loginUser, setLoginUser] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [showLoginPass, setShowLoginPass] = useState(false);
@@ -202,17 +207,31 @@ export default function AdminPage() {
       const data = await res.json();
       if (data.isAuthenticated) {
         setIsAuthenticated(true);
+        if (data.user) {
+          setCurrentUser(data.user);
+          if (data.user.role === "PR_STAFF") {
+            setActiveTab((prev) =>
+              ["smartflow", "google_drive", "line_notify"].includes(prev)
+                ? "academic_terms"
+                : prev
+            );
+          }
+        }
         loadDashboardData();
         fetchAcademicTerms();
         fetchDepartments();
-        fetchDriveSettings();
+        if (data.user?.role !== "PR_STAFF") {
+          fetchDriveSettings();
+          fetchLineSettings();
+        }
         fetchWatermarkInfo();
-        fetchLineSettings();
       } else {
         setIsAuthenticated(false);
+        setCurrentUser(null);
       }
     } catch {
       setIsAuthenticated(false);
+      setCurrentUser(null);
     }
   };
 
@@ -229,12 +248,20 @@ export default function AdminPage() {
       const data = await res.json();
       if (data.success) {
         setIsAuthenticated(true);
+        if (data.user) {
+          setCurrentUser(data.user);
+          if (data.user.role === "PR_STAFF") {
+            setActiveTab("academic_terms");
+          }
+        }
         loadDashboardData();
         fetchAcademicTerms();
         fetchDepartments();
-        fetchDriveSettings();
+        if (data.user?.role !== "PR_STAFF") {
+          fetchDriveSettings();
+          fetchLineSettings();
+        }
         fetchWatermarkInfo();
-        fetchLineSettings();
       } else {
         setLoginError(data.error || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
       }
@@ -251,10 +278,12 @@ export default function AdminPage() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       setIsAuthenticated(false);
+      setCurrentUser(null);
       window.location.href = "/";
     } catch (err) {
       console.error("Logout error:", err);
       setIsAuthenticated(false);
+      setCurrentUser(null);
     }
   };
 
@@ -1093,11 +1122,11 @@ export default function AdminPage() {
                   เข้าสู่ระบบจัดการระบบ
                 </h1>
                 <p className="mt-1 text-xs sm:text-sm text-purple-300/80">
-                  Admin Console • วิทยาลัยสารพัดช่างน่าน
+                  Admin & PR Console • วิทยาลัยสารพัดช่างน่าน
                 </p>
                 <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-900/50 border border-purple-700/40 text-[11px] text-purple-300">
                   <Lock className="h-3 w-3 text-pink-400" />
-                  <span>เฉพาะผู้ดูแลระบบที่มีสิทธิ์เท่านั้น</span>
+                  <span>สำหรับผู้ดูแลระบบและเจ้าหน้าที่งานประชาสัมพันธ์</span>
                 </div>
               </div>
 
@@ -1112,14 +1141,14 @@ export default function AdminPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-purple-200 flex items-center gap-1.5">
                     <User className="h-3.5 w-3.5 text-pink-400" />
-                    <span>ชื่อผู้ใช้ หรือ อีเมลแอดมิน</span>
+                    <span>ชื่อผู้ใช้ (admin หรือ pr)</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={loginUser}
                     onChange={(e) => setLoginUser(e.target.value)}
-                    placeholder="ระบุชื่อผู้ใช้หรืออีเมลผู้ดูแลระบบ"
+                    placeholder="admin หรือ pr"
                     className="w-full rounded-2xl border border-purple-700/40 bg-[#1c0d3a]/80 px-4 py-2.5 text-sm text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all"
                   />
                 </div>
@@ -1127,7 +1156,7 @@ export default function AdminPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-purple-200 flex items-center gap-1.5">
                     <Key className="h-3.5 w-3.5 text-pink-400" />
-                    <span>รหัสผ่านผู้ดูแลระบบ</span>
+                    <span>รหัสผ่าน</span>
                   </label>
                   <div className="relative">
                     <input
@@ -1135,7 +1164,7 @@ export default function AdminPage() {
                       required
                       value={loginPass}
                       onChange={(e) => setLoginPass(e.target.value)}
-                      placeholder="ระบุรหัสผ่านผู้ดูแลระบบ"
+                      placeholder="ระบุรหัสผ่านของคุณ"
                       className="w-full rounded-2xl border border-purple-700/40 bg-[#1c0d3a]/80 px-4 py-2.5 pr-10 text-sm text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all"
                     />
                     <button
@@ -1202,17 +1231,37 @@ export default function AdminPage() {
               <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 text-white shadow-md shadow-pink-500/25">
                 <ShieldCheck className="h-5 w-5" />
               </div>
-              <span>ศูนย์ควบคุมและบริหารระบบ (Admin Console)</span>
+              <span>
+                {currentUser?.role === "PR_STAFF"
+                  ? "ศูนย์บริหารงานประชาสัมพันธ์ (PR Console)"
+                  : "ศูนย์ควบคุมและบริหารระบบ (Admin Console)"}
+              </span>
             </h1>
             <p className="text-xs text-purple-300/80">
-              วิทยาลัยสารพัดช่างน่าน • จัดการอัลบั้มตกค้าง, ตรวจสอบการเชื่อมโยง SmartFlow และสรุปผลงาน PR
+              {currentUser?.role === "PR_STAFF"
+                ? "วิทยาลัยสารพัดช่างน่าน • กำหนดปีการศึกษา, จัดการแผนกวิชา, อัลบั้มภาพถ่าย และสรุปผลงานประชาสัมพันธ์"
+                : "วิทยาลัยสารพัดช่างน่าน • จัดการอัลบั้มตกค้าง, ตรวจสอบการเชื่อมโยง SmartFlow และสรุปผลงาน PR"}
             </p>
           </div>
 
           <div className="flex items-center gap-2.5 self-start sm:self-center">
-            <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-900/40 border border-purple-700/40 text-xs text-purple-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>ผู้ดูแลระบบ (Admin)</span>
+            <div
+              className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium ${
+                currentUser?.role === "PR_STAFF"
+                  ? "bg-pink-950/50 border-pink-700/50 text-pink-300"
+                  : "bg-purple-900/40 border-purple-700/40 text-purple-300"
+              }`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full animate-pulse ${
+                  currentUser?.role === "PR_STAFF" ? "bg-pink-400" : "bg-emerald-400"
+                }`}
+              />
+              <span>
+                {currentUser?.role === "PR_STAFF"
+                  ? "เจ้าหน้าที่งานประชาสัมพันธ์ (PR)"
+                  : "ผู้ดูแลระบบสูงสุด (Super Admin)"}
+              </span>
             </div>
             <button
               onClick={handleAdminLogout}
@@ -1278,71 +1327,73 @@ export default function AdminPage() {
           </div>
         </section>
 
-        {/* SECTION 2: System Health Status Grid */}
-        <section className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-5 shadow-xl backdrop-blur-md">
-          <div className="text-xs font-bold text-purple-200 uppercase tracking-wider mb-3.5 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-pink-400" />
-            <span>สถานะการเชื่อมต่อบริการภายนอก (System Health Status)</span>
-          </div>
+        {/* SECTION 2: System Health Status Grid (Super Admin Only) */}
+        {currentUser?.role !== "PR_STAFF" && (
+          <section className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-5 shadow-xl backdrop-blur-md">
+            <div className="text-xs font-bold text-purple-200 uppercase tracking-wider mb-3.5 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-pink-400" />
+              <span>สถานะการเชื่อมต่อบริการภายนอก (System Health Status)</span>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Google Drive Health */}
-            <div className="rounded-2xl border border-purple-800/40 bg-[#180C3E]/90 p-3.5 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500/20 text-cyan-400 shrink-0 border border-cyan-500/30">
-                <HardDrive className="h-5 w-5" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Google Drive Health */}
+              <div className="rounded-2xl border border-purple-800/40 bg-[#180C3E]/90 p-3.5 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500/20 text-cyan-400 shrink-0 border border-cyan-500/30">
+                  <HardDrive className="h-5 w-5" />
+                </div>
+                <div className="text-xs">
+                  <div className="font-bold text-white">Google Shared Drive</div>
+                  <div className="text-[11px] text-emerald-300 flex items-center gap-1 mt-0.5 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {health?.googleDrive.label || "พร้อมใช้งาน"}
+                  </div>
+                </div>
               </div>
-              <div className="text-xs">
-                <div className="font-bold text-white">Google Shared Drive</div>
-                <div className="text-[11px] text-emerald-300 flex items-center gap-1 mt-0.5 font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  {health?.googleDrive.label || "พร้อมใช้งาน"}
+
+              {/* SmartFlow Health */}
+              <div className="rounded-2xl border border-purple-800/40 bg-[#180C3E]/90 p-3.5 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-pink-500/20 text-pink-400 shrink-0 border border-pink-500/30">
+                  <FolderSync className="h-5 w-5" />
+                </div>
+                <div className="text-xs">
+                  <div className="font-bold text-white">npc_smartflow API</div>
+                  <div className="text-[11px] text-cyan-300 flex items-center gap-1 mt-0.5 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                    {health?.smartflow.label || "ซิงค์อัตโนมัติ 2 ทาง"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Gemini Vision Health */}
+              <div className="rounded-2xl border border-purple-800/40 bg-[#180C3E]/90 p-3.5 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-400 shrink-0 border border-purple-500/30">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div className="text-xs">
+                  <div className="font-bold text-white">Gemini 1.5 Flash Vision</div>
+                  <div className="text-[11px] text-purple-300 flex items-center gap-1 mt-0.5 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
+                    {health?.geminiVision.label || "วิเคราะห์ภาพอัตโนมัติ"}
+                  </div>
+                </div>
+              </div>
+
+              {/* LINE Messaging Health */}
+              <div className="rounded-2xl border border-purple-800/40 bg-[#180C3E]/90 p-3.5 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 shrink-0 border border-emerald-500/30">
+                  <MessageSquare className="h-5 w-5" />
+                </div>
+                <div className="text-xs">
+                  <div className="font-bold text-white">LINE Messaging API</div>
+                  <div className="text-[11px] text-emerald-300 flex items-center gap-1 mt-0.5 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {health?.lineMessaging.label || "ส่ง Flex Message สำเร็จ"}
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* SmartFlow Health */}
-            <div className="rounded-2xl border border-purple-800/40 bg-[#180C3E]/90 p-3.5 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-pink-500/20 text-pink-400 shrink-0 border border-pink-500/30">
-                <FolderSync className="h-5 w-5" />
-              </div>
-              <div className="text-xs">
-                <div className="font-bold text-white">npc_smartflow API</div>
-                <div className="text-[11px] text-cyan-300 flex items-center gap-1 mt-0.5 font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                  {health?.smartflow.label || "ซิงค์อัตโนมัติ 2 ทาง"}
-                </div>
-              </div>
-            </div>
-
-            {/* Gemini Vision Health */}
-            <div className="rounded-2xl border border-purple-800/40 bg-[#180C3E]/90 p-3.5 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-400 shrink-0 border border-purple-500/30">
-                <Bot className="h-5 w-5" />
-              </div>
-              <div className="text-xs">
-                <div className="font-bold text-white">Gemini 1.5 Flash Vision</div>
-                <div className="text-[11px] text-purple-300 flex items-center gap-1 mt-0.5 font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
-                  {health?.geminiVision.label || "วิเคราะห์ภาพอัตโนมัติ"}
-                </div>
-              </div>
-            </div>
-
-            {/* LINE Messaging Health */}
-            <div className="rounded-2xl border border-purple-800/40 bg-[#180C3E]/90 p-3.5 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 shrink-0 border border-emerald-500/30">
-                <MessageSquare className="h-5 w-5" />
-              </div>
-              <div className="text-xs">
-                <div className="font-bold text-white">LINE Messaging API</div>
-                <div className="text-[11px] text-emerald-300 flex items-center gap-1 mt-0.5 font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  {health?.lineMessaging.label || "ส่ง Flex Message สำเร็จ"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* SECTION 3: Tab Navigation */}
         <div className="flex flex-wrap items-center gap-2 border-b border-purple-900/40 text-xs font-bold">
@@ -1404,17 +1455,19 @@ export default function AdminPage() {
             )}
           </button>
 
-          <button
-            onClick={() => setActiveTab("smartflow")}
-            className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
-              activeTab === "smartflow"
-                ? "border-pink-500 text-pink-300"
-                : "border-transparent text-purple-400 hover:text-white"
-            }`}
-          >
-            <FolderSync className="h-4 w-4" />
-            <span>ศูนย์ซิงค์ & ทดสอบ API SmartFlow</span>
-          </button>
+          {currentUser?.role !== "PR_STAFF" && (
+            <button
+              onClick={() => setActiveTab("smartflow")}
+              className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
+                activeTab === "smartflow"
+                  ? "border-pink-500 text-pink-300"
+                  : "border-transparent text-purple-400 hover:text-white"
+              }`}
+            >
+              <FolderSync className="h-4 w-4" />
+              <span>ศูนย์ซิงค์ & ทดสอบ API SmartFlow</span>
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -1431,51 +1484,55 @@ export default function AdminPage() {
             <span>รายงานผลงานประชาสัมพันธ์ & การตั้งค่า</span>
           </button>
 
-          <button
-            onClick={() => {
-              setActiveTab("google_drive");
-              fetchDriveSettings();
-            }}
-            className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
-              activeTab === "google_drive"
-                ? "border-cyan-500 text-cyan-300"
-                : "border-transparent text-purple-400 hover:text-white"
-            }`}
-          >
-            <HardDrive className="h-4 w-4 text-cyan-400" />
-            <span>☁️ ตั้งค่า Google Drive & พื้นที่จัดเก็บ</span>
-            {driveSettings?.isConfigured && !driveSettings?.isMock && (
-              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[9px] font-mono text-emerald-300 border border-emerald-500/30">
-                เชื่อมต่อแล้ว
-              </span>
-            )}
-          </button>
+          {currentUser?.role !== "PR_STAFF" && (
+            <button
+              onClick={() => {
+                setActiveTab("google_drive");
+                fetchDriveSettings();
+              }}
+              className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
+                activeTab === "google_drive"
+                  ? "border-cyan-500 text-cyan-300"
+                  : "border-transparent text-purple-400 hover:text-white"
+              }`}
+            >
+              <HardDrive className="h-4 w-4 text-cyan-400" />
+              <span>☁️ ตั้งค่า Google Drive & พื้นที่จัดเก็บ</span>
+              {driveSettings?.isConfigured && !driveSettings?.isMock && (
+                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[9px] font-mono text-emerald-300 border border-emerald-500/30">
+                  เชื่อมต่อแล้ว
+                </span>
+              )}
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setActiveTab("line_notify");
-              fetchLineSettings();
-            }}
-            className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
-              activeTab === "line_notify"
-                ? "border-emerald-500 text-emerald-300"
-                : "border-transparent text-purple-400 hover:text-white"
-            }`}
-          >
-            <MessageSquare className="h-4 w-4 text-emerald-400" />
-            <span>💬 ตั้งค่าแจ้งเตือน LINE กลุ่ม</span>
-            {lineSettings?.isConfigured && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[9px] font-mono border ${
-                  lineSettings.isEnabled
-                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                    : "bg-amber-500/20 text-amber-300 border-amber-500/30"
-                }`}
-              >
-                {lineSettings.isEnabled ? "เปิดใช้งาน" : "ปิดชั่วคราว"}
-              </span>
-            )}
-          </button>
+          {currentUser?.role !== "PR_STAFF" && (
+            <button
+              onClick={() => {
+                setActiveTab("line_notify");
+                fetchLineSettings();
+              }}
+              className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
+                activeTab === "line_notify"
+                  ? "border-emerald-500 text-emerald-300"
+                  : "border-transparent text-purple-400 hover:text-white"
+              }`}
+            >
+              <MessageSquare className="h-4 w-4 text-emerald-400" />
+              <span>💬 ตั้งค่าแจ้งเตือน LINE กลุ่ม</span>
+              {lineSettings?.isConfigured && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[9px] font-mono border ${
+                    lineSettings.isEnabled
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                      : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                  }`}
+                >
+                  {lineSettings.isEnabled ? "เปิดใช้งาน" : "ปิดชั่วคราว"}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* TAB 0: ACADEMIC TERMS & CURRENT SEMESTER SETTINGS */}
@@ -2445,7 +2502,7 @@ export default function AdminPage() {
 
 
         {/* TAB 2: SMARTFLOW INTEGRATION & API TESTER */}
-        {activeTab === "smartflow" && (
+        {activeTab === "smartflow" && currentUser?.role !== "PR_STAFF" && (
           <section className="space-y-6">
             {/* Header Action */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-5 shadow-xl backdrop-blur-md">
@@ -2798,7 +2855,7 @@ export default function AdminPage() {
         )}
 
         {/* TAB 4: GOOGLE DRIVE & CLOUD STORAGE SETTINGS (OAUTH 2.0) */}
-        {activeTab === "google_drive" && (
+        {activeTab === "google_drive" && currentUser?.role !== "PR_STAFF" && (
           <section className="space-y-6">
             {/* Status & Connection Overview Banner */}
             <div className="relative overflow-hidden rounded-3xl border border-cyan-700/50 bg-gradient-to-r from-[#0C1A3E]/90 via-[#101235]/90 to-[#0A0620]/95 p-6 shadow-2xl backdrop-blur-xl">
@@ -3080,7 +3137,7 @@ export default function AdminPage() {
         )}
 
         {/* Tab 5: LINE Messaging API Settings */}
-        {activeTab === "line_notify" && (
+        {activeTab === "line_notify" && currentUser?.role !== "PR_STAFF" && (
           <section className="space-y-6 animate-fadeIn">
             {/* Header Banner */}
             <div className="relative overflow-hidden rounded-3xl border border-emerald-800/40 bg-gradient-to-br from-[#0c2419] via-[#0b172a] to-[#140b2e] p-6 sm:p-8 shadow-2xl backdrop-blur-xl">

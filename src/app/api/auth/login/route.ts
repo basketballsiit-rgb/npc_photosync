@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  verifyAdminCredentials,
+  verifyUserCredentials,
   createSessionToken,
   AUTH_COOKIE_NAME,
 } from "@/lib/auth-service";
@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const isValid = await verifyAdminCredentials(username, password);
+    const authResult = await verifyUserCredentials(username, password);
 
-    if (!isValid) {
+    if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         {
           success: false,
@@ -31,16 +31,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const token = createSessionToken(username);
+    const { user } = authResult;
+    const token = createSessionToken(user.username, user.role, user.name);
 
     const response = NextResponse.json({
       success: true,
-      message: "เข้าสู่ระบบสำเร็จ ยินดีต้อนรับสู่ส่วนจัดการระบบ",
-      user: {
-        username: username.trim(),
-        name: "ผู้ดูแลระบบ (Admin)",
-        role: "SUPER_ADMIN",
-      },
+      message: `เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ ${user.name}`,
+      user,
     });
 
     // Set secure HTTP-only cookie valid for 7 days
