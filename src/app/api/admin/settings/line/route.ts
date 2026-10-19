@@ -65,10 +65,14 @@ export async function POST(req: NextRequest) {
       });
 
       if (!testResult.success) {
+        let userError = testResult.error || "ไม่สามารถส่งข้อความทดสอบเข้ากลุ่ม LINE ได้ กรุณาตรวจสอบ Token และ Group ID";
+        if (userError.includes("monthly limit") || userError.includes("limit")) {
+          userError = "โควตาข้อความฟรีของ LINE Official Account ประจำเดือนนี้เต็มแล้ว (200 ข้อความ/เดือน บน Free Plan) บอทจึงไม่สามารถส่ง Push Message เข้ากลุ่มได้ในเดือนนี้ แนะนำให้กดปุ่ม 'แชร์ลงกลุ่ม LINE' บนหน้าดูอัลบั้ม (แชร์ฟรีไม่จำกัด) หรืออัปเกรดแพ็กเกจใน LINE Official Account Manager";
+        }
         return NextResponse.json(
           {
             success: false,
-            error: testResult.error || "ไม่สามารถส่งข้อความทดสอบเข้ากลุ่ม LINE ได้ กรุณาตรวจสอบ Token และ Group ID",
+            error: userError,
           },
           { status: 400 }
         );

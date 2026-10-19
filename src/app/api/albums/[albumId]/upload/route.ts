@@ -210,9 +210,10 @@ export async function POST(
 
     // 7. LINE Flex Message Notification
     // Only send notification when explicitly requested (e.g. on final chunk of upload)
+    let lineNotificationResult: { success: boolean; error?: string } | null = null;
     if (sendLine) {
       try {
-        await sendNewAlbumFlexMessage({
+        const lineRes = await sendNewAlbumFlexMessage({
           albumCode: album.albumCode,
           title: album.title,
           description: album.description,
@@ -227,12 +228,19 @@ export async function POST(
           projectName: album.project?.projectName,
         });
 
-        await prisma.album.update({
-          where: { id: album.id },
-          data: { isLineNotified: true },
-        });
-      } catch (lineErr) {
+        lineNotificationResult = lineRes;
+
+        if (lineRes.success) {
+          await prisma.album.update({
+            where: { id: album.id },
+            data: { isLineNotified: true },
+          });
+        } else {
+          console.warn("LINE push notification failed or skipped:", lineRes.error);
+        }
+      } catch (lineErr: any) {
         console.warn("LINE notification skipped or failed:", lineErr);
+        lineNotificationResult = { success: false, error: lineErr?.message || "Unknown error" };
       }
     }
 
@@ -244,6 +252,7 @@ export async function POST(
         photoCount: updatedAlbum.photoCount,
         totalSizeBytes: Number(updatedAlbum.totalSizeBytes),
         uploadedPhotos: uploadedMediaList,
+        lineNotification: lineNotificationResult,
       },
     });
   } catch (error) {

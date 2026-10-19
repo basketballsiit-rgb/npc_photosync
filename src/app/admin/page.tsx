@@ -2395,6 +2395,21 @@ export default function AdminPage() {
                                 <Edit className="h-4 w-4" />
                               </button>
 
+                              {/* Share to LINE Button (Free, Unlimited) */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const origin = typeof window !== "undefined" ? window.location.origin : "";
+                                  const url = `${origin}/npc_photosync/albums/${album.albumCode}?openExternalBrowser=1`;
+                                  const shareText = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 ${album.title}\n📅 วันที่: ${album.eventDate?.slice(0, 10)}\n📸 จำนวน: ${album.photoCount} ภาพ\n🌐 เปิดดูภาพและดาวน์โหลด:\n${url}`;
+                                  window.open(`https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`, "_blank");
+                                }}
+                                className="p-1.5 rounded-xl text-emerald-400 hover:text-emerald-200 hover:bg-emerald-950/50 transition-colors"
+                                title="แชร์ลงกลุ่ม LINE (ฟรี ไม่จำกัดโควตา)"
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                              </button>
+
                               {/* Link Project Button (if unlinked) */}
                               {isUnlinked && (
                                 <button

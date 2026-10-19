@@ -285,6 +285,7 @@ export function QuickUploadModal({
       const totalFiles = selectedFiles.length;
       const totalBatches = Math.ceil(totalFiles / CHUNK_SIZE);
       let uploadedCount = 0;
+      let lastLineNotification: { success: boolean; error?: string } | null = null;
 
       // 2. Upload Batch Files in small chunks (2 files/request) with auto-retry
       for (let i = 0; i < totalFiles; i += CHUNK_SIZE) {
@@ -329,6 +330,10 @@ export function QuickUploadModal({
               throw new Error(uploadData.error || `ไม่สามารถอัปโหลดรูปภาพชุดที่ ${currentBatchNum} ได้`);
             }
 
+            if (uploadData.data?.lineNotification) {
+              lastLineNotification = uploadData.data.lineNotification;
+            }
+
             lastError = null;
             break;
           } catch (batchErr: any) {
@@ -364,6 +369,36 @@ export function QuickUploadModal({
       }
       onClose();
 
+      const shareOrigin = typeof window !== "undefined" ? window.location.origin : "";
+      const albumShareUrl = `${shareOrigin}${getClientBasePath()}/albums/${albumResult.albumCode}?openExternalBrowser=1`;
+      const lineShareMsg = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 กิจกรรม: ${albumResult.title}\n📅 วันที่: ${albumResult.eventDate?.slice(0, 10)}\n📸 จำนวน: ${filesCount} ภาพ\n🌐 เปิดดูและดาวน์โหลดภาพ:\n${albumShareUrl}`;
+      const lineDirectShareLink = `https://line.me/R/msg/text/?${encodeURIComponent(lineShareMsg)}`;
+
+      let lineHtmlStatus = '<span style="color: #94a3b8;">ไม่ได้เปิดใช้งาน</span>';
+      if (sendLineNotify) {
+        if (lastLineNotification?.success) {
+          lineHtmlStatus = '<span style="color: #34d399;">✅ ส่งข้อความ Flex Message เข้ากลุ่ม LINE เรียบร้อย</span>';
+        } else if (lastLineNotification?.error?.includes("monthly limit") || lastLineNotification?.error?.includes("limit")) {
+          lineHtmlStatus = `
+            <span style="color: #f59e0b;">⚠️ โควตาข้อความฟรีของ LINE OA ประจำเดือนนี้เต็มแล้ว (200 ข้อความ/เดือน)</span>
+            <div style="margin-top: 6px;">
+              <a href="${lineDirectShareLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; background: #06c755; color: white; border-radius: 9999px; text-decoration: none; font-weight: bold; font-size: 11px;">
+                📲 คลิกที่นี่เพื่อแชร์ลงกลุ่ม LINE ทันที (ฟรี ไม่จำกัด)
+              </a>
+            </div>
+          `;
+        } else {
+          lineHtmlStatus = `
+            <span style="color: #f87171;">⚠️ ไม่สามารถส่งข้อความอัตโนมัติได้</span>
+            <div style="margin-top: 6px;">
+              <a href="${lineDirectShareLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; background: #06c755; color: white; border-radius: 9999px; text-decoration: none; font-weight: bold; font-size: 11px;">
+                📲 คลิกเพื่อแชร์ลงกลุ่ม LINE ด้วยตนเอง
+              </a>
+            </div>
+          `;
+        }
+      }
+
       // Show comprehensive SweetAlert2 dialog with 1-click view link
       await npcSwal.fire({
         icon: "success",
@@ -374,7 +409,7 @@ export function QuickUploadModal({
             <div style="margin-bottom: 6px;"><strong style="color: #f472b6;">🏷️ รหัสอัลบั้ม:</strong> <span style="color: #fb7185; font-family: monospace; font-weight: bold;">${albumResult.albumCode}</span></div>
             <div style="margin-bottom: 6px;"><strong style="color: #f472b6;">🖼️ จำนวนรูปภาพ:</strong> <span style="color: #34d399; font-weight: bold;">${filesCount} รูป</span></div>
             <div style="margin-bottom: 6px;"><strong style="color: #f472b6;">☁️ Google Drive:</strong> สำรองไฟล์ต้นฉบับ 100% เรียบร้อย</div>
-            <div><strong style="color: #f472b6;">💬 แจ้งเตือน LINE:</strong> ${sendLineNotify ? "ส่งข้อความเข้ากลุ่มเรียบร้อย" : "ไม่ได้เปิดใช้งาน"}</div>
+            <div><strong style="color: #f472b6;">💬 แจ้งเตือน LINE:</strong> ${lineHtmlStatus}</div>
           </div>
         `,
         showCancelButton: true,
