@@ -42,10 +42,13 @@ import {
   Send,
   HelpCircle,
   Info,
+  Image as ImageIcon,
 } from "lucide-react";
 import { NPC_DIVISIONS } from "@/lib/academic-utils";
 import { DepartmentItem } from "@/lib/services/departmentService";
 import { showAlert } from "@/lib/sweetalert";
+import { EditAlbumModal } from "@/components/admin/EditAlbumModal";
+import { ManagePhotosModal } from "@/components/admin/ManagePhotosModal";
 
 interface AdminStats {
   totalAlbums: number;
@@ -68,7 +71,7 @@ interface SystemHealth {
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<
-    "academic_terms" | "departments" | "orphans" | "smartflow" | "pr_report" | "google_drive" | "line_notify"
+    "academic_terms" | "departments" | "albums" | "orphans" | "smartflow" | "pr_report" | "google_drive" | "line_notify"
   >("academic_terms");
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
@@ -97,7 +100,18 @@ export default function AdminPage() {
   const [deptSearchQuery, setDeptSearchQuery] = useState("");
   const [editingDept, setEditingDept] = useState<DepartmentItem | null>(null);
 
-  // Tab 1: Orphan Albums
+  // Tab 1: Albums & Photos CRUD Manager
+  const [adminAlbums, setAdminAlbums] = useState<any[]>([]);
+  const [isAdminAlbumsLoading, setIsAdminAlbumsLoading] = useState(false);
+  const [albumSearchQuery, setAlbumSearchQuery] = useState("");
+  const [albumFilterType, setAlbumFilterType] = useState<"all" | "orphans" | "linked">("all");
+  const [albumYearFilter, setAlbumYearFilter] = useState<string>("");
+  const [albumTypeFilter, setAlbumTypeFilter] = useState<string>("");
+  const [albumDeptFilter, setAlbumDeptFilter] = useState<string>("");
+  const [editingAlbum, setEditingAlbum] = useState<any | null>(null);
+  const [managingPhotosAlbumId, setManagingPhotosAlbumId] = useState<string | null>(null);
+
+  // Orphan Albums (Unlinked)
   const [orphanAlbums, setOrphanAlbums] = useState<any[]>([]);
   const [selectedAlbumToLink, setSelectedAlbumToLink] = useState<any | null>(null);
 
@@ -441,6 +455,9 @@ export default function AdminPage() {
         setOrphanAlbums(orphansData.data);
       }
 
+      // 2.1 Load All Admin Albums for CRUD
+      fetchAdminAlbums();
+
       // 3. Load Synced Projects
       fetch("/api/v1/sync/projects?t=" + Date.now(), {
         headers: {
@@ -574,18 +591,66 @@ export default function AdminPage() {
     }
   };
 
+  // Fetch All Admin Albums with search and filters
+  const fetchAdminAlbums = async (overrideParams?: any) => {
+    setIsAdminAlbumsLoading(true);
+    try {
+      const getClientBasePath = () => {
+        if (typeof window !== "undefined") {
+          return window.location.pathname.startsWith("/npc_photosync") ? "/npc_photosync" : "";
+        }
+        return "";
+      };
+
+      const params = new URLSearchParams();
+      const query = overrideParams?.q !== undefined ? overrideParams.q : albumSearchQuery;
+      const filterType = overrideParams?.filterType !== undefined ? overrideParams.filterType : albumFilterType;
+      const year = overrideParams?.academicYear !== undefined ? overrideParams.academicYear : albumYearFilter;
+      const type = overrideParams?.albumType !== undefined ? overrideParams.albumType : albumTypeFilter;
+      const dept = overrideParams?.departmentName !== undefined ? overrideParams.departmentName : albumDeptFilter;
+
+      if (query && query.trim()) params.append("q", query.trim());
+      if (filterType && filterType !== "all") params.append("filterType", filterType);
+      if (year) params.append("academicYear", year);
+      if (type) params.append("albumType", type);
+      if (dept) params.append("departmentName", dept);
+      params.append("limit", "150");
+
+      const res = await fetch(`${getClientBasePath()}/api/admin/albums?${params.toString()}`);
+      const data = await res.json();
+      if (data.success && data.albums) {
+        setAdminAlbums(data.albums);
+      }
+    } catch (err) {
+      console.error("Failed to fetch admin albums:", err);
+    } finally {
+      setIsAdminAlbumsLoading(false);
+    }
+  };
+
   // Toggle Visibility
   const handleToggleVisibility = async (albumId: string, currentPublic: boolean) => {
     try {
-      const res = await fetch(`/api/admin/albums/${albumId}`, {
+      const getClientBasePath = () => {
+        if (typeof window !== "undefined") {
+          return window.location.pathname.startsWith("/npc_photosync") ? "/npc_photosync" : "";
+        }
+        return "";
+      };
+
+      const res = await fetch(`${getClientBasePath()}/api/admin/albums/${albumId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isPublic: !currentPublic }),
       });
       if (res.ok) {
+        setAdminAlbums((prev) =>
+          prev.map((a) => (a.id === albumId ? { ...a, isPublic: !currentPublic } : a))
+        );
         setOrphanAlbums((prev) =>
           prev.map((a) => (a.id === albumId ? { ...a, isPublic: !currentPublic } : a))
         );
+        showAlert.toast(`ปรับการแสดงผล: ${!currentPublic ? "🌐 สาธารณะ" : "🔒 ซ่อนไว้เฉพาะภายใน"}`, "success");
       }
     } catch (err) {
       console.error("Failed to toggle visibility:", err);
@@ -596,18 +661,30 @@ export default function AdminPage() {
   const handleDeleteAlbum = async (albumId: string, albumCode: string) => {
     const confirmed = await showAlert.confirmDelete(
       "ยืนยันการลบอัลบั้ม",
-      `คุณแน่ใจหรือไม่ว่าต้องการลบอัลบั้ม [${albumCode}] อย่างถาวร?`
+      `คุณแน่ใจหรือไม่ว่าต้องการลบอัลบั้ม [${albumCode}] พร้อมรูปภาพทั้งหมดอย่างถาวร? (ระบบจะลบไฟล์ทั้งในเครื่องและ Google Drive)`
     );
     if (!confirmed) {
       return;
     }
     try {
-      const res = await fetch(`/api/admin/albums/${albumId}`, {
+      const getClientBasePath = () => {
+        if (typeof window !== "undefined") {
+          return window.location.pathname.startsWith("/npc_photosync") ? "/npc_photosync" : "";
+        }
+        return "";
+      };
+
+      const res = await fetch(`${getClientBasePath()}/api/admin/albums/${albumId}`, {
         method: "DELETE",
       });
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAdminAlbums((prev) => prev.filter((a) => a.id !== albumId));
         setOrphanAlbums((prev) => prev.filter((a) => a.id !== albumId));
-        showAlert.success("ลบอัลบั้มสำเร็จ", `ลบอัลบั้ม ${albumCode} เรียบร้อยแล้ว`);
+        showAlert.success("ลบอัลบั้มสำเร็จ", data.message || `ลบอัลบั้ม ${albumCode} เรียบร้อยแล้ว`);
+        loadDashboardData();
+      } else {
+        showAlert.error("ลบไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการลบอัลบั้ม");
       }
     } catch (err) {
       showAlert.error("ข้อผิดพลาด", "เกิดข้อผิดพลาดในการลบอัลบั้ม");
@@ -1302,15 +1379,23 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("orphans")}
+            onClick={() => {
+              setActiveTab("albums");
+              fetchAdminAlbums();
+            }}
             className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
-              activeTab === "orphans"
+              activeTab === "albums" || activeTab === "orphans"
                 ? "border-pink-500 text-pink-300"
                 : "border-transparent text-purple-400 hover:text-white"
             }`}
           >
             <Layers className="h-4 w-4" />
-            <span>จัดการอัลบั้มที่ยังไม่ผูกโครงการ ({orphanAlbums.length})</span>
+            <span>🖼️ จัดการอัลบั้ม & ภาพถ่าย ({stats?.totalAlbums || adminAlbums.length})</span>
+            {orphanAlbums.length > 0 && (
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-mono text-amber-300 border border-amber-500/30">
+                ค้างผูก {orphanAlbums.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -1942,134 +2027,401 @@ export default function AdminPage() {
           </section>
         )}
 
-        {/* TAB 1: ORPHAN ALBUM MANAGER */}
-        {activeTab === "orphans" && (
-          <section className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-purple-300/80">
-              <p>
-                รายการอัลบั้มประเภท <span className="font-semibold text-cyan-300">ROUTINE</span> และ{" "}
-                <span className="font-semibold text-amber-300">ADHOC</span> ที่ยังไม่มีรหัสโครงการ สามารถผูกเข้ากับโครงการได้ตลอดเวลา
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-pink-400">{orphanAlbums.length}</span>
-                <span>อัลบั้มตกค้าง</span>
+        {/* TAB 1: ALBUMS & PHOTOS CRUD MANAGER */}
+        {(activeTab === "albums" || activeTab === "orphans") && (
+          <section className="space-y-5 animate-fadeIn">
+            {/* Header & Filter Toolbar Card */}
+            <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-5 shadow-xl backdrop-blur-md space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-pink-400" />
+                    <span>ระบบจัดการคลังอัลบั้มและภาพถ่ายกิจกรรม (Album & Media CRUD Manager)</span>
+                  </h3>
+                  <p className="text-xs text-purple-300/80 mt-0.5">
+                    บริหารจัดการ แก้ไขรายละเอียดอัลบั้ม ลบอัลบั้ม คัดเลือกภาพหน้าปก และจัดการภาพถ่ายรายรูป
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => fetchAdminAlbums()}
+                    disabled={isAdminAlbumsLoading}
+                    className="flex items-center gap-1.5 rounded-2xl border border-purple-700/60 bg-[#1C0E46] px-3.5 py-2 text-xs font-semibold text-purple-200 hover:text-white hover:bg-purple-800/50 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isAdminAlbumsLoading ? "animate-spin" : ""}`} />
+                    <span>รีเฟรช</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadModalOpen(true)}
+                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 hover:scale-[1.02] active:scale-95 transition-all"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>+ อัปโหลดอัลบั้มใหม่</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter Controls Row */}
+              <div className="pt-3 border-t border-purple-900/40 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                {/* Search Box */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400" />
+                  <input
+                    type="text"
+                    value={albumSearchQuery}
+                    onChange={(e) => {
+                      setAlbumSearchQuery(e.target.value);
+                      fetchAdminAlbums({ q: e.target.value });
+                    }}
+                    placeholder="ค้นหาชื่อกิจกรรม, รหัสอัลบั้ม (PRJ/RTN), ชื่อครู..."
+                    className="w-full rounded-2xl border border-purple-800/50 bg-[#0E0624] pl-10 pr-9 py-2.5 text-xs text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none transition-all"
+                  />
+                  {albumSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAlbumSearchQuery("");
+                        fetchAdminAlbums({ q: "" });
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400 hover:text-white p-0.5"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Dropdowns & Pills */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Status Pills */}
+                  <div className="flex items-center rounded-2xl border border-purple-800/50 bg-[#0E0624] p-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAlbumFilterType("all");
+                        fetchAdminAlbums({ filterType: "all" });
+                      }}
+                      className={`px-3 py-1 rounded-xl text-[11px] font-semibold transition-all ${
+                        albumFilterType === "all"
+                          ? "bg-pink-500 text-white shadow-sm"
+                          : "text-purple-300 hover:text-white"
+                      }`}
+                    >
+                      ทั้งหมด ({adminAlbums.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAlbumFilterType("orphans");
+                        fetchAdminAlbums({ filterType: "orphans" });
+                      }}
+                      className={`px-3 py-1 rounded-xl text-[11px] font-semibold transition-all ${
+                        albumFilterType === "orphans"
+                          ? "bg-amber-500 text-black font-bold shadow-sm"
+                          : "text-purple-300 hover:text-white"
+                      }`}
+                    >
+                      ค้างผูกโครงการ ({orphanAlbums.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAlbumFilterType("linked");
+                        fetchAdminAlbums({ filterType: "linked" });
+                      }}
+                      className={`px-3 py-1 rounded-xl text-[11px] font-semibold transition-all ${
+                        albumFilterType === "linked"
+                          ? "bg-cyan-500 text-black font-bold shadow-sm"
+                          : "text-purple-300 hover:text-white"
+                      }`}
+                    >
+                      ผูกโครงการแล้ว
+                    </button>
+                  </div>
+
+                  {/* Album Type Filter */}
+                  <select
+                    value={albumTypeFilter}
+                    onChange={(e) => {
+                      setAlbumTypeFilter(e.target.value);
+                      fetchAdminAlbums({ albumType: e.target.value });
+                    }}
+                    className="rounded-2xl border border-purple-800/50 bg-[#0E0624] px-3 py-2 text-white text-[11px] focus:border-pink-500 focus:outline-none"
+                  >
+                    <option value="" className="bg-[#140A32]">ทุกประเภท</option>
+                    <option value="ROUTINE" className="bg-[#140A32]">ROUTINE (งานประจำ)</option>
+                    <option value="PROJECT" className="bg-[#140A32]">PROJECT (โครงการ)</option>
+                    <option value="ADHOC" className="bg-[#140A32]">ADHOC (เฉพาะกิจ)</option>
+                    <option value="PORTFOLIO" className="bg-[#140A32]">PORTFOLIO (คลังภาพ)</option>
+                  </select>
+
+                  {/* Department Filter */}
+                  <select
+                    value={albumDeptFilter}
+                    onChange={(e) => {
+                      setAlbumDeptFilter(e.target.value);
+                      fetchAdminAlbums({ departmentName: e.target.value });
+                    }}
+                    className="rounded-2xl border border-purple-800/50 bg-[#0E0624] px-3 py-2 text-white text-[11px] focus:border-pink-500 focus:outline-none max-w-[150px] truncate"
+                  >
+                    <option value="" className="bg-[#140A32]">ทุกแผนก/งาน</option>
+                    {departments.map((d) => (
+                      <option key={d.id || d.name} value={d.name} className="bg-[#140A32]">
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
+            {/* Albums Table */}
             <div className="overflow-x-auto rounded-3xl border border-purple-800/40 bg-[#140A32]/85 shadow-xl backdrop-blur-md">
               <table className="w-full text-left text-xs text-purple-200">
                 <thead className="border-b border-purple-800/50 bg-[#180C3E] text-purple-300 uppercase text-[10px]">
                   <tr>
                     <th className="py-3.5 px-4">รหัส / ภาพหน้าปก</th>
                     <th className="py-3.5 px-4">ชื่อกิจกรรม</th>
-                    <th className="py-3.5 px-4">ประเภท</th>
+                    <th className="py-3.5 px-4">ประเภท & โครงการ</th>
                     <th className="py-3.5 px-4">ฝ่าย / แผนก</th>
-                    <th className="py-3.5 px-4">จำนวนภาพ</th>
-                    <th className="py-3.5 px-4 text-center">สถานะแสดงผล</th>
+                    <th className="py-3.5 px-4">วันที่จัด & ภาคเรียน</th>
+                    <th className="py-3.5 px-4 text-center">ภาพในอัลบั้ม</th>
+                    <th className="py-3.5 px-4 text-center">สถานะ</th>
                     <th className="py-3.5 px-4 text-right">การจัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-purple-900/30">
-                  {orphanAlbums.length === 0 ? (
+                  {isAdminAlbumsLoading ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-purple-400">
-                        ไม่มีอัลบั้มที่ค้างการผูกโครงการ ยอดเยี่ยมมาก!
+                      <td colSpan={8} className="py-12 text-center text-purple-300">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-pink-400" />
+                        <span>กำลังโหลดข้อมูลอัลบั้ม...</span>
+                      </td>
+                    </tr>
+                  ) : adminAlbums.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-purple-400">
+                        <Layers className="h-8 w-8 mx-auto text-purple-500/50 mb-2" />
+                        <div className="text-purple-300 font-medium">ไม่พบอัลบั้มตามเงื่อนไขที่ค้นหา</div>
                       </td>
                     </tr>
                   ) : (
-                    orphanAlbums.map((album) => (
-                      <tr key={album.id} className="hover:bg-[#1C0E46]/50 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className="relative h-10 w-14 rounded-xl overflow-hidden bg-[#180C3E] border border-purple-700/50 shrink-0">
-                              <img
-                                src={
-                                  album.coverThumbnailUrl
-                                    ? album.coverThumbnailUrl.startsWith("http")
-                                      ? album.coverThumbnailUrl
-                                      : `${getClientBasePath()}${album.coverThumbnailUrl.startsWith("/") ? album.coverThumbnailUrl : `/${album.coverThumbnailUrl}`}`
-                                    : "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=200"
-                                }
-                                alt=""
-                                className="h-full w-full object-cover"
-                              />
-                            </div>
-                            <span className="font-mono font-bold text-pink-300 text-[11px]">
-                              {album.albumCode}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 font-semibold text-white max-w-xs truncate">
-                          {album.title}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                              album.albumType === "ROUTINE"
-                                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                                : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                            }`}
-                          >
-                            {album.albumType}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-purple-300/80">
-                          {album.divisionName}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono">
-                          {album.photoCount} รูป
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <button
-                            onClick={() => handleToggleVisibility(album.id, album.isPublic)}
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
-                              album.isPublic !== false
-                                ? "bg-pink-500/10 text-pink-300 border border-pink-500/30"
-                                : "bg-[#1B0E44] text-purple-400 border border-purple-700/50"
-                            }`}
-                          >
-                            {album.isPublic !== false ? (
-                              <>
-                                <Eye className="h-3 w-3" />
-                                <span>สาธารณะ</span>
-                              </>
-                            ) : (
-                              <>
-                                <EyeOff className="h-3 w-3" />
-                                <span>ภายใน</span>
-                              </>
-                            )}
-                          </button>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* Link Project Button */}
-                            <button
-                              onClick={() => setSelectedAlbumToLink(album)}
-                              className="flex items-center gap-1 rounded-full border border-pink-500/40 bg-pink-500/10 px-3 py-1 text-[11px] font-bold text-pink-300 hover:bg-pink-500 hover:text-white transition-all shadow-sm"
-                            >
-                              <LinkIcon className="h-3 w-3" />
-                              <span>ผูกโครงการ</span>
-                            </button>
+                    adminAlbums.map((album) => {
+                      const isUnlinked =
+                        !album.projectId &&
+                        (album.albumType === "ROUTINE" ||
+                          album.albumType === "ADHOC" ||
+                          album.albumType === "PORTFOLIO");
 
-                            {/* Delete Button */}
+                      return (
+                        <tr
+                          key={album.id}
+                          className="hover:bg-[#1C0E46]/50 transition-colors group"
+                        >
+                          {/* Cover Thumbnail & Album Code */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                onClick={() => setManagingPhotosAlbumId(album.id)}
+                                className="relative h-12 w-16 rounded-xl overflow-hidden bg-[#180C3E] border border-purple-700/50 shrink-0 cursor-pointer group-hover:border-pink-500/60 transition-all shadow-sm"
+                                title="คลิกเพื่อจัดการภาพในอัลบั้มนี้"
+                              >
+                                <img
+                                  src={
+                                    album.coverThumbnailUrl
+                                      ? album.coverThumbnailUrl.startsWith("http")
+                                        ? album.coverThumbnailUrl
+                                        : `${getClientBasePath()}${
+                                            album.coverThumbnailUrl.startsWith("/")
+                                              ? album.coverThumbnailUrl
+                                              : `/${album.coverThumbnailUrl}`
+                                          }`
+                                      : "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=200"
+                                  }
+                                  alt=""
+                                  className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                />
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className="font-mono font-bold text-pink-300 text-[11px] block">
+                                  {album.albumCode}
+                                </span>
+                                <Link
+                                  href={`/albums/${album.albumCode}`}
+                                  target="_blank"
+                                  className="text-[10px] text-purple-400 hover:text-cyan-300 flex items-center gap-0.5 transition-colors"
+                                >
+                                  <span>เปิดดู</span>
+                                  <ExternalLink className="h-2.5 w-2.5" />
+                                </Link>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Title & Description */}
+                          <td className="py-3.5 px-4 max-w-xs">
+                            <div className="font-bold text-white text-xs line-clamp-1" title={album.title}>
+                              {album.title}
+                            </div>
+                            {album.description && (
+                              <p className="text-[11px] text-purple-300/70 line-clamp-1 mt-0.5">
+                                {album.description}
+                              </p>
+                            )}
+                          </td>
+
+                          {/* Album Type & Project linkage */}
+                          <td className="py-3.5 px-4">
+                            <div className="space-y-1">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold border ${
+                                  album.albumType === "PROJECT"
+                                    ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                                    : album.albumType === "ROUTINE"
+                                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                                    : album.albumType === "ADHOC"
+                                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                    : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                }`}
+                              >
+                                {album.albumType}
+                              </span>
+
+                              {album.project ? (
+                                <div className="text-[10px] text-purple-300 truncate max-w-[140px]" title={album.project.projectName}>
+                                  🔗 {album.project.projectCode}
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-amber-300/80 italic">
+                                  ยังไม่ผูกโครงการ
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Division & Department */}
+                          <td className="py-3.5 px-4 text-purple-300/80">
+                            <div className="font-medium text-white text-[11px]">{album.divisionName}</div>
+                            {album.departmentName && (
+                              <div className="text-[10px] text-purple-400 mt-0.5">{album.departmentName}</div>
+                            )}
+                          </td>
+
+                          {/* Event Date & Term */}
+                          <td className="py-3.5 px-4 text-purple-300">
+                            <div>
+                              {album.eventDate
+                                ? new Date(album.eventDate).toLocaleDateString("th-TH", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })
+                                : "-"}
+                            </div>
+                            <div className="font-mono text-[10px] text-cyan-400 mt-0.5">
+                              ภาคเรียน {album.semester}/{album.academicYear}
+                            </div>
+                          </td>
+
+                          {/* Photo Count & Manage Button */}
+                          <td className="py-3.5 px-4 text-center">
                             <button
-                              onClick={() => handleDeleteAlbum(album.id, album.albumCode)}
-                              className="rounded-full p-1.5 text-purple-400 hover:bg-rose-500/20 hover:text-rose-400 transition-colors"
-                              title="ลบอัลบั้ม"
+                              type="button"
+                              onClick={() => setManagingPhotosAlbumId(album.id)}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/25 px-2.5 py-1 text-xs font-mono font-bold text-pink-300 hover:text-white transition-all shadow-sm active:scale-95"
+                              title="คลิกเพื่อเปิดหน้าจัดการรูปภาพในอัลบั้มนี้"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <ImageIcon className="h-3.5 w-3.5 text-pink-400" />
+                              <span>{album.photoCount || 0} รูป</span>
                             </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+
+                          {/* Visibility Toggle */}
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleVisibility(album.id, album.isPublic)}
+                              title={album.isPublic !== false ? "คลิกเพื่อซ่อน" : "คลิกเพื่อเผยแพร่"}
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all active:scale-95 ${
+                                album.isPublic !== false
+                                  ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/25"
+                                  : "bg-amber-500/15 text-amber-300 border border-amber-500/40 hover:bg-amber-500/25"
+                              }`}
+                            >
+                              {album.isPublic !== false ? (
+                                <>
+                                  <Eye className="h-3 w-3" />
+                                  <span>สาธารณะ</span>
+                                </>
+                              ) : (
+                                <>
+                                  <EyeOff className="h-3 w-3" />
+                                  <span>ซ่อนไว้</span>
+                                </>
+                              )}
+                            </button>
+                          </td>
+
+                          {/* Action Buttons */}
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Manage Photos Button */}
+                              <button
+                                type="button"
+                                onClick={() => setManagingPhotosAlbumId(album.id)}
+                                className="flex items-center gap-1 rounded-xl bg-purple-900/60 hover:bg-purple-800 border border-purple-700/60 px-2.5 py-1.5 text-[11px] font-semibold text-purple-200 hover:text-white transition-all active:scale-95"
+                                title="จัดการรูปภาพในอัลบั้มนี้ (ลบ/แก้ไข/ตั้งหน้าปก)"
+                              >
+                                <ImageIcon className="h-3.5 w-3.5 text-cyan-400" />
+                                <span>จัดการภาพ</span>
+                              </button>
+
+                              {/* Edit Album Button */}
+                              <button
+                                type="button"
+                                onClick={() => setEditingAlbum(album)}
+                                className="p-1.5 rounded-xl text-purple-300 hover:text-white hover:bg-purple-800/50 transition-colors"
+                                title="แก้ไขข้อมูลอัลบั้ม"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+
+                              {/* Link Project Button (if unlinked) */}
+                              {isUnlinked && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedAlbumToLink(album)}
+                                  className="p-1.5 rounded-xl text-pink-300 hover:text-white hover:bg-pink-600/30 transition-colors"
+                                  title="ผูกกับโครงการ SmartFlow"
+                                >
+                                  <LinkIcon className="h-4 w-4" />
+                                </button>
+                              )}
+
+                              {/* Delete Album Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAlbum(album.id, album.albumCode)}
+                                className="p-1.5 rounded-xl text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 transition-colors"
+                                title="ลบอัลบั้มนี้อย่างถาวร"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </section>
         )}
+
 
         {/* TAB 2: SMARTFLOW INTEGRATION & API TESTER */}
         {activeTab === "smartflow" && (
@@ -3152,7 +3504,33 @@ export default function AdminPage() {
       <QuickUploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
-        onSuccess={() => loadDashboardData()}
+        onSuccess={() => {
+          fetchAdminAlbums();
+          loadDashboardData();
+        }}
+      />
+
+      {/* Edit Album Modal */}
+      <EditAlbumModal
+        isOpen={!!editingAlbum}
+        onClose={() => setEditingAlbum(null)}
+        album={editingAlbum}
+        departments={departments}
+        onSuccess={() => {
+          fetchAdminAlbums();
+          loadDashboardData();
+        }}
+      />
+
+      {/* Manage Photos Modal */}
+      <ManagePhotosModal
+        isOpen={!!managingPhotosAlbumId}
+        onClose={() => setManagingPhotosAlbumId(null)}
+        albumId={managingPhotosAlbumId || ""}
+        onAlbumUpdated={() => {
+          fetchAdminAlbums();
+          loadDashboardData();
+        }}
       />
     </div>
   );

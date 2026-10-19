@@ -404,3 +404,47 @@ export async function getOriginalFileStream(driveFileId: string): Promise<Readab
 
   return response.data as Readable;
 }
+
+/**
+ * Delete a single file from Google Drive
+ */
+export async function deleteFileFromDrive(fileId?: string | null): Promise<boolean> {
+  if (!fileId || fileId.startsWith("mock_") || fileId.startsWith("err_")) {
+    return true;
+  }
+  const client = await getDriveClient();
+  if (!client?.drive) return false;
+
+  try {
+    await client.drive.files.delete({
+      fileId,
+      supportsAllDrives: true,
+    });
+    return true;
+  } catch (err) {
+    console.warn(`[Drive] Could not delete file ${fileId}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Delete or trash a folder from Google Drive
+ */
+export async function deleteFolderFromDrive(folderId?: string | null): Promise<boolean> {
+  if (!folderId || folderId.startsWith("mock_") || folderId.startsWith("err_")) {
+    return true;
+  }
+  const client = await getDriveClient();
+  if (!client?.drive) return false;
+
+  try {
+    await client.drive.files.delete({
+      fileId: folderId,
+      supportsAllDrives: true,
+    });
+    return true;
+  } catch (err) {
+    console.warn(`[Drive] Could not delete folder ${folderId}:`, err);
+    return false;
+  }
+}
