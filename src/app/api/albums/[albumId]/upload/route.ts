@@ -117,11 +117,14 @@ export async function POST(
         }
       }
 
-      // 3. AI Vision Tagging & Caption (Optional or default for first few photos)
+      // 3. AI Vision Tagging & Caption (Run for the first 3 photos of the album to avoid API timeouts and rate limits)
       let aiCaption: string | null = null;
       let aiTags: string[] = [];
 
-      if (runAi || i === 0) {
+      const currentPhotoIndex = album.photoCount + i;
+      const shouldRunAi = (runAi && currentPhotoIndex < 3) || (album.photoCount === 0 && i === 0);
+
+      if (shouldRunAi) {
         try {
           const aiAnalysis = await analyzeActivityPhoto(
             processed.thumbnailBuffer,
@@ -206,7 +209,8 @@ export async function POST(
     }
 
     // 7. LINE Flex Message Notification
-    if (sendLine || (!album.isLineNotified && uploadedMediaList.length > 0)) {
+    // Only send notification when explicitly requested (e.g. on final chunk of upload)
+    if (sendLine) {
       try {
         await sendNewAlbumFlexMessage({
           albumCode: album.albumCode,

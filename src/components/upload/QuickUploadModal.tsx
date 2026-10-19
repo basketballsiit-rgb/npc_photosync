@@ -270,29 +270,63 @@ export function QuickUploadModal({
       }
 
       const createdAlbum = createData.data;
-      setUploadProgress(45);
-      setUploadStatusText(
-        `กำลังอัปโหลดและประมวลผลรูปภาพ (${selectedFiles.length} รูป) ซิงค์ขึ้น Google Drive...`
-      );
+      const CHUNK_SIZE = 3;
+      const totalFiles = selectedFiles.length;
+      const totalBatches = Math.ceil(totalFiles / CHUNK_SIZE);
+      let uploadedCount = 0;
 
-      // 2. Upload Batch Files
-      const formData = new FormData();
-      selectedFiles.forEach((f) => formData.append("files", f));
-      formData.append("runAiTagging", String(runAiTagging));
-      formData.append("sendLineNotify", String(sendLineNotify));
+      // 2. Upload Batch Files in small chunks (3 files/request) to prevent Gateway 504 timeouts and memory issues
+      for (let i = 0; i < totalFiles; i += CHUNK_SIZE) {
+        const chunk = selectedFiles.slice(i, i + CHUNK_SIZE);
+        const isLastChunk = i + CHUNK_SIZE >= totalFiles;
+        const currentBatchNum = Math.floor(i / CHUNK_SIZE) + 1;
 
-      const uploadRes = await fetch(apiUrl(`/api/albums/${createdAlbum.id}/upload`), {
-        method: "POST",
-        body: formData,
-      });
+        const currentPercent = Math.min(
+          96,
+          Math.round(20 + ((i + chunk.length) / totalFiles) * 76)
+        );
+        setUploadProgress(currentPercent);
+        setUploadStatusText(
+          `กำลังอัปโหลดชุดที่ ${currentBatchNum}/${totalBatches} (รูปที่ ${uploadedCount + 1}-${uploadedCount + chunk.length} จาก ${totalFiles} รูป)...`
+        );
 
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok || !uploadData.success) {
-        throw new Error(uploadData.error || "ไม่สามารถอัปโหลดไฟล์รูปภาพได้");
+        const formData = new FormData();
+        chunk.forEach((f) => formData.append("files", f));
+        formData.append("runAiTagging", String(runAiTagging));
+        // Send LINE notification only on the final chunk when all photos are registered
+        formData.append("sendLineNotify", String(isLastChunk && sendLineNotify));
+
+        let uploadRes: Response;
+        try {
+          uploadRes = await fetch(apiUrl(`/api/albums/${createdAlbum.id}/upload`), {
+            method: "POST",
+            body: formData,
+          });
+        } catch (netErr: any) {
+          throw new Error(`การเชื่อมต่อขัดข้องในชุดที่ ${currentBatchNum}: ${netErr.message || "Network Error"}`);
+        }
+
+        const contentType = uploadRes.headers.get("content-type") || "";
+        let uploadData: any;
+        if (contentType.includes("application/json")) {
+          uploadData = await uploadRes.json();
+        } else {
+          const rawText = await uploadRes.text();
+          console.error(`Non-JSON response in batch ${currentBatchNum} (HTTP ${uploadRes.status}):`, rawText);
+          throw new Error(
+            `เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP ${uploadRes.status}): หมดเวลาการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง`
+          );
+        }
+
+        if (!uploadRes.ok || !uploadData.success) {
+          throw new Error(uploadData.error || `ไม่สามารถอัปโหลดรูปภาพชุดที่ ${currentBatchNum} ได้`);
+        }
+
+        uploadedCount += chunk.length;
       }
 
       setUploadProgress(100);
-      setUploadStatusText("อัปโหลดและซิงค์ข้อมูลสำเร็จเรียบร้อย!");
+      setUploadStatusText("อัปโหลดและซิงค์ข้อมูลสำเร็จครบถ้วน 100%!");
 
       const filesCount = selectedFiles.length;
       const albumResult = createdAlbum;

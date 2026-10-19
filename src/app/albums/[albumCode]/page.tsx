@@ -373,33 +373,57 @@ ${shareUrl}`;
   const handleSubmitAddPhotos = async () => {
     if (!album || addPhotosFiles.length === 0) return;
     setIsUploadingMore(true);
-    setUploadProgressText(`กำลังอัปโหลดและประมวลผล ${addPhotosFiles.length} รูปภาพ...`);
+    setUploadProgressText(`กำลังเตรียมอัปโหลด ${addPhotosFiles.length} รูปภาพ...`);
 
     try {
-      const formData = new FormData();
-      addPhotosFiles.forEach((f) => formData.append("files", f));
-      formData.append("runAiTagging", "true");
-
+      const CHUNK_SIZE = 3;
+      const totalFiles = addPhotosFiles.length;
+      const totalBatches = Math.ceil(totalFiles / CHUNK_SIZE);
+      let uploadedCount = 0;
       const base = getClientBasePath();
-      const res = await fetch(`${base}/api/albums/${album.id}/upload`, {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
 
-      if (data.success) {
-        showAlert.success(
-          "เพิ่มรูปภาพสำเร็จ",
-          `เพิ่มรูปภาพเข้าสู่กิจกรรมเรียบร้อยแล้ว ${data.uploadedCount || addPhotosFiles.length} รูป!`
+      for (let i = 0; i < totalFiles; i += CHUNK_SIZE) {
+        const chunk = addPhotosFiles.slice(i, i + CHUNK_SIZE);
+        const currentBatchNum = Math.floor(i / CHUNK_SIZE) + 1;
+
+        setUploadProgressText(
+          `กำลังอัปโหลดชุดที่ ${currentBatchNum}/${totalBatches} (รูปที่ ${uploadedCount + 1}-${uploadedCount + chunk.length} จาก ${totalFiles} รูป)...`
         );
-        setIsAddPhotosModalOpen(false);
-        addPhotosPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
-        setAddPhotosPreviewUrls([]);
-        setAddPhotosFiles([]);
-        await loadAlbum();
-      } else {
-        showAlert.error("อัปโหลดไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการเพิ่มรูปภาพ");
+
+        const formData = new FormData();
+        chunk.forEach((f) => formData.append("files", f));
+        formData.append("runAiTagging", "true");
+        formData.append("sendLineNotify", "false"); // Do not spam LINE on adding extra photos
+
+        const res = await fetch(`${base}/api/albums/${album.id}/upload`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        let data: any;
+        if (contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP ${res.status}): หมดเวลาการเชื่อมต่อ`);
+        }
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || `เกิดข้อผิดพลาดในการอัปโหลดรูปภาพชุดที่ ${currentBatchNum}`);
+        }
+
+        uploadedCount += chunk.length;
       }
+
+      showAlert.success(
+        "เพิ่มรูปภาพสำเร็จ",
+        `เพิ่มรูปภาพเข้าสู่กิจกรรมเรียบร้อยแล้วทั้งหมด ${uploadedCount} รูป!`
+      );
+      setIsAddPhotosModalOpen(false);
+      addPhotosPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+      setAddPhotosPreviewUrls([]);
+      setAddPhotosFiles([]);
+      await loadAlbum();
     } catch (err: any) {
       showAlert.error("ข้อผิดพลาด", err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
