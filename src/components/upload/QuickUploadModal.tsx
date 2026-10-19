@@ -249,7 +249,7 @@ export function QuickUploadModal({
     setUploadStatusText("กำลังสร้างอัลบั้มและเตรียมพื้นที่ Google Shared Drive...");
 
     try {
-      // 1. Create Album
+      // 1. Create Album with safe JSON parsing
       const createRes = await fetch(apiUrl("/api/albums"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -264,18 +264,29 @@ export function QuickUploadModal({
         }),
       });
 
-      const createData = await createRes.json();
+      const createContentType = createRes.headers.get("content-type") || "";
+      let createData: any;
+      if (createContentType.includes("application/json")) {
+        createData = await createRes.json();
+      } else {
+        const rawErr = await createRes.text();
+        console.error("Create album non-JSON response:", rawErr);
+        throw new Error(
+          `เซิร์ฟเวอร์ขัดข้องในการสร้างอัลบั้ม (HTTP ${createRes.status}) กรุณาลองใหม่อีกครั้ง`
+        );
+      }
+
       if (!createRes.ok || !createData.success) {
         throw new Error(createData.error || "ไม่สามารถสร้างอัลบั้มในระบบได้");
       }
 
       const createdAlbum = createData.data;
-      const CHUNK_SIZE = 3;
+      const CHUNK_SIZE = 2; // 2 files per batch for optimal network throughput & zero proxy timeouts
       const totalFiles = selectedFiles.length;
       const totalBatches = Math.ceil(totalFiles / CHUNK_SIZE);
       let uploadedCount = 0;
 
-      // 2. Upload Batch Files in small chunks (3 files/request) to prevent Gateway 504 timeouts and memory issues
+      // 2. Upload Batch Files in small chunks (2 files/request) with auto-retry
       for (let i = 0; i < totalFiles; i += CHUNK_SIZE) {
         const chunk = selectedFiles.slice(i, i + CHUNK_SIZE);
         const isLastChunk = i + CHUNK_SIZE >= totalFiles;
@@ -296,30 +307,41 @@ export function QuickUploadModal({
         // Send LINE notification only on the final chunk when all photos are registered
         formData.append("sendLineNotify", String(isLastChunk && sendLineNotify));
 
-        let uploadRes: Response;
-        try {
-          uploadRes = await fetch(apiUrl(`/api/albums/${createdAlbum.id}/upload`), {
-            method: "POST",
-            body: formData,
-          });
-        } catch (netErr: any) {
-          throw new Error(`การเชื่อมต่อขัดข้องในชุดที่ ${currentBatchNum}: ${netErr.message || "Network Error"}`);
+        let lastError: Error | null = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const uploadRes = await fetch(apiUrl(`/api/albums/${createdAlbum.id}/upload`), {
+              method: "POST",
+              body: formData,
+            });
+
+            const contentType = uploadRes.headers.get("content-type") || "";
+            let uploadData: any;
+            if (contentType.includes("application/json")) {
+              uploadData = await uploadRes.json();
+            } else {
+              const rawText = await uploadRes.text();
+              console.error(`Non-JSON response in batch ${currentBatchNum} (HTTP ${uploadRes.status}):`, rawText);
+              throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP ${uploadRes.status})`);
+            }
+
+            if (!uploadRes.ok || !uploadData.success) {
+              throw new Error(uploadData.error || `ไม่สามารถอัปโหลดรูปภาพชุดที่ ${currentBatchNum} ได้`);
+            }
+
+            lastError = null;
+            break;
+          } catch (batchErr: any) {
+            lastError = batchErr;
+            if (attempt < 2) {
+              setUploadStatusText(`ชุดที่ ${currentBatchNum} กำลังลองส่งใหม่อีกครั้ง (รอบที่ 2)...`);
+              await new Promise((r) => setTimeout(r, 1200));
+            }
+          }
         }
 
-        const contentType = uploadRes.headers.get("content-type") || "";
-        let uploadData: any;
-        if (contentType.includes("application/json")) {
-          uploadData = await uploadRes.json();
-        } else {
-          const rawText = await uploadRes.text();
-          console.error(`Non-JSON response in batch ${currentBatchNum} (HTTP ${uploadRes.status}):`, rawText);
-          throw new Error(
-            `เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP ${uploadRes.status}): หมดเวลาการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง`
-          );
-        }
-
-        if (!uploadRes.ok || !uploadData.success) {
-          throw new Error(uploadData.error || `ไม่สามารถอัปโหลดรูปภาพชุดที่ ${currentBatchNum} ได้`);
+        if (lastError) {
+          throw lastError;
         }
 
         uploadedCount += chunk.length;

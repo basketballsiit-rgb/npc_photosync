@@ -1,25 +1,41 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const [
-      totalAlbums,
-      projectLinkedAlbums,
-      unlinkedAlbums,
+      allAlbumsList,
       totalPhotos,
       downloadLogsCount,
       allMedia,
       allProjects,
     ] = await Promise.all([
-      prisma.album.count(),
-      prisma.album.count({ where: { projectId: { not: null } } }),
-      prisma.album.count({ where: { projectId: null } }),
+      prisma.album.findMany({
+        select: {
+          id: true,
+          albumCode: true,
+          title: true,
+          photoCount: true,
+          isPublic: true,
+          academicYear: true,
+          semester: true,
+          projectId: true,
+          createdAt: true,
+          _count: { select: { mediaFiles: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
       prisma.mediaFile.count(),
       prisma.downloadLog.count(),
       prisma.mediaFile.findMany({ select: { fileSizeBytes: true } }),
       prisma.smartFlowProject.count(),
     ]);
+
+    const totalAlbums = allAlbumsList.length;
+    const projectLinkedAlbums = allAlbumsList.filter((a) => a.projectId !== null).length;
+    const unlinkedAlbums = allAlbumsList.filter((a) => a.projectId === null).length;
 
     const totalDriveSizeBytes = allMedia.reduce(
       (sum, m) => sum + Number(m.fileSizeBytes || 0),
@@ -77,6 +93,13 @@ export async function GET() {
           status: isLineConfigured ? "HEALTHY" : "DEV_MOCK",
           label: isLineConfigured ? "LINE Flex Notification เชื่อมต่อสำเร็จ" : "โหมดจำลอง (Console Logger)",
         },
+      },
+      allAlbums: allAlbumsList,
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
       },
     });
   } catch (error) {

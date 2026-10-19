@@ -436,8 +436,11 @@ export default function AdminPage() {
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      // 1. Load Stats
-      const statsRes = await fetch("/api/admin/stats");
+      // 1. Load Stats (real-time, no cache)
+      const statsRes = await fetch(`/api/admin/stats?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
       const statsData = await statsRes.json();
       if (statsData.success) {
         setStats(statsData.stats);
@@ -616,7 +619,10 @@ export default function AdminPage() {
       if (dept) params.append("departmentName", dept);
       params.append("limit", "150");
 
-      const res = await fetch(`${getClientBasePath()}/api/admin/albums?${params.toString()}`);
+      const res = await fetch(`${getClientBasePath()}/api/admin/albums?${params.toString()}&t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
       const data = await res.json();
       if (data.success && data.albums) {
         setAdminAlbums(data.albums);
