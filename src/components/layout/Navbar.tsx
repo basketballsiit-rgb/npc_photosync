@@ -14,6 +14,7 @@ import {
   Camera,
 } from "lucide-react";
 import { AdminLoginModal } from "@/components/auth/AdminLoginModal";
+import { apiUrl } from "@/lib/basepath";
 
 interface NavbarProps {
   onQuickUploadClick?: () => void;
@@ -31,7 +32,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
 
   const checkAdminSession = async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch(apiUrl("/api/auth/me"));
       const data = await res.json();
       setIsAdminLoggedIn(Boolean(data.isAuthenticated));
     } catch {
@@ -41,7 +42,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch(apiUrl("/api/auth/logout"), { method: "POST" });
       setIsAdminLoggedIn(false);
       router.push("/");
       router.refresh();

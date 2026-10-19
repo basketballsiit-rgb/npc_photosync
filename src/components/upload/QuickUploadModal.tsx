@@ -26,6 +26,8 @@ import {
   NPC_DEPARTMENTS,
   ALBUM_TYPE_PREFIX_MAP,
 } from "@/lib/academic-utils";
+import { showAlert, npcSwal } from "@/lib/sweetalert";
+import { apiUrl, getClientBasePath } from "@/lib/basepath";
 
 interface SmartFlowProjectItem {
   id: string;
@@ -76,6 +78,7 @@ export function QuickUploadModal({
   const [departmentsList, setDepartmentsList] = useState<string[]>(Array.from(NPC_DEPARTMENTS));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate Academic Info Dynamically
   const termInfo = getAcademicTermInfo(new Date(eventDate || new Date()));
@@ -110,7 +113,7 @@ export function QuickUploadModal({
 
   const loadDepartments = async () => {
     try {
-      const res = await fetch("/api/departments");
+      const res = await fetch(apiUrl("/api/departments"));
       const data = await res.json();
       if (data.success && Array.isArray(data.departments) && data.departments.length > 0) {
         const names = data.departments.map((d: any) => d.name);
@@ -125,7 +128,7 @@ export function QuickUploadModal({
     setIsProjectsLoading(true);
     try {
       // Query local SmartFlow cache projects
-      const res = await fetch("/api/albums");
+      const res = await fetch(apiUrl("/api/albums"));
       const seedProjects: SmartFlowProjectItem[] = [
         {
           id: "p1",
@@ -155,7 +158,7 @@ export function QuickUploadModal({
       setProjects(seedProjects);
 
       // Load active system academic term
-      const termsRes = await fetch("/api/admin/academic-terms");
+      const termsRes = await fetch(apiUrl("/api/admin/academic-terms"));
       const termsData = await termsRes.json();
       if (termsData.success && termsData.currentTerm) {
         setConfiguredCurrentTerm(termsData.currentTerm);
@@ -226,26 +229,28 @@ export function QuickUploadModal({
   // Submit and Upload Handler
   const handleUploadSubmit = async () => {
     if (!title.trim()) {
-      setErrorMessage("กรุณาระบุชื่อกิจกรรม / อัลบั้ม");
+      showAlert.warning("กรุณาระบุชื่อกิจกรรม", "กรุณากรอกชื่อกิจกรรม / อัลบั้มก่อนเริ่มอัปโหลด");
+      titleInputRef.current?.focus();
+      titleInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     if (selectedFiles.length === 0) {
-      setErrorMessage("กรุณาเลือกรูปภาพอย่างน้อย 1 รูป");
+      showAlert.warning("ยังไม่ได้เลือกรูปภาพ", "กรุณาเลือกไฟล์รูปภาพอย่างน้อย 1 รูป");
       return;
     }
     if (albumType === AlbumType.PROJECT && !projectId) {
-      setErrorMessage("กรุณาเลือกรหัสโครงการจาก npc_smartflow");
+      showAlert.warning("กรุณาเลือกโครงการ", "กรุณาเลือกรหัสโครงการจาก npc_smartflow สำหรับประเภทโครงการตามแผน");
       return;
     }
 
     setIsUploading(true);
     setErrorMessage("");
-    setUploadProgress(10);
+    setUploadProgress(15);
     setUploadStatusText("กำลังสร้างอัลบั้มและเตรียมพื้นที่ Google Shared Drive...");
 
     try {
       // 1. Create Album
-      const createRes = await fetch("/api/albums", {
+      const createRes = await fetch(apiUrl("/api/albums"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -261,13 +266,13 @@ export function QuickUploadModal({
 
       const createData = await createRes.json();
       if (!createRes.ok || !createData.success) {
-        throw new Error(createData.error || "Failed to create album");
+        throw new Error(createData.error || "ไม่สามารถสร้างอัลบั้มในระบบได้");
       }
 
       const createdAlbum = createData.data;
-      setUploadProgress(35);
+      setUploadProgress(45);
       setUploadStatusText(
-        `กำลังอัปโหลดและประมวลผลรูปภาพ (${selectedFiles.length} รูป)...`
+        `กำลังอัปโหลดและประมวลผลรูปภาพ (${selectedFiles.length} รูป) ซิงค์ขึ้น Google Drive...`
       );
 
       // 2. Upload Batch Files
@@ -276,26 +281,66 @@ export function QuickUploadModal({
       formData.append("runAiTagging", String(runAiTagging));
       formData.append("sendLineNotify", String(sendLineNotify));
 
-      const uploadRes = await fetch(`/api/albums/${createdAlbum.id}/upload`, {
+      const uploadRes = await fetch(apiUrl(`/api/albums/${createdAlbum.id}/upload`), {
         method: "POST",
         body: formData,
       });
 
       const uploadData = await uploadRes.json();
       if (!uploadRes.ok || !uploadData.success) {
-        throw new Error(uploadData.error || "Failed to upload files");
+        throw new Error(uploadData.error || "ไม่สามารถอัปโหลดไฟล์รูปภาพได้");
       }
 
       setUploadProgress(100);
       setUploadStatusText("อัปโหลดและซิงค์ข้อมูลสำเร็จเรียบร้อย!");
 
-      setTimeout(() => {
-        if (onSuccess) onSuccess(createdAlbum);
-        onClose();
-      }, 800);
-    } catch (err: any) {
-      setErrorMessage(err.message || "เกิดข้อผิดพลาดในการอัปโหลด");
+      const filesCount = selectedFiles.length;
+      const albumResult = createdAlbum;
+
+      // Reset state to prevent duplicate submission
+      setSelectedFiles([]);
+      previewUrls.forEach((u) => URL.revokeObjectURL(u));
+      setPreviewUrls([]);
       setIsUploading(false);
+
+      if (onSuccess) {
+        onSuccess(albumResult);
+      }
+      onClose();
+
+      // Show comprehensive SweetAlert2 dialog with 1-click view link
+      await npcSwal.fire({
+        icon: "success",
+        title: "🎉 อัปโหลดและสร้างอัลบั้มสำเร็จ!",
+        html: `
+          <div style="text-align: left; font-size: 13px; line-height: 1.6; margin-top: 12px; color: #f1f5f9; background: rgba(255,255,255,0.05); padding: 14px; border-radius: 16px; border: 1px solid rgba(236,72,153,0.25);">
+            <div style="margin-bottom: 6px;"><strong style="color: #f472b6;">📌 ชื่อกิจกรรม:</strong> ${albumResult.title}</div>
+            <div style="margin-bottom: 6px;"><strong style="color: #f472b6;">🏷️ รหัสอัลบั้ม:</strong> <span style="color: #fb7185; font-family: monospace; font-weight: bold;">${albumResult.albumCode}</span></div>
+            <div style="margin-bottom: 6px;"><strong style="color: #f472b6;">🖼️ จำนวนรูปภาพ:</strong> <span style="color: #34d399; font-weight: bold;">${filesCount} รูป</span></div>
+            <div style="margin-bottom: 6px;"><strong style="color: #f472b6;">☁️ Google Drive:</strong> สำรองไฟล์ต้นฉบับ 100% เรียบร้อย</div>
+            <div><strong style="color: #f472b6;">💬 แจ้งเตือน LINE:</strong> ${sendLineNotify ? "ส่งข้อความเข้ากลุ่มเรียบร้อย" : "ไม่ได้เปิดใช้งาน"}</div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: "🌐 เปิดดูอัลบั้มทันที",
+        cancelButtonText: "ตกลง (เสร็จสิ้น)",
+        confirmButtonColor: "#ec4899",
+        cancelButtonColor: "#4c1d95",
+        backdrop: "rgba(9, 5, 20, 0.85)",
+        allowOutsideClick: false,
+      }).then((result) => {
+        if (result.isConfirmed) {
+          window.location.href = `${getClientBasePath()}/albums/${albumResult.albumCode}`;
+        }
+      });
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      setIsUploading(false);
+      setErrorMessage(err.message || "เกิดข้อผิดพลาดในการอัปโหลด");
+      showAlert.error(
+        "อัปโหลดไม่สำเร็จ",
+        err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อหรืออัปโหลดรูปภาพ กรุณาลองใหม่อีกครั้ง"
+      );
     }
   };
 
@@ -304,6 +349,41 @@ export function QuickUploadModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
       <div className="relative w-full max-w-4xl my-auto rounded-3xl border border-purple-800/60 bg-[#13072E] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] backdrop-blur-xl">
+        {/* Full-Screen Blocking Uploading Overlay */}
+        {isUploading && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0d041e]/95 backdrop-blur-md p-6 text-center animate-in fade-in duration-200">
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 shadow-2xl shadow-pink-500/40 mb-5 animate-pulse">
+              <Loader2 className="h-10 w-10 text-white animate-spin" />
+            </div>
+
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-2">
+              กำลังอัปโหลดและประมวลผลรูปภาพ...
+            </h3>
+            <p className="text-sm text-pink-300 font-medium mb-5 max-w-md">
+              {uploadStatusText}
+            </p>
+
+            {/* Progress Bar Container */}
+            <div className="w-full max-w-md space-y-2 mb-4">
+              <div className="flex items-center justify-between text-xs text-purple-300">
+                <span>ความคืบหน้าการซิงค์ข้อมูล</span>
+                <span className="font-mono font-bold text-pink-400">{uploadProgress}%</span>
+              </div>
+              <div className="h-3.5 w-full overflow-hidden rounded-full bg-[#180C3E] border border-purple-800/50 shadow-inner p-0.5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-200/90 max-w-md">
+              ⚠️ กำลังซิงค์ไฟล์ต้นฉบับขึ้น Google Shared Drive และจัดเตรียมข้อมูล<br />
+              <strong className="text-amber-300">กรุณาอย่าปิดหน้าต่างนี้ หรือกดซ้ำ เพื่อป้องกันการอัปโหลดซ้ำซ้อน</strong>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-purple-900/40 bg-[#180C3E]/95 px-6 py-4">
           <div className="flex items-center gap-3">
@@ -370,6 +450,7 @@ export function QuickUploadModal({
                   ชื่อกิจกรรม / ชื่องาน <span className="text-pink-400">*</span>
                 </label>
                 <input
+                  ref={titleInputRef}
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}

@@ -4,6 +4,7 @@ import React from "react";
 import { Search, X, Filter, Calendar, Building, Sparkles } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 import { NPC_DIVISIONS, NPC_DEPARTMENTS } from "@/lib/academic-utils";
+import { apiUrl } from "@/lib/basepath";
 
 export interface FilterState {
   search: string;
@@ -30,7 +31,7 @@ export function FilterBar({
   const [departmentsList, setDepartmentsList] = React.useState<string[]>(Array.from(NPC_DEPARTMENTS));
 
   React.useEffect(() => {
-    fetch("/api/admin/academic-terms")
+    fetch(apiUrl("/api/admin/academic-terms"))
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.terms) {
@@ -39,7 +40,7 @@ export function FilterBar({
       })
       .catch((err) => console.warn("Could not load terms for filter:", err));
 
-    fetch("/api/departments")
+    fetch(apiUrl("/api/departments"))
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.departments) && data.departments.length > 0) {

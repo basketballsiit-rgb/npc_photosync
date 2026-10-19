@@ -12,6 +12,7 @@ import {
   Building,
   User,
 } from "lucide-react";
+import { apiUrl } from "@/lib/basepath";
 
 interface ProjectOption {
   id: string;
@@ -61,15 +62,15 @@ export function RetroactiveLinkModal({
     setErrorMessage("");
     try {
       // Fetch available approved projects from SmartFlow cache
-      const res = await fetch("/api/v1/sync/projects?t=" + Date.now(), {
+      const res = await fetch(apiUrl("/api/v1/sync/projects?t=" + Date.now()), {
         headers: {
           "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
         },
       });
       // Fallback query if GET /projects directly
-      const projectsRes = await fetch("/api/albums"); // or query cache
+      const projectsRes = await fetch(apiUrl("/api/albums")); // or query cache
       // Let's query smartflow projects
-      const response = await fetch(`/api/v1/albums/unlinked?q=`, {
+      const response = await fetch(apiUrl(`/api/v1/albums/unlinked?q=`), {
         headers: {
           "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
         },
@@ -127,7 +128,7 @@ export function RetroactiveLinkModal({
     setErrorMessage("");
 
     try {
-      const res = await fetch(`/api/v1/albums/${album.albumCode}/link-project`, {
+      const res = await fetch(apiUrl(`/api/v1/albums/${album.albumCode}/link-project`), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

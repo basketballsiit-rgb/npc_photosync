@@ -13,6 +13,7 @@ import {
   X,
   AlertCircle,
 } from "lucide-react";
+import { apiUrl } from "@/lib/basepath";
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(apiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
