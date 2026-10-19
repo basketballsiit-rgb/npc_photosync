@@ -48,7 +48,7 @@ jobs:
 
           # 5. ติดตั้ง Dependencies และ Generate Prisma Client
           echo "📦 Installing npm dependencies..."
-          npm install
+          npm install --prefer-offline --no-audit --no-fund
 
           echo "🗄️ Generating Prisma Client & Syncing Database..."
           npx prisma generate
@@ -56,6 +56,7 @@ jobs:
 
           # 6. Build Next.js Production Assets
           echo "⚡ Building Next.js application..."
+          export NODE_OPTIONS="--max-old-space-size=1536"
           npm run build
 
           # 7. จัดการสิทธิ์โฟลเดอร์อัปโหลดภาพ (SELinux & Permissions)

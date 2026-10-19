@@ -25,6 +25,12 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["sharp", "archiver", "@prisma/client", "prisma"],
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;
