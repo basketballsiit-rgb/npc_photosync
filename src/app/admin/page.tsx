@@ -43,12 +43,14 @@ import {
   HelpCircle,
   Info,
   Image as ImageIcon,
+  Newspaper,
 } from "lucide-react";
 import { NPC_DIVISIONS } from "@/lib/academic-utils";
 import { DepartmentItem } from "@/lib/services/departmentService";
 import { showAlert } from "@/lib/sweetalert";
 import { EditAlbumModal } from "@/components/admin/EditAlbumModal";
 import { ManagePhotosModal } from "@/components/admin/ManagePhotosModal";
+import { NewsletterStudio } from "@/components/admin/NewsletterStudio";
 
 interface AdminStats {
   totalAlbums: number;
@@ -71,7 +73,7 @@ interface SystemHealth {
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<
-    "academic_terms" | "departments" | "albums" | "orphans" | "smartflow" | "pr_report" | "google_drive" | "line_notify"
+    "academic_terms" | "departments" | "albums" | "orphans" | "newsletter" | "smartflow" | "pr_report" | "google_drive" | "line_notify"
   >("academic_terms");
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
@@ -1455,6 +1457,21 @@ export default function AdminPage() {
             )}
           </button>
 
+          <button
+            onClick={() => setActiveTab("newsletter")}
+            className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
+              activeTab === "newsletter"
+                ? "border-pink-500 text-pink-300"
+                : "border-transparent text-purple-400 hover:text-white"
+            }`}
+          >
+            <Newspaper className="h-4 w-4" />
+            <span>📰 จัดทำภาพข่าวแผ่นเดียว</span>
+            <span className="rounded-full bg-pink-500/20 px-2 py-0.5 text-[9px] font-mono text-pink-300 border border-pink-500/30">
+              ใหม่
+            </span>
+          </button>
+
           {currentUser?.role !== "PR_STAFF" && (
             <button
               onClick={() => setActiveTab("smartflow")}
@@ -2637,6 +2654,17 @@ export default function AdminPage() {
               )}
             </div>
           </section>
+        )}
+
+        {/* TAB: NEWSLETTER STUDIO (One-Page News & Social Bulletin) */}
+        {activeTab === "newsletter" && (
+          <NewsletterStudio
+            currentTermName={
+              currentTerm
+                ? `ภาคเรียนที่ ${currentTerm.semester} ปีการศึกษา ${currentTerm.academicYear}`
+                : undefined
+            }
+          />
         )}
 
         {/* TAB 3: PR PERFORMANCE REPORT & WATERMARK CONFIG */}

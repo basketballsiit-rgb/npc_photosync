@@ -12,6 +12,7 @@ import {
   LogOut,
   Users,
   Camera,
+  FileText,
 } from "lucide-react";
 import { AdminLoginModal } from "@/components/auth/AdminLoginModal";
 import { apiUrl } from "@/lib/basepath";
@@ -24,6 +25,11 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
   const router = useRouter();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{
+    username: string;
+    name: string;
+    role: "SUPER_ADMIN" | "PR_STAFF";
+  } | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   useEffect(() => {
@@ -34,9 +40,16 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
     try {
       const res = await fetch(apiUrl("/api/auth/me"));
       const data = await res.json();
-      setIsAdminLoggedIn(Boolean(data.isAuthenticated));
+      const authenticated = Boolean(data.isAuthenticated);
+      setIsAdminLoggedIn(authenticated);
+      if (authenticated && data.user) {
+        setCurrentUser(data.user);
+      } else {
+        setCurrentUser(null);
+      }
     } catch {
       setIsAdminLoggedIn(false);
+      setCurrentUser(null);
     }
   };
 
@@ -44,6 +57,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
     try {
       await fetch(apiUrl("/api/auth/logout"), { method: "POST" });
       setIsAdminLoggedIn(false);
+      setCurrentUser(null);
       router.push("/");
       router.refresh();
     } catch (err) {
@@ -51,12 +65,19 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
     }
   };
 
-  const roles = [
-    { key: "SUPER_ADMIN", label: "ผู้ดูแลระบบ", subLabel: "จัดการระบบและตั้งค่า", icon: ShieldCheck, color: "text-amber-400" },
-    { key: "GUEST", label: "ผู้เยี่ยมชม", subLabel: "บุคคลทั่วไป / ผู้รับชม", icon: Users, color: "text-purple-300" },
-  ];
+  const isPrStaff = currentUser?.role === "PR_STAFF";
 
-  const currentRoleKey = isAdminLoggedIn ? "SUPER_ADMIN" : "GUEST";
+  const roles = isPrStaff
+    ? [
+        { key: "PR_STAFF", label: "งานประชาสัมพันธ์", subLabel: "จัดการข่าวและภาพถ่าย", icon: FileText, color: "text-pink-400" },
+        { key: "GUEST", label: "ผู้เยี่ยมชม", subLabel: "บุคคลทั่วไป / ผู้รับชม", icon: Users, color: "text-purple-300" },
+      ]
+    : [
+        { key: "SUPER_ADMIN", label: "ผู้ดูแลระบบ", subLabel: "จัดการระบบและตั้งค่า", icon: ShieldCheck, color: "text-amber-400" },
+        { key: "GUEST", label: "ผู้เยี่ยมชม", subLabel: "บุคคลทั่วไป / ผู้รับชม", icon: Users, color: "text-purple-300" },
+      ];
+
+  const currentRoleKey = isPrStaff ? "PR_STAFF" : isAdminLoggedIn ? "SUPER_ADMIN" : "GUEST";
 
   const getBasePath = () => {
     if (typeof window !== "undefined") {
@@ -155,28 +176,36 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
               </button>
             )}
 
-            {/* User Role Switcher Dropdown (Admin & Guest Only) */}
+            {/* User Role Switcher Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setShowRoleMenu(!showRoleMenu)}
                 className="flex items-center gap-2 rounded-full border border-purple-800/50 bg-[#180C3E]/90 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:border-pink-500/50"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500/20 to-purple-500/30 text-pink-300 border border-pink-500/30">
-                  {isAdminLoggedIn ? (
-                    <ShieldCheck className="h-3.5 w-3.5 text-pink-400" />
+                  {isPrStaff ? (
+                    <FileText className="h-3.5 w-3.5 text-pink-400" />
+                  ) : isAdminLoggedIn ? (
+                    <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
                   ) : (
                     <User className="h-3.5 w-3.5 text-purple-300" />
                   )}
                 </div>
                 <div className="hidden sm:block text-left">
                   <div className="text-[11px] font-bold text-slate-100 flex items-center gap-1">
-                    <span>{isAdminLoggedIn ? "ผู้ดูแลระบบ" : "ผู้เยี่ยมชม"}</span>
+                    <span>
+                      {isPrStaff
+                        ? "งานประชาสัมพันธ์"
+                        : isAdminLoggedIn
+                        ? "ผู้ดูแลระบบ"
+                        : "ผู้เยี่ยมชม"}
+                    </span>
                     {isAdminLoggedIn && (
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     )}
                   </div>
                   <div className="text-[9px] text-pink-400 font-mono font-semibold">
-                    {isAdminLoggedIn ? "Admin" : "Guest"}
+                    {isPrStaff ? "PR Staff" : isAdminLoggedIn ? "Admin" : "Guest"}
                   </div>
                 </div>
               </button>
@@ -196,7 +225,7 @@ export function Navbar({ onQuickUploadClick }: NavbarProps) {
                         key={role.key}
                         onClick={() => {
                           setShowRoleMenu(false);
-                          if (role.key === "SUPER_ADMIN") {
+                          if (role.key === "SUPER_ADMIN" || role.key === "PR_STAFF") {
                             if (!isAdminLoggedIn) {
                               setIsLoginModalOpen(true);
                             } else {
