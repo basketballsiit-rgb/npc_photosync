@@ -2472,11 +2472,21 @@ export default function AdminPage() {
                               {/* Share to LINE Button (Free, Unlimited) */}
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={async () => {
                                   const origin = typeof window !== "undefined" ? window.location.origin : "";
                                   const url = `${origin}/npc_photosync/albums/${album.albumCode}?openExternalBrowser=1`;
                                   const shareText = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 ${album.title}\n📅 วันที่: ${album.eventDate?.slice(0, 10)}\n📸 จำนวน: ${album.photoCount} ภาพ\n🌐 เปิดดูภาพและดาวน์โหลด:\n${url}`;
-                                  window.open(`https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`, "_blank");
+                                  try {
+                                    await navigator.clipboard.writeText(shareText);
+                                  } catch {}
+
+                                  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                                  if (isMobile) {
+                                    window.open(`https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`, "_blank");
+                                  } else {
+                                    showAlert.success("คัดลอกข้อความแล้ว", "คัดลอกข้อความสรุปเรียบร้อย สามารถกด Ctrl+V เพื่อวางในแชทกลุ่ม LINE ได้ทันที");
+                                    window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`, "_blank");
+                                  }
                                 }}
                                 className="p-1.5 rounded-xl text-emerald-400 hover:text-emerald-200 hover:bg-emerald-950/50 transition-colors"
                                 title="แชร์ลงกลุ่ม LINE (ฟรี ไม่จำกัดโควตา)"

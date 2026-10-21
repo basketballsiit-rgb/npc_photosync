@@ -337,7 +337,7 @@ export default function AlbumDetailPage() {
   };
 
   // Share formatted message to LINE
-  const handleShareToLine = () => {
+  const handleShareToLine = async () => {
     if (!album) return;
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
     const shareUrl = currentUrl.includes("openExternalBrowser=1")
@@ -351,12 +351,51 @@ export default function AlbumDetailPage() {
 🌐 เปิดดูและดาวน์โหลดภาพคมชัดระดับ HD (หรืออัปโหลดรูปเพิ่ม):
 ${shareUrl}`;
 
-    navigator.clipboard.writeText(message);
+    try {
+      await navigator.clipboard.writeText(message);
+    } catch {
+      // ignore
+    }
     setLineSharedSuccess(true);
     setTimeout(() => setLineSharedSuccess(false), 3000);
 
-    const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
-    window.open(lineUrl, "_blank");
+    const isMobile =
+      typeof navigator !== "undefined" &&
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      // On mobile devices, line.me/R/msg/text deep-links cleanly into the LINE app without 400 error
+      const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
+      window.location.href = lineUrl;
+    } else {
+      // On desktop PC, line.me/R/msg/text causes LINE web redirector to crash with HTTP 400.
+      // Instead, we give desktop users options: open LINE desktop app, open LINE web share, or paste copied message.
+      const lineWebShareUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`;
+      const lineProtocolUrl = `line://msg/text/?${encodeURIComponent(message)}`;
+
+      await npcSwal.fire({
+        icon: "success",
+        title: "คัดลอกข้อความสรุปอัลบั้มแล้ว! 📋",
+        html: `
+          <div style="text-align: left; font-size: 13px; line-height: 1.6; color: #f1f5f9; background: rgba(255,255,255,0.06); padding: 14px; border-radius: 16px; border: 1px solid rgba(16,185,129,0.3); margin-top: 10px;">
+            <p style="color: #34d399; font-weight: bold; margin-bottom: 6px;">✅ คัดลอกข้อความสรุปพร้อมลิงก์ลงคลิปบอร์ดแล้ว</p>
+            <p style="color: #cbd5e1; font-size: 12px; margin-bottom: 8px;">ท่านสามารถเปิดห้องแชทกลุ่ม LINE แล้วกด <strong>Ctrl + V (วาง)</strong> เพื่อส่งข้อความได้ทันที:</p>
+            <textarea readonly style="width: 100%; height: 110px; background: rgba(0,0,0,0.45); color: #e2e8f0; font-size: 11px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); resize: none; font-family: inherit; line-height: 1.5;">${message}</textarea>
+            
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+              <a href="${lineProtocolUrl}" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; background: #06c755; color: white; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 4px 12px rgba(6,199,85,0.3);">
+                💬 เปิดโปรแกรม LINE บนคอมพิวเตอร์
+              </a>
+              <a href="${lineWebShareUrl}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; background: rgba(255,255,255,0.08); color: #38bdf8; border: 1px solid rgba(56,189,248,0.4); border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 12px;">
+                🌐 แชร์ลิงก์อัลบั้มผ่าน LINE Web Share
+              </a>
+            </div>
+          </div>
+        `,
+        confirmButtonText: "รับทราบ / ปิดหน้าต่าง",
+        confirmButtonColor: "#ec4899",
+      });
+    }
   };
 
   const handleSelectMoreFiles = (e: React.ChangeEvent<HTMLInputElement>) => {

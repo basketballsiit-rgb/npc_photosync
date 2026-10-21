@@ -372,7 +372,10 @@ export function QuickUploadModal({
       const shareOrigin = typeof window !== "undefined" ? window.location.origin : "";
       const albumShareUrl = `${shareOrigin}${getClientBasePath()}/albums/${albumResult.albumCode}?openExternalBrowser=1`;
       const lineShareMsg = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 กิจกรรม: ${albumResult.title}\n📅 วันที่: ${albumResult.eventDate?.slice(0, 10)}\n📸 จำนวน: ${filesCount} ภาพ\n🌐 เปิดดูและดาวน์โหลดภาพ:\n${albumShareUrl}`;
-      const lineDirectShareLink = `https://line.me/R/msg/text/?${encodeURIComponent(lineShareMsg)}`;
+      const isMobileClient = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const lineDirectShareLink = isMobileClient
+        ? `https://line.me/R/msg/text/?${encodeURIComponent(lineShareMsg)}`
+        : `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(albumShareUrl)}`;
 
       let lineHtmlStatus = '<span style="color: #94a3b8;">ไม่ได้เปิดใช้งาน</span>';
       if (sendLineNotify) {
