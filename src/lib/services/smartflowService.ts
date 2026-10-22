@@ -26,39 +26,49 @@ export interface SmartFlowWebhookData {
 }
 
 /**
- * Upsert a project record from SmartFlow into local cache table
+ * Upsert a project record from SmartFlow into local cache table safely
  */
 export async function upsertSmartFlowProjectRecord(
   item: SmartFlowSyncPayload
-): Promise<SmartFlowProject> {
-  return await prisma.smartFlowProject.upsert({
-    where: { projectCode: item.projectCode },
-    update: {
-      smartflowId: String(item.smartflowId),
-      projectName: item.projectName,
-      academicYear: item.academicYear,
-      budgetYear: item.budgetYear || item.academicYear,
-      divisionName: item.divisionName,
-      departmentName: item.departmentName || null,
-      ownerTeacherName: item.ownerTeacherName,
-      ownerEmail: item.ownerEmail,
-      projectStatus: item.projectStatus || "APPROVED",
-      lastSyncedAt: new Date(),
-    },
-    create: {
+): Promise<SmartFlowProject | null> {
+  try {
+    const existing = await prisma.smartFlowProject.findFirst({
+      where: {
+        OR: [
+          { projectCode: item.projectCode },
+          { smartflowId: String(item.smartflowId) },
+        ],
+      },
+    });
+
+    const safeData = {
       smartflowId: String(item.smartflowId),
       projectCode: item.projectCode,
       projectName: item.projectName,
-      academicYear: item.academicYear,
-      budgetYear: item.budgetYear || item.academicYear,
-      divisionName: item.divisionName,
+      academicYear: Number(item.academicYear) || 2569,
+      budgetYear: Number(item.budgetYear || item.academicYear) || 2569,
+      divisionName: item.divisionName || "ฝ่ายบริหารทรัพยากร",
       departmentName: item.departmentName || null,
-      ownerTeacherName: item.ownerTeacherName,
-      ownerEmail: item.ownerEmail,
+      ownerTeacherName: item.ownerTeacherName || "ครูผู้รับผิดชอบ",
+      ownerEmail: item.ownerEmail || "academic@npc.ac.th",
       projectStatus: item.projectStatus || "APPROVED",
       lastSyncedAt: new Date(),
-    },
-  });
+    };
+
+    if (existing) {
+      return await prisma.smartFlowProject.update({
+        where: { id: existing.id },
+        data: safeData,
+      });
+    }
+
+    return await prisma.smartFlowProject.create({
+      data: safeData,
+    });
+  } catch (err: any) {
+    console.warn(`Failed to upsert project ${item.projectCode}:`, err?.message || err);
+    return null;
+  }
 }
 
 /**
@@ -69,7 +79,10 @@ export async function upsertSmartFlowProjectRecord(
 export async function syncProjectsFromSmartFlow(
   academicYear?: number,
   keyword?: string
-): Promise<{ projects: SmartFlowProject[]; syncedFromRemote: boolean }> {
+): Promise<{ projects: SmartFlowProject[]; syncedFromRemote: boolean; syncError?: string; savedCount?: number }> {
+  // Allow self-signed or internal SSL in Node fetch
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
   let apiUrl = process.env.NPC_SMARTFLOW_API_URL || "https://service.npc.ac.th/npc_smartflow/api/v1";
   if (apiUrl.includes("smartflow.npc.ac.th") || apiUrl.includes("smartflow.pvc.ac.th") || apiUrl.includes("example.com") || !apiUrl) {
     apiUrl = "https://service.npc.ac.th/npc_smartflow/api/v1";
@@ -77,43 +90,64 @@ export async function syncProjectsFromSmartFlow(
   const secretKey = process.env.NPC_SMARTFLOW_SECRET_KEY || "npc-smartflow-secret-production-2026";
 
   let remoteSuccess = false;
+  let syncError: string | undefined = undefined;
+  let savedCount = 0;
 
   if (apiUrl && secretKey) {
-    try {
-      const url = new URL(`${apiUrl}/projects`);
-      if (academicYear) url.searchParams.set("academicYear", String(academicYear));
-      if (keyword) url.searchParams.set("q", keyword);
+    const candidateUrls = [
+      apiUrl,
+      "https://service.npc.ac.th/npc_smartflow/api/v1",
+      "http://127.0.0.1/npc_smartflow/api/v1",
+    ];
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+    // Remove duplicates
+    const uniqueCandidateUrls = Array.from(new Set(candidateUrls));
 
-      const response = await fetch(url.toString(), {
-        headers: {
-          "Content-Type": "application/json",
-          "X-SmartFlow-Secret": secretKey,
-        },
-        signal: controller.signal,
-      });
+    for (const baseEndpoint of uniqueCandidateUrls) {
+      if (remoteSuccess) break;
+      try {
+        const url = new URL(`${baseEndpoint}/projects`);
+        if (academicYear) url.searchParams.set("academicYear", String(academicYear));
+        if (keyword) url.searchParams.set("q", keyword);
 
-      clearTimeout(timeoutId);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      if (response.ok) {
-        const data = await response.json();
-        const projectList: SmartFlowSyncPayload[] = Array.isArray(data)
-          ? data
-          : data?.projects || [];
+        const response = await fetch(url.toString(), {
+          headers: {
+            "Content-Type": "application/json",
+            "X-SmartFlow-Secret": secretKey,
+          },
+          signal: controller.signal,
+        });
 
-        for (const item of projectList) {
-          if (item.projectCode && item.projectName) {
-            await upsertSmartFlowProjectRecord(item);
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          const projectList: SmartFlowSyncPayload[] = Array.isArray(data)
+            ? data
+            : data?.projects || [];
+
+          for (const item of projectList) {
+            if (item.projectCode && item.projectName) {
+              const saved = await upsertSmartFlowProjectRecord(item);
+              if (saved) savedCount++;
+            }
           }
+          if (savedCount > 0) {
+            remoteSuccess = true;
+            syncError = undefined;
+            break;
+          }
+        } else {
+          syncError = `SmartFlow API returned HTTP ${response.status}`;
+          console.warn("SmartFlow API returned non-OK status:", response.status, "for", baseEndpoint);
         }
-        remoteSuccess = true;
-      } else {
-        console.warn("SmartFlow API returned non-OK status:", response.status);
+      } catch (err: any) {
+        syncError = err?.message || String(err);
+        console.warn(`SmartFlow API unreachable at ${baseEndpoint}:`, syncError);
       }
-    } catch (err) {
-      console.warn("SmartFlow API unreachable, reading from local project cache:", err);
     }
   }
 

@@ -619,7 +619,8 @@ export default function AdminPage() {
         if (data.syncedFromRemote) {
           showAlert.success("ซิงค์ข้อมูลสำเร็จ", `ดึงข้อมูลสำเร็จ ${data.projects?.length || 0} โครงการจาก npc_smartflow เรียบร้อยแล้ว`);
         } else {
-          showAlert.info("ใช้แคชข้อมูลโครงการ", `ยังไม่สามารถดึงข้อมูลสดจาก SmartFlow ได้ ระบบจึงใช้ข้อมูลโครงการที่มีอยู่ในแคช (${data.projects?.length || 0} โครงการ)`);
+          const detail = data.syncError ? `\n(รายละเอียด: ${data.syncError})` : "";
+          showAlert.info("ใช้แคชข้อมูลโครงการ", `ยังไม่สามารถดึงข้อมูลสดจาก SmartFlow ได้ ระบบจึงใช้ข้อมูลโครงการที่มีอยู่ในแคช (${data.projects?.length || 0} โครงการ)${detail}`);
         }
         loadDashboardData();
       } else {

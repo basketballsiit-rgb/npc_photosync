@@ -9,6 +9,8 @@ export async function POST() {
       success: true,
       message: `Synchronized ${result.projects.length} project(s) from SmartFlow.`,
       syncedFromRemote: result.syncedFromRemote,
+      savedCount: result.savedCount || 0,
+      syncError: result.syncError,
       projects: result.projects,
       timestamp: new Date().toISOString(),
     });

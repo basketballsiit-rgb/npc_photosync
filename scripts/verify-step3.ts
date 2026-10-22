@@ -21,7 +21,7 @@ async function main() {
     ownerTeacherName: "นายทดสอบ ระบบดี",
     ownerEmail: "test@npc.ac.th",
   });
-  console.log("  - Project upserted successfully:", testProject.projectCode);
+  console.log("  - Project upserted successfully:", testProject?.projectCode);
 
   const localSyncResult = await syncProjectsFromSmartFlow(2569);
   console.log(`  - syncProjectsFromSmartFlow: Retrieved ${localSyncResult.projects.length} project(s), remote: ${localSyncResult.syncedFromRemote}`);
@@ -78,7 +78,7 @@ async function main() {
     where: { albumType: AlbumType.ADHOC, projectId: null },
   });
 
-  if (sampleAdhoc) {
+  if (sampleAdhoc && testProject) {
     const linked = await prisma.album.update({
       where: { id: sampleAdhoc.id },
       data: {

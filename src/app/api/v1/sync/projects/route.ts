@@ -34,13 +34,15 @@ export async function POST(req: NextRequest) {
         continue;
       }
       const saved = await upsertSmartFlowProjectRecord(item);
-      savedProjects.push({
-        id: saved.id,
-        projectCode: saved.projectCode,
-        projectName: saved.projectName,
-        academicYear: saved.academicYear,
-        status: saved.projectStatus,
-      });
+      if (saved) {
+        savedProjects.push({
+          id: saved.id,
+          projectCode: saved.projectCode,
+          projectName: saved.projectName,
+          academicYear: saved.academicYear,
+          status: saved.projectStatus,
+        });
+      }
     }
 
     return NextResponse.json({
