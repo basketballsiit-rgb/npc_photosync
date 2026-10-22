@@ -11,6 +11,7 @@ export async function POST() {
       syncedFromRemote: result.syncedFromRemote,
       savedCount: result.savedCount || 0,
       syncError: result.syncError,
+      debugLogs: result.debugLogs,
       projects: result.projects,
       timestamp: new Date().toISOString(),
     });

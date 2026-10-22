@@ -25,6 +25,8 @@ export interface SmartFlowWebhookData {
   action: "ALBUM_CREATED" | "ALBUM_LINKED";
 }
 
+let lastUpsertError = "";
+
 /**
  * Upsert a project record from SmartFlow into local cache table safely
  */
@@ -66,7 +68,8 @@ export async function upsertSmartFlowProjectRecord(
       data: safeData,
     });
   } catch (err: any) {
-    console.warn(`Failed to upsert project ${item.projectCode}:`, err?.message || err);
+    lastUpsertError = err?.message || String(err);
+    console.warn(`Failed to upsert project ${item.projectCode}:`, lastUpsertError);
     return null;
   }
 }
@@ -79,7 +82,7 @@ export async function upsertSmartFlowProjectRecord(
 export async function syncProjectsFromSmartFlow(
   academicYear?: number,
   keyword?: string
-): Promise<{ projects: SmartFlowProject[]; syncedFromRemote: boolean; syncError?: string; savedCount?: number }> {
+): Promise<{ projects: SmartFlowProject[]; syncedFromRemote: boolean; syncError?: string; savedCount?: number; debugLogs?: any[] }> {
   // Allow self-signed or internal SSL in Node fetch
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
@@ -92,12 +95,15 @@ export async function syncProjectsFromSmartFlow(
   let remoteSuccess = false;
   let syncError: string | undefined = undefined;
   let savedCount = 0;
+  const debugLogs: any[] = [];
 
   if (apiUrl && secretKey) {
     const candidateUrls = [
       apiUrl,
       "https://service.npc.ac.th/npc_smartflow/api/v1",
       "http://127.0.0.1/npc_smartflow/api/v1",
+      "https://127.0.0.1/npc_smartflow/api/v1",
+      "http://localhost/npc_smartflow/api/v1",
     ];
 
     // Remove duplicates
@@ -109,14 +115,19 @@ export async function syncProjectsFromSmartFlow(
         const url = new URL(`${baseEndpoint}/projects`);
         if (academicYear) url.searchParams.set("academicYear", String(academicYear));
         if (keyword) url.searchParams.set("q", keyword);
+        url.searchParams.set("secret", secretKey);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
 
         const response = await fetch(url.toString(), {
           headers: {
             "Content-Type": "application/json",
             "X-SmartFlow-Secret": secretKey,
+            "X-PhotoSync-Api-Key": secretKey,
+            "Host": "service.npc.ac.th",
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Port": "443",
           },
           signal: controller.signal,
         });
@@ -135,18 +146,29 @@ export async function syncProjectsFromSmartFlow(
               if (saved) savedCount++;
             }
           }
+
+          debugLogs.push({
+            endpoint: baseEndpoint,
+            status: response.status,
+            receivedCount: projectList.length,
+            savedCount,
+            lastUpsertError,
+          });
+
           if (savedCount > 0) {
             remoteSuccess = true;
             syncError = undefined;
             break;
+          } else if (projectList.length > 0) {
+            syncError = `SmartFlow ส่งมา ${projectList.length} โครงการ แต่บันทึกลงฐานข้อมูลไม่สำเร็จ: ${lastUpsertError}`;
           }
         } else {
           syncError = `SmartFlow API returned HTTP ${response.status}`;
-          console.warn("SmartFlow API returned non-OK status:", response.status, "for", baseEndpoint);
+          debugLogs.push({ endpoint: baseEndpoint, status: response.status });
         }
       } catch (err: any) {
         syncError = err?.message || String(err);
-        console.warn(`SmartFlow API unreachable at ${baseEndpoint}:`, syncError);
+        debugLogs.push({ endpoint: baseEndpoint, error: syncError });
       }
     }
   }
@@ -173,6 +195,9 @@ export async function syncProjectsFromSmartFlow(
   return {
     projects,
     syncedFromRemote: remoteSuccess,
+    syncError,
+    savedCount,
+    debugLogs,
   };
 }
 

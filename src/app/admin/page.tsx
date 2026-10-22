@@ -494,39 +494,47 @@ export default function AdminPage() {
       fetchAdminAlbums();
 
       // 3. Load Synced Projects
-      fetch("/api/v1/sync/projects?t=" + Date.now(), {
-        headers: {
-          "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
-        },
-      }).catch((e) => console.warn("Sync projects check:", e));
-
-      // Fallback seed projects for list view
-      setProjects([
-        {
-          projectCode: "PRJ-69-001",
-          projectName: "โครงการอบรมเชิงปฏิบัติการพัฒนาทักษะปัญญาประดิษฐ์ (AI) เพื่อวิชาชีพสู่อนาคต",
-          divisionName: "ฝ่ายวิชาการ",
-          departmentName: "แผนกวิชาเทคโนโลยีสารสนเทศ",
-          ownerTeacherName: "นายสมชาย วิชาการ",
-          projectStatus: "APPROVED",
-        },
-        {
-          projectCode: "PRJ-69-002",
-          projectName: "โครงการสืบสานประเพณีแข่งเรือเมืองน่านและพัฒนาจิตอาสาชุมชน",
-          divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา",
-          departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
-          ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
-          projectStatus: "APPROVED",
-        },
-        {
-          projectCode: "PRJ-69-003",
-          projectName: "โครงการศูนย์ซ่อมสร้างเพื่อชุมชน (Fix It Center) ประจำปีงบประมาณ 2569",
-          divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน",
-          departmentName: "งานโครงการพิเศษและบริการวิชาชีพ",
-          ownerTeacherName: "นายเกรียงไกร ช่างยนต์",
-          projectStatus: "APPROVED",
-        },
-      ]);
+      try {
+        const syncRes = await fetch("/api/v1/sync/projects?t=" + Date.now(), {
+          headers: {
+            "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
+          },
+        });
+        const syncData = await syncRes.json();
+        if (syncData.success && Array.isArray(syncData.projects) && syncData.projects.length > 0) {
+          setProjects(syncData.projects);
+        } else {
+          // Fallback seed projects only if DB has no projects
+          setProjects([
+            {
+              projectCode: "PRJ-69-001",
+              projectName: "โครงการอบรมเชิงปฏิบัติการพัฒนาทักษะปัญญาประดิษฐ์ (AI) เพื่อวิชาชีพสู่อนาคต",
+              divisionName: "ฝ่ายวิชาการ",
+              departmentName: "แผนกวิชาเทคโนโลยีสารสนเทศ",
+              ownerTeacherName: "นายสมชาย วิชาการ",
+              projectStatus: "APPROVED",
+            },
+            {
+              projectCode: "PRJ-69-002",
+              projectName: "โครงการสืบสานประเพณีแข่งเรือเมืองน่านและพัฒนาจิตอาสาชุมชน",
+              divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา",
+              departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
+              ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
+              projectStatus: "APPROVED",
+            },
+            {
+              projectCode: "PRJ-69-003",
+              projectName: "โครงการศูนย์ซ่อมสร้างเพื่อชุมชน (Fix It Center) ประจำปีงบประมาณ 2569",
+              divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน",
+              departmentName: "งานโครงการพิเศษและบริการวิชาชีพ",
+              ownerTeacherName: "นายเกรียงไกร ช่างยนต์",
+              projectStatus: "APPROVED",
+            },
+          ]);
+        }
+      } catch (e) {
+        console.warn("Sync projects check:", e);
+      }
 
       // 4. Load PR Report data
       const prRes = await fetch("/api/admin/pr-report");
@@ -616,13 +624,16 @@ export default function AdminPage() {
       const res = await fetch(`${getClientBasePath()}/api/admin/sync-smartflow`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
+        if (data.projects && Array.isArray(data.projects) && data.projects.length > 0) {
+          setProjects(data.projects);
+        }
         if (data.syncedFromRemote) {
-          showAlert.success("ซิงค์ข้อมูลสำเร็จ", `ดึงข้อมูลสำเร็จ ${data.projects?.length || 0} โครงการจาก npc_smartflow เรียบร้อยแล้ว`);
+          showAlert.success("ซิงค์ข้อมูลสำเร็จ", `ดึงข้อมูลสด ${data.projects?.length || 0} โครงการจาก npc_smartflow เรียบร้อยแล้ว (อัปเดตลงฐานข้อมูล ${data.savedCount || 0} โครงการ)`);
         } else {
           const detail = data.syncError ? `\n(รายละเอียด: ${data.syncError})` : "";
           showAlert.info("ใช้แคชข้อมูลโครงการ", `ยังไม่สามารถดึงข้อมูลสดจาก SmartFlow ได้ ระบบจึงใช้ข้อมูลโครงการที่มีอยู่ในแคช (${data.projects?.length || 0} โครงการ)${detail}`);
         }
-        loadDashboardData();
+        await loadDashboardData();
       } else {
         showAlert.error("ซิงค์ไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการซิงค์ข้อมูล");
       }
