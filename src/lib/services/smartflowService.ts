@@ -70,19 +70,22 @@ export async function syncProjectsFromSmartFlow(
   academicYear?: number,
   keyword?: string
 ): Promise<{ projects: SmartFlowProject[]; syncedFromRemote: boolean }> {
-  const apiUrl = process.env.NPC_SMARTFLOW_API_URL;
-  const secretKey = process.env.NPC_SMARTFLOW_SECRET_KEY;
+  let apiUrl = process.env.NPC_SMARTFLOW_API_URL || "https://service.npc.ac.th/npc_smartflow/api/v1";
+  if (apiUrl.includes("smartflow.npc.ac.th") || apiUrl.includes("smartflow.pvc.ac.th") || apiUrl.includes("example.com") || !apiUrl) {
+    apiUrl = "https://service.npc.ac.th/npc_smartflow/api/v1";
+  }
+  const secretKey = process.env.NPC_SMARTFLOW_SECRET_KEY || "npc-smartflow-secret-production-2026";
 
   let remoteSuccess = false;
 
-  if (apiUrl && !apiUrl.includes("smartflow.pvc.ac.th") && !apiUrl.includes("example.com") && secretKey) {
+  if (apiUrl && secretKey) {
     try {
       const url = new URL(`${apiUrl}/projects`);
       if (academicYear) url.searchParams.set("academicYear", String(academicYear));
       if (keyword) url.searchParams.set("q", keyword);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -106,6 +109,8 @@ export async function syncProjectsFromSmartFlow(
           }
         }
         remoteSuccess = true;
+      } else {
+        console.warn("SmartFlow API returned non-OK status:", response.status);
       }
     } catch (err) {
       console.warn("SmartFlow API unreachable, reading from local project cache:", err);
@@ -143,10 +148,13 @@ export async function syncProjectsFromSmartFlow(
 export async function notifySmartFlowWebhook(
   webhookData: SmartFlowWebhookData
 ): Promise<{ success: boolean; error?: string }> {
-  const apiUrl = process.env.NPC_SMARTFLOW_API_URL;
-  const secretKey = process.env.NPC_SMARTFLOW_SECRET_KEY;
+  let apiUrl = process.env.NPC_SMARTFLOW_API_URL || "https://service.npc.ac.th/npc_smartflow/api/v1";
+  if (apiUrl.includes("smartflow.npc.ac.th") || apiUrl.includes("smartflow.pvc.ac.th") || apiUrl.includes("example.com") || !apiUrl) {
+    apiUrl = "https://service.npc.ac.th/npc_smartflow/api/v1";
+  }
+  const secretKey = process.env.NPC_SMARTFLOW_SECRET_KEY || "npc-smartflow-secret-production-2026";
 
-  if (!apiUrl || apiUrl.includes("smartflow.pvc.ac.th") || apiUrl.includes("example.com") || !secretKey) {
+  if (!apiUrl || !secretKey) {
     console.log(
       `[SmartFlow Webhook Mock] Notification for project ${webhookData.projectCode} -> Album ${webhookData.albumCode} (${webhookData.action}) logged.`
     );
