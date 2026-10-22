@@ -75,7 +75,7 @@ export async function syncProjectsFromSmartFlow(
 
   let remoteSuccess = false;
 
-  if (apiUrl && !apiUrl.includes("smartflow.pvc.ac.th") && !apiUrl.includes("smartflow.npc.ac.th") && secretKey) {
+  if (apiUrl && !apiUrl.includes("smartflow.pvc.ac.th") && !apiUrl.includes("example.com") && secretKey) {
     try {
       const url = new URL(`${apiUrl}/projects`);
       if (academicYear) url.searchParams.set("academicYear", String(academicYear));
@@ -146,7 +146,7 @@ export async function notifySmartFlowWebhook(
   const apiUrl = process.env.NPC_SMARTFLOW_API_URL;
   const secretKey = process.env.NPC_SMARTFLOW_SECRET_KEY;
 
-  if (!apiUrl || apiUrl.includes("smartflow.pvc.ac.th") || apiUrl.includes("smartflow.npc.ac.th") || !secretKey) {
+  if (!apiUrl || apiUrl.includes("smartflow.pvc.ac.th") || apiUrl.includes("example.com") || !secretKey) {
     console.log(
       `[SmartFlow Webhook Mock] Notification for project ${webhookData.projectCode} -> Album ${webhookData.albumCode} (${webhookData.action}) logged.`
     );
