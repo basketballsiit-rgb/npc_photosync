@@ -418,6 +418,13 @@ export default function AlbumDetailPage() {
 ${shareUrl}
 https://service.npc.ac.th/`;
 
+    const textForWebShare = `📢 [คลังภาพกิจกรรม วช.น่าน]
+📌 ${album.title}
+📅 วันที่: ${eventDateStr}
+📸 จำนวน: ${album.photoCount} ภาพ
+🌐 เปิดดูภาพและดาวน์โหลด:`;
+    const lineWebShareUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(textForWebShare)}`;
+
     try {
       await navigator.clipboard.writeText(message);
     } catch {
@@ -435,7 +442,7 @@ https://service.npc.ac.th/`;
       const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
       window.location.href = lineUrl;
     } else {
-      // On desktop PC, attempt to open LINE PC application or prompt user to paste
+      // On desktop PC, attempt to open LINE PC application or prompt user to paste / use LINE Web Share
       try {
         const lineAppUrl = `line://msg/text/?${encodeURIComponent(message)}`;
         window.location.href = lineAppUrl;
@@ -450,13 +457,16 @@ https://service.npc.ac.th/`;
           <div style="text-align: left; font-size: 13px; line-height: 1.6; color: #f1f5f9; background: rgba(255,255,255,0.06); padding: 14px; border-radius: 16px; border: 1px solid rgba(16,185,129,0.3); margin-top: 10px;">
             <p style="color: #34d399; font-weight: bold; margin-bottom: 6px;">✅ คัดลอกข้อความสรุปพร้อมลิงก์เรียบร้อยแล้ว</p>
             <p style="color: #cbd5e1; font-size: 12px; margin-bottom: 10px;">
-              เปิดห้องแชทกลุ่ม LINE บนคอมพิวเตอร์ แล้วกด <strong>Ctrl + V (วาง)</strong> และกดส่งได้ทันที จะได้ข้อความสรุปพร้อมรูปภาพและลิงก์ตามตัวอย่างด้านล่างนี้:
+              เปิดห้องแชทกลุ่ม LINE บนคอมพิวเตอร์ แล้วกด <strong>Ctrl + V (วาง)</strong> และกดส่งได้ทันที หรือคลิกเลือกวิธีการแชร์ด้านล่าง:
             </p>
             <div style="background: #0f172a; color: #e2e8f0; font-size: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); white-space: pre-wrap; font-family: inherit; line-height: 1.6; user-select: all;">${message}</div>
             
             <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
               <a href="line://msg/text/?${encodeURIComponent(message)}" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; background: #06c755; color: white; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 13px; box-shadow: 0 4px 12px rgba(6,199,85,0.3);">
                 💬 เปิดโปรแกรม LINE บนคอมพิวเตอร์
+              </a>
+              <a href="${lineWebShareUrl}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; background: rgba(255,255,255,0.08); color: #38bdf8; border: 1px solid rgba(56,189,248,0.4); border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 12px;">
+                🌐 แชร์ลิงก์อัลบั้มผ่าน LINE Web Share (พร้อมหัวข้อและพรีวิว)
               </a>
             </div>
           </div>

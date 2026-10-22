@@ -374,9 +374,10 @@ export function QuickUploadModal({
       const eventDateStr = albumResult.eventDate ? albumResult.eventDate.slice(0, 10) : "";
       const lineShareMsg = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 ${albumResult.title}\n📅 วันที่: ${eventDateStr}\n📸 จำนวน: ${filesCount} ภาพ\n🌐 เปิดดูภาพและดาวน์โหลด:\n${albumShareUrl}\nhttps://service.npc.ac.th/`;
       const isMobileClient = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const textForWebShare = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 ${albumResult.title}\n📅 วันที่: ${eventDateStr}\n📸 จำนวน: ${filesCount} ภาพ\n🌐 เปิดดูภาพและดาวน์โหลด:`;
       const lineDirectShareLink = isMobileClient
         ? `https://line.me/R/msg/text/?${encodeURIComponent(lineShareMsg)}`
-        : `line://msg/text/?${encodeURIComponent(lineShareMsg)}`;
+        : `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(albumShareUrl)}&text=${encodeURIComponent(textForWebShare)}`;
 
       try {
         await navigator.clipboard.writeText(lineShareMsg);
