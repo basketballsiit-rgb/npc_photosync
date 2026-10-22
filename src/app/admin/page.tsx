@@ -741,10 +741,10 @@ export default function AdminPage() {
     setIsTestingApi(true);
     try {
       const res = await fetch(
-        `/api/v1/media/by-project/${encodeURIComponent(apiTesterProjectCode.trim())}`,
+        `${getClientBasePath()}/api/v1/media/by-project/${encodeURIComponent(apiTesterProjectCode.trim())}`,
         {
           headers: {
-            "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
+            "x-photosync-api-key": "photosync-secure-rest-api-key-for-smartflow-reports",
           },
         }
       );
