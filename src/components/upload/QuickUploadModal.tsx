@@ -371,11 +371,16 @@ export function QuickUploadModal({
 
       const shareOrigin = typeof window !== "undefined" ? window.location.origin : "";
       const albumShareUrl = `${shareOrigin}${getClientBasePath()}/albums/${albumResult.albumCode}?openExternalBrowser=1`;
-      const lineShareMsg = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 กิจกรรม: ${albumResult.title}\n📅 วันที่: ${albumResult.eventDate?.slice(0, 10)}\n📸 จำนวน: ${filesCount} ภาพ\n🌐 เปิดดูและดาวน์โหลดภาพ:\n${albumShareUrl}`;
+      const eventDateStr = albumResult.eventDate ? albumResult.eventDate.slice(0, 10) : "";
+      const lineShareMsg = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 ${albumResult.title}\n📅 วันที่: ${eventDateStr}\n📸 จำนวน: ${filesCount} ภาพ\n🌐 เปิดดูภาพและดาวน์โหลด:\n${albumShareUrl}\nhttps://service.npc.ac.th/`;
       const isMobileClient = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       const lineDirectShareLink = isMobileClient
         ? `https://line.me/R/msg/text/?${encodeURIComponent(lineShareMsg)}`
-        : `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(albumShareUrl)}`;
+        : `line://msg/text/?${encodeURIComponent(lineShareMsg)}`;
+
+      try {
+        await navigator.clipboard.writeText(lineShareMsg);
+      } catch {}
 
       let lineHtmlStatus = '<span style="color: #94a3b8;">ไม่ได้เปิดใช้งาน</span>';
       if (sendLineNotify) {
@@ -386,7 +391,7 @@ export function QuickUploadModal({
             <span style="color: #f59e0b;">⚠️ โควตาข้อความฟรีของ LINE OA ประจำเดือนนี้เต็มแล้ว (200 ข้อความ/เดือน)</span>
             <div style="margin-top: 6px;">
               <a href="${lineDirectShareLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; background: #06c755; color: white; border-radius: 9999px; text-decoration: none; font-weight: bold; font-size: 11px;">
-                📲 คลิกที่นี่เพื่อแชร์ลงกลุ่ม LINE ทันที (ฟรี ไม่จำกัด)
+                📲 คลิกที่นี่เพื่อแชร์ลงกลุ่ม LINE ทันที (คัดลอกข้อความพร้อมส่งแล้ว)
               </a>
             </div>
           `;
@@ -395,7 +400,7 @@ export function QuickUploadModal({
             <span style="color: #f87171;">⚠️ ไม่สามารถส่งข้อความอัตโนมัติได้</span>
             <div style="margin-top: 6px;">
               <a href="${lineDirectShareLink}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; background: #06c755; color: white; border-radius: 9999px; text-decoration: none; font-weight: bold; font-size: 11px;">
-                📲 คลิกเพื่อแชร์ลงกลุ่ม LINE ด้วยตนเอง
+                📲 คลิกเพื่อแชร์ลงกลุ่ม LINE ด้วยตนเอง (คัดลอกข้อความพร้อมส่งแล้ว)
               </a>
             </div>
           `;

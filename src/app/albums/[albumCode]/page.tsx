@@ -402,20 +402,21 @@ export default function AlbumDetailPage() {
     setTimeout(() => setCopySuccess(false), 2000);
   };
 
-  // Share formatted message to LINE
+  // Share formatted message to LINE (Matching exact format: 📢 [คลังภาพกิจกรรม วช.น่าน])
   const handleShareToLine = async () => {
     if (!album) return;
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
     const shareUrl = currentUrl.includes("openExternalBrowser=1")
       ? currentUrl
       : `${currentUrl}${currentUrl.includes("?") ? "&" : "?"}openExternalBrowser=1`;
+    const eventDateStr = album.eventDate ? album.eventDate.slice(0, 10) : "";
     const message = `📢 [คลังภาพกิจกรรม วช.น่าน]
-📌 กิจกรรม: ${album.title}
-📅 วันที่: ${formatThaiDate(album.eventDate)}
-🏛️ ${album.divisionName}${album.departmentName ? " • " + album.departmentName : ""}
-📸 มีรูปภาพทั้งหมด: ${album.photoCount} ภาพ
-🌐 เปิดดูและดาวน์โหลดภาพคมชัดระดับ HD (หรืออัปโหลดรูปเพิ่ม):
-${shareUrl}`;
+📌 ${album.title}
+📅 วันที่: ${eventDateStr}
+📸 จำนวน: ${album.photoCount} ภาพ
+🌐 เปิดดูภาพและดาวน์โหลด:
+${shareUrl}
+https://service.npc.ac.th/`;
 
     try {
       await navigator.clipboard.writeText(message);
@@ -430,35 +431,37 @@ ${shareUrl}`;
       /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     if (isMobile) {
-      // On mobile devices, line.me/R/msg/text deep-links cleanly into the LINE app without 400 error
+      // On mobile devices, line.me/R/msg/text deep-links cleanly into the LINE app with full text
       const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
       window.location.href = lineUrl;
     } else {
-      // On desktop PC, line.me/R/msg/text causes LINE web redirector to crash with HTTP 400.
-      // Instead, we give desktop users options: open LINE desktop app, open LINE web share, or paste copied message.
-      const lineWebShareUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`;
-      const lineProtocolUrl = `line://msg/text/?${encodeURIComponent(message)}`;
+      // On desktop PC, attempt to open LINE PC application or prompt user to paste
+      try {
+        const lineAppUrl = `line://msg/text/?${encodeURIComponent(message)}`;
+        window.location.href = lineAppUrl;
+      } catch {
+        // ignore
+      }
 
       await npcSwal.fire({
         icon: "success",
-        title: "คัดลอกข้อความสรุปอัลบั้มแล้ว! 📋",
+        title: "คัดลอกข้อความสรุปเข้าคลิปบอร์ดแล้ว! 📋",
         html: `
           <div style="text-align: left; font-size: 13px; line-height: 1.6; color: #f1f5f9; background: rgba(255,255,255,0.06); padding: 14px; border-radius: 16px; border: 1px solid rgba(16,185,129,0.3); margin-top: 10px;">
-            <p style="color: #34d399; font-weight: bold; margin-bottom: 6px;">✅ คัดลอกข้อความสรุปพร้อมลิงก์ลงคลิปบอร์ดแล้ว</p>
-            <p style="color: #cbd5e1; font-size: 12px; margin-bottom: 8px;">ท่านสามารถเปิดห้องแชทกลุ่ม LINE แล้วกด <strong>Ctrl + V (วาง)</strong> เพื่อส่งข้อความได้ทันที:</p>
-            <textarea readonly style="width: 100%; height: 110px; background: rgba(0,0,0,0.45); color: #e2e8f0; font-size: 11px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); resize: none; font-family: inherit; line-height: 1.5;">${message}</textarea>
+            <p style="color: #34d399; font-weight: bold; margin-bottom: 6px;">✅ คัดลอกข้อความสรุปพร้อมลิงก์เรียบร้อยแล้ว</p>
+            <p style="color: #cbd5e1; font-size: 12px; margin-bottom: 10px;">
+              เปิดห้องแชทกลุ่ม LINE บนคอมพิวเตอร์ แล้วกด <strong>Ctrl + V (วาง)</strong> และกดส่งได้ทันที จะได้ข้อความสรุปพร้อมรูปภาพและลิงก์ตามตัวอย่างด้านล่างนี้:
+            </p>
+            <div style="background: #0f172a; color: #e2e8f0; font-size: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); white-space: pre-wrap; font-family: inherit; line-height: 1.6; user-select: all;">${message}</div>
             
             <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
-              <a href="${lineProtocolUrl}" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; background: #06c755; color: white; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 4px 12px rgba(6,199,85,0.3);">
+              <a href="line://msg/text/?${encodeURIComponent(message)}" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; background: #06c755; color: white; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 13px; box-shadow: 0 4px 12px rgba(6,199,85,0.3);">
                 💬 เปิดโปรแกรม LINE บนคอมพิวเตอร์
-              </a>
-              <a href="${lineWebShareUrl}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; background: rgba(255,255,255,0.08); color: #38bdf8; border: 1px solid rgba(56,189,248,0.4); border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 12px;">
-                🌐 แชร์ลิงก์อัลบั้มผ่าน LINE Web Share
               </a>
             </div>
           </div>
         `,
-        confirmButtonText: "รับทราบ / ปิดหน้าต่าง",
+        confirmButtonText: "เข้าใจแล้ว / ปิดหน้าต่าง",
         confirmButtonColor: "#ec4899",
       });
     }

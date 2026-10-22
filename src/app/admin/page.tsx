@@ -2475,7 +2475,8 @@ export default function AdminPage() {
                                 onClick={async () => {
                                   const origin = typeof window !== "undefined" ? window.location.origin : "";
                                   const url = `${origin}/npc_photosync/albums/${album.albumCode}?openExternalBrowser=1`;
-                                  const shareText = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 ${album.title}\n📅 วันที่: ${album.eventDate?.slice(0, 10)}\n📸 จำนวน: ${album.photoCount} ภาพ\n🌐 เปิดดูภาพและดาวน์โหลด:\n${url}`;
+                                  const eventDateStr = album.eventDate ? album.eventDate.slice(0, 10) : "";
+                                  const shareText = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 ${album.title}\n📅 วันที่: ${eventDateStr}\n📸 จำนวน: ${album.photoCount} ภาพ\n🌐 เปิดดูภาพและดาวน์โหลด:\n${url}\nhttps://service.npc.ac.th/`;
                                   try {
                                     await navigator.clipboard.writeText(shareText);
                                   } catch {}
@@ -2484,8 +2485,10 @@ export default function AdminPage() {
                                   if (isMobile) {
                                     window.open(`https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`, "_blank");
                                   } else {
+                                    try {
+                                      window.location.href = `line://msg/text/?${encodeURIComponent(shareText)}`;
+                                    } catch {}
                                     showAlert.success("คัดลอกข้อความแล้ว", "คัดลอกข้อความสรุปเรียบร้อย สามารถกด Ctrl+V เพื่อวางในแชทกลุ่ม LINE ได้ทันที");
-                                    window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`, "_blank");
                                   }
                                 }}
                                 className="p-1.5 rounded-xl text-emerald-400 hover:text-emerald-200 hover:bg-emerald-950/50 transition-colors"
