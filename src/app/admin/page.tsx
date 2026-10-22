@@ -51,6 +51,7 @@ import { showAlert } from "@/lib/sweetalert";
 import { EditAlbumModal } from "@/components/admin/EditAlbumModal";
 import { ManagePhotosModal } from "@/components/admin/ManagePhotosModal";
 import { NewsletterStudio } from "@/components/admin/NewsletterStudio";
+import { getClientBasePath } from "@/lib/basepath";
 
 interface AdminStats {
   totalAlbums: number;
@@ -612,14 +613,20 @@ export default function AdminPage() {
   const handleForceSyncSmartflow = async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch("/api/admin/sync-smartflow", { method: "POST" });
+      const res = await fetch(`${getClientBasePath()}/api/admin/sync-smartflow`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
-        showAlert.success("ซิงค์ข้อมูลสำเร็จ", `อัปเดตข้อมูล ${data.projects?.length || 3} โครงการเรียบร้อยแล้ว`);
+        if (data.syncedFromRemote) {
+          showAlert.success("ซิงค์ข้อมูลสำเร็จ", `ดึงข้อมูลสำเร็จ ${data.projects?.length || 0} โครงการจาก npc_smartflow เรียบร้อยแล้ว`);
+        } else {
+          showAlert.info("ใช้แคชข้อมูลโครงการ", `ยังไม่สามารถดึงข้อมูลสดจาก SmartFlow ได้ ระบบจึงใช้ข้อมูลโครงการที่มีอยู่ในแคช (${data.projects?.length || 0} โครงการ)`);
+        }
         loadDashboardData();
+      } else {
+        showAlert.error("ซิงค์ไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการซิงค์ข้อมูล");
       }
-    } catch (err) {
-      showAlert.error("ซิงค์ล้มเหลว", "การซิงค์ข้อมูลล้มเหลว กรุณาตรวจสอบการเชื่อมต่อ");
+    } catch (err: any) {
+      showAlert.error("ซิงค์ล้มเหลว", err.message || "การซิงค์ข้อมูลล้มเหลว กรุณาตรวจสอบการเชื่อมต่อ");
     } finally {
       setIsSyncing(false);
     }
