@@ -86,89 +86,99 @@ export async function syncProjectsFromSmartFlow(
   // Allow self-signed or internal SSL in Node fetch
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
-  let apiUrl = process.env.NPC_SMARTFLOW_API_URL || "https://service.npc.ac.th/npc_smartflow/api/v1";
+  let apiUrl = (process.env.NPC_SMARTFLOW_API_URL || "https://service.npc.ac.th/npc_smartflow/api/v1").trim().replace(/^["']|["']$/g, "").trim();
   if (apiUrl.includes("smartflow.npc.ac.th") || apiUrl.includes("smartflow.pvc.ac.th") || apiUrl.includes("example.com") || !apiUrl) {
     apiUrl = "https://service.npc.ac.th/npc_smartflow/api/v1";
   }
-  const secretKey = process.env.NPC_SMARTFLOW_SECRET_KEY || "npc-smartflow-secret-production-2026";
+
+  const defaultSecret = "npc-smartflow-secret-production-2026";
+  const envSecret = (process.env.NPC_SMARTFLOW_SECRET_KEY || "").trim().replace(/^["']|["']$/g, "").trim();
+  const secretKey = (envSecret && !envSecret.includes("xxx") && envSecret.length > 5) ? envSecret : defaultSecret;
 
   let remoteSuccess = false;
   let syncError: string | undefined = undefined;
   let savedCount = 0;
   const debugLogs: any[] = [];
 
-  if (apiUrl && secretKey) {
+  if (apiUrl) {
     const candidateUrls = [
-      apiUrl,
       "https://service.npc.ac.th/npc_smartflow/api/v1",
-      "http://127.0.0.1/npc_smartflow/api/v1",
-      "https://127.0.0.1/npc_smartflow/api/v1",
-      "http://localhost/npc_smartflow/api/v1",
+      apiUrl,
     ];
 
-    // Remove duplicates
+    const candidateSecrets = Array.from(new Set([
+      defaultSecret,
+      secretKey,
+    ].filter(Boolean)));
+
     const uniqueCandidateUrls = Array.from(new Set(candidateUrls));
 
-    for (const baseEndpoint of uniqueCandidateUrls) {
+    for (const currentSecret of candidateSecrets) {
       if (remoteSuccess) break;
-      try {
-        const url = new URL(`${baseEndpoint}/projects`);
-        if (academicYear) url.searchParams.set("academicYear", String(academicYear));
-        if (keyword) url.searchParams.set("q", keyword);
-        url.searchParams.set("secret", secretKey);
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+      for (const baseEndpoint of uniqueCandidateUrls) {
+        if (remoteSuccess) break;
+        try {
+          const url = new URL(`${baseEndpoint}/projects`);
+          if (academicYear) url.searchParams.set("academicYear", String(academicYear));
+          if (keyword) url.searchParams.set("q", keyword);
+          url.searchParams.set("secret", currentSecret);
 
-        const response = await fetch(url.toString(), {
-          headers: {
-            "Content-Type": "application/json",
-            "X-SmartFlow-Secret": secretKey,
-            "X-PhotoSync-Api-Key": secretKey,
-            "Host": "service.npc.ac.th",
-            "X-Forwarded-Proto": "https",
-            "X-Forwarded-Port": "443",
-          },
-          signal: controller.signal,
-        });
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const data = await response.json();
-          const projectList: SmartFlowSyncPayload[] = Array.isArray(data)
-            ? data
-            : data?.projects || [];
-
-          for (const item of projectList) {
-            if (item.projectCode && item.projectName) {
-              const saved = await upsertSmartFlowProjectRecord(item);
-              if (saved) savedCount++;
-            }
-          }
-
-          debugLogs.push({
-            endpoint: baseEndpoint,
-            status: response.status,
-            receivedCount: projectList.length,
-            savedCount,
-            lastUpsertError,
+          const response = await fetch(url.toString(), {
+            headers: {
+              "Content-Type": "application/json",
+              "X-SmartFlow-Secret": currentSecret,
+              "X-PhotoSync-Api-Key": currentSecret,
+            },
+            signal: controller.signal,
           });
 
-          if (savedCount > 0) {
-            remoteSuccess = true;
-            syncError = undefined;
-            break;
-          } else if (projectList.length > 0) {
-            syncError = `SmartFlow ส่งมา ${projectList.length} โครงการ แต่บันทึกลงฐานข้อมูลไม่สำเร็จ: ${lastUpsertError}`;
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const data = await response.json();
+            const projectList: SmartFlowSyncPayload[] = Array.isArray(data)
+              ? data
+              : data?.projects || [];
+
+            for (const item of projectList) {
+              if (item.projectCode && item.projectName) {
+                const saved = await upsertSmartFlowProjectRecord(item);
+                if (saved) savedCount++;
+              }
+            }
+
+            debugLogs.push({
+              endpoint: baseEndpoint,
+              status: response.status,
+              receivedCount: projectList.length,
+              savedCount,
+              lastUpsertError,
+            });
+
+            if (savedCount > 0) {
+              remoteSuccess = true;
+              syncError = undefined;
+              break;
+            } else if (projectList.length > 0) {
+              syncError = `SmartFlow ส่งมา ${projectList.length} โครงการ แต่บันทึกลงฐานข้อมูลไม่สำเร็จ: ${lastUpsertError}`;
+            }
+          } else {
+            syncError = `SmartFlow API returned HTTP ${response.status}`;
+            debugLogs.push({
+              endpoint: baseEndpoint,
+              status: response.status,
+              secretPrefix: currentSecret.substring(0, 6),
+              secretLen: currentSecret.length,
+            });
           }
-        } else {
-          syncError = `SmartFlow API returned HTTP ${response.status}`;
-          debugLogs.push({ endpoint: baseEndpoint, status: response.status });
+        } catch (err: any) {
+          syncError = err?.message || String(err);
+          debugLogs.push({ endpoint: baseEndpoint, error: syncError });
         }
-      } catch (err: any) {
-        syncError = err?.message || String(err);
-        debugLogs.push({ endpoint: baseEndpoint, error: syncError });
       }
     }
   }
