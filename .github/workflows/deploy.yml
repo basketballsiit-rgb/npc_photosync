@@ -66,17 +66,56 @@ jobs:
           chmod -R 777 public/uploads
           chcon -R -t httpd_sys_rw_content_t public/uploads 2>/dev/null || true
 
-          # 8. รีสตาร์ตแอปพลิเคชันผ่าน PM2 (พอร์ต 3006)
-          echo "🔄 Restarting Next.js server with PM2..."
+          # 8. ทำความสะอาดโพรเซสและพอร์ต 3006 ก่อนเริ่มใหม่
+          echo "🧹 Cleaning up port 3006 and PM2 processes..."
+          fuser -k 3006/tcp 2>/dev/null || true
+          pkill -f "next.*3006" 2>/dev/null || true
+
           if which pm2 > /dev/null 2>&1; then
-            pm2 restart npc_photosync --update-env || pm2 start ecosystem.config.js
+            pm2 delete npc_photosync 2>/dev/null || true
+            pm2 start ecosystem.config.js
             pm2 save
-            pm2 status
+            pm2 startup 2>/dev/null || true
           else
             echo "⚠️ PM2 not found globally, checking npx pm2..."
-            npx pm2 restart npc_photosync --update-env || npx pm2 start ecosystem.config.js
+            npx pm2 delete npc_photosync 2>/dev/null || true
+            npx pm2 start ecosystem.config.js
             npx pm2 save
-            npx pm2 status
           fi
+
+          # รอให้ Next.js เริ่มต้นการทำงาน
+          sleep 6
+
+          # 9. บันทึกผลการวินิจฉัย (Diagnostics) ไปยังโฟลเดอร์ public
+          DIAG_FILE="/var/www/npc_smartflow/public/photosync-diag.txt"
+          {
+            echo "=== NPC PhotoSync Diagnostic Report ==="
+            echo "Timestamp: $(date)"
+            echo "Node: $(node -v 2>/dev/null)"
+            echo "NPM: $(npm -v 2>/dev/null)"
+            echo ""
+            echo "=== PM2 STATUS ==="
+            if which pm2 > /dev/null 2>&1; then
+              pm2 status
+            else
+              npx pm2 status
+            fi
+            echo ""
+            echo "=== LISTENING PORTS ==="
+            ss -tlpn 2>/dev/null | grep -E "3006|3005|nginx|httpd" || netstat -tlpn 2>/dev/null | grep -E "3006|3005|nginx|httpd" || true
+            echo ""
+            echo "=== LOCAL CURL PORT 3006 ==="
+            curl -I -s --connect-timeout 5 http://127.0.0.1:3006/npc_photosync || echo "CURL to 127.0.0.1:3006 failed"
+            echo ""
+            echo "=== NGINX / APACHE VHOST CONFIG ==="
+            grep -rn "npc_photosync" /etc/nginx/ /etc/httpd/ /etc/apache2/ 2>/dev/null || true
+            echo ""
+            echo "=== PM2 RECENT LOGS ==="
+            if which pm2 > /dev/null 2>&1; then
+              pm2 logs npc_photosync --lines 40 --nostream
+            else
+              npx pm2 logs npc_photosync --lines 40 --nostream
+            fi
+          } > "$DIAG_FILE" 2>&1 || true
 
           echo "✅ Deploy NPC PhotoSync สำเร็จเรียบร้อยแล้ว!"
