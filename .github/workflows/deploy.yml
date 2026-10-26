@@ -1,9 +1,10 @@
 name: Deploy NPC PhotoSync to College Server
 
-# Trigger workflow on push to main branch
+# Trigger workflow on push to main branch or manual trigger
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -68,12 +69,14 @@ jobs:
           # 8. รีสตาร์ตแอปพลิเคชันผ่าน PM2 (พอร์ต 3006)
           echo "🔄 Restarting Next.js server with PM2..."
           if which pm2 > /dev/null 2>&1; then
-            pm2 restart npc_photosync || pm2 start ecosystem.config.js
+            pm2 restart npc_photosync --update-env || pm2 start ecosystem.config.js
             pm2 save
+            pm2 status
           else
             echo "⚠️ PM2 not found globally, checking npx pm2..."
-            npx pm2 restart npc_photosync || npx pm2 start ecosystem.config.js
+            npx pm2 restart npc_photosync --update-env || npx pm2 start ecosystem.config.js
             npx pm2 save
+            npx pm2 status
           fi
 
           echo "✅ Deploy NPC PhotoSync สำเร็จเรียบร้อยแล้ว!"
