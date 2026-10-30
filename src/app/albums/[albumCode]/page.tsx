@@ -1082,26 +1082,30 @@ https://service.npc.ac.th/`;
 
         {/* Date Filter & Grouping Bar (สำหรับอัลบั้มงานประจำ หรืออัลบั้มที่มีรูปหลายวันที่) */}
         {dateGroups.length > 0 && (
-          <section className="space-y-3 rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 sm:px-6 shadow-xl backdrop-blur-md">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2 text-xs text-purple-200">
-                <Calendar className="h-4 w-4 text-pink-400 shrink-0" />
-                <span className="font-bold text-white text-sm">
-                  แยกตามวันที่อัปโหลดกิจกรรม
-                </span>
-                <span className="text-purple-400 text-xs">
-                  (มีทั้งหมด {dateGroups.length} วันที่)
-                </span>
+          <section className="space-y-3.5 rounded-3xl border-2 border-purple-500/40 bg-gradient-to-b from-[#1E0E48]/95 to-[#13072E]/95 p-4 sm:p-5 shadow-2xl backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 text-xs text-purple-200">
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-pink-500/30 to-purple-600/35 border border-pink-500/60 flex items-center justify-center text-pink-300 shadow-sm">
+                  <Calendar className="h-4 w-4 text-pink-400" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-white text-sm sm:text-base tracking-tight">
+                    แยกตามวันที่อัปโหลดกิจกรรม
+                  </span>
+                  <span className="rounded-full bg-pink-500/20 border border-pink-500/40 text-pink-300 text-[11px] font-bold px-2 py-0.5">
+                    {dateGroups.length} วันที่
+                  </span>
+                </div>
               </div>
 
               {/* View Mode Switcher */}
               {dateGroups.length > 1 && (
-                <div className="flex items-center gap-1 bg-[#190C3E] p-1 rounded-full border border-purple-800/50 self-start sm:self-auto text-[11px]">
+                <div className="flex items-center gap-1 bg-[#160838] p-1 rounded-full border border-purple-600/50 self-start sm:self-auto text-[11px] shadow-inner">
                   <button
                     onClick={() => setIsGroupedByDate(true)}
-                    className={`px-3 py-1 rounded-full transition-all ${
+                    className={`px-3.5 py-1.5 rounded-full transition-all font-semibold ${
                       isGroupedByDate
-                        ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-sm"
+                        ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white font-bold shadow-md shadow-pink-500/30"
                         : "text-purple-300 hover:text-white"
                     }`}
                   >
@@ -1109,9 +1113,9 @@ https://service.npc.ac.th/`;
                   </button>
                   <button
                     onClick={() => setIsGroupedByDate(false)}
-                    className={`px-3 py-1 rounded-full transition-all ${
+                    className={`px-3.5 py-1.5 rounded-full transition-all font-semibold ${
                       !isGroupedByDate
-                        ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-sm"
+                        ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white font-bold shadow-md shadow-pink-500/30"
                         : "text-purple-300 hover:text-white"
                     }`}
                   >
@@ -1126,10 +1130,10 @@ https://service.npc.ac.th/`;
               <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-1 scrollbar-thin scrollbar-thumb-purple-800/50">
                 <button
                   onClick={() => setSelectedDateFilter("ALL")}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold shrink-0 transition-all ${
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold shrink-0 transition-all ${
                     selectedDateFilter === "ALL"
-                      ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-md shadow-pink-500/30 ring-1 ring-pink-400"
-                      : "bg-[#1E0E48] text-purple-300 hover:text-white border border-purple-800/40 hover:bg-[#28135C]"
+                      ? "bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 text-white shadow-lg shadow-pink-500/30 ring-2 ring-pink-400"
+                      : "bg-[#251052] text-purple-200 hover:text-white border border-purple-500/40 hover:border-pink-400 hover:bg-[#321568]"
                   }`}
                 >
                   <span>🌟 ทุกวันที่ ({album.mediaFiles.length} รูป)</span>
@@ -1141,19 +1145,19 @@ https://service.npc.ac.th/`;
                     <button
                       key={group.dateKey}
                       onClick={() => setSelectedDateFilter(group.dateKey)}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold shrink-0 transition-all ${
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold shrink-0 transition-all ${
                         isActive
-                          ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-md shadow-pink-500/30 ring-1 ring-pink-400"
-                          : "bg-[#1E0E48] text-purple-300 hover:text-white border border-purple-800/40 hover:bg-[#28135C]"
+                          ? "bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 text-white shadow-lg shadow-pink-500/30 ring-2 ring-pink-400"
+                          : "bg-[#251052] text-purple-200 hover:text-white border border-purple-500/40 hover:border-pink-400 hover:bg-[#321568]"
                       }`}
                     >
-                      <Calendar className="h-3.5 w-3.5 text-pink-400" />
+                      <Calendar className="h-3.5 w-3.5 text-pink-300" />
                       <span>{group.thaiShort}</span>
                       <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
                           isActive
-                            ? "bg-black/30 text-white"
-                            : "bg-purple-900/60 text-purple-200"
+                            ? "bg-black/35 text-white"
+                            : "bg-purple-950/70 text-purple-200 border border-purple-700/50"
                         }`}
                       >
                         {group.items.length}
@@ -1181,22 +1185,27 @@ https://service.npc.ac.th/`;
 
               return (
                 <section key={group.dateKey} className="space-y-4">
-                  {/* Group Header Banner */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl bg-gradient-to-r from-[#190B3C]/95 via-[#250F52]/90 to-[#140834]/95 p-4 sm:p-5 border border-purple-700/50 shadow-xl backdrop-blur-md">
-                    <div className="flex items-center gap-3.5">
-                      <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-pink-500/30 to-purple-600/35 border border-pink-500/50 text-pink-300 flex items-center justify-center shrink-0 shadow-inner">
-                        <Calendar className="h-5 w-5 text-pink-400" />
+                  {/* High-Contrast Standout Date Header Banner */}
+                  <div className="relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#2D125A] via-[#240C49] to-[#1C083C] p-4 sm:p-5 border-2 border-purple-500/50 border-l-[6px] border-l-pink-500 shadow-2xl shadow-purple-950/80 backdrop-blur-md">
+                    {/* Top hairline gradient glow */}
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-pink-500 via-purple-400 to-transparent pointer-events-none" />
+
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      {/* Vibrant Glowing Calendar Icon */}
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-pink-500/40 border border-white/20">
+                        <Calendar className="h-6 w-6 text-white drop-shadow-sm" />
                       </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <h2 className="text-base sm:text-xl font-extrabold text-white tracking-tight drop-shadow-sm">
                             {group.thaiHeading}
                           </h2>
-                          <span className="rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/35 px-2.5 py-0.5 text-[11px] font-bold">
+                          <span className="rounded-full bg-gradient-to-r from-pink-500 to-rose-600 text-white px-3 py-0.5 text-xs font-black shadow-md shadow-pink-500/30 tracking-wide">
                             {group.items.length} รูป
                           </span>
                         </div>
-                        <p className="text-[11px] text-purple-300/80">
+                        <p className="text-xs text-pink-200/90 font-medium mt-0.5 flex items-center gap-1.5">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse" />
                           ภาพกิจกรรมประจำวันที่ {group.thaiShort}
                         </p>
                       </div>
@@ -1206,20 +1215,20 @@ https://service.npc.ac.th/`;
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => toggleSelectDateGroup(group.dateKey)}
-                        className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold transition-all shadow-md ${
+                        className={`flex items-center gap-2 rounded-xl sm:rounded-2xl border-2 px-4 py-2.5 text-xs sm:text-sm font-bold transition-all shadow-md active:scale-95 ${
                           isAllGroupSelected
-                            ? "border-pink-500/60 bg-pink-500/25 text-pink-200 hover:bg-pink-500/35 shadow-pink-500/20"
-                            : "border-purple-600/50 bg-[#160B3A] text-purple-200 hover:border-pink-500 hover:text-white"
+                            ? "border-pink-400 bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-lg shadow-pink-500/40"
+                            : "border-purple-400/50 bg-[#1D0C42] text-white hover:border-pink-400 hover:bg-pink-600 hover:shadow-lg hover:shadow-pink-500/30 group"
                         }`}
                       >
                         {isAllGroupSelected ? (
                           <>
-                            <CheckSquare className="h-4 w-4 text-pink-400 fill-pink-950" />
+                            <CheckSquare className="h-4 w-4 text-white" />
                             <span>ยกเลิกเลือกวันนี้ ({group.items.length})</span>
                           </>
                         ) : (
                           <>
-                            <Square className="h-4 w-4 text-purple-400" />
+                            <Square className="h-4 w-4 text-purple-300 group-hover:text-white" />
                             <span>เลือกทั้งหมดในวันนี้ ({group.items.length})</span>
                           </>
                         )}
