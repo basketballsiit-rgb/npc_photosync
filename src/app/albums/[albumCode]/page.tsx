@@ -47,6 +47,7 @@ interface MediaItem {
   thumbnailWebpUrl: string;
   reportReadyJpgUrl: string;
   capturedAt?: string | null;
+  createdAt?: string | null;
   cameraModel?: string | null;
   aiCaption?: string | null;
   aiTagsJson?: string | null;
@@ -185,27 +186,132 @@ export default function AlbumDetailPage() {
     }
   };
 
+  // Date Filter & Grouping State
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string>("ALL");
+  const [isGroupedByDate, setIsGroupedByDate] = useState<boolean>(true);
+
+  // Helper to extract YYYY-MM-DD in Asia/Bangkok timezone
+  const getMediaDateKey = (media?: MediaItem | null): string => {
+    if (!media) return "no-date";
+    const dateStr = media.capturedAt || media.createdAt;
+    if (!dateStr) return "no-date";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "no-date";
+      const formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Bangkok",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      return formatter.format(d);
+    } catch {
+      return "no-date";
+    }
+  };
+
+  const formatThaiDateHeading = (dateKey: string): string => {
+    if (!dateKey || dateKey === "no-date") return "ภาพไม่ระบุวันที่";
+    try {
+      const [year, month, day] = dateKey.split("-").map(Number);
+      const date = new Date(year, month - 1, day);
+      const dayNames = [
+        "วันอาทิตย์", "วันจันทร์", "วันอังคาร", "วันพุธ",
+        "วันพฤหัสบดี", "วันศุกร์", "วันเสาร์",
+      ];
+      const monthNames = [
+        "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+        "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
+      ];
+      const thaiDayName = dayNames[date.getDay()];
+      const thaiMonth = monthNames[month - 1];
+      const thaiYear = year + 543;
+      return `${thaiDayName}ที่ ${day} ${thaiMonth} ${thaiYear}`;
+    } catch {
+      return dateKey;
+    }
+  };
+
+  const formatThaiDateShort = (dateKey: string): string => {
+    if (!dateKey || dateKey === "no-date") return "ไม่ระบุวันที่";
+    try {
+      const [year, month, day] = dateKey.split("-").map(Number);
+      const monthShort = [
+        "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+        "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
+      ];
+      return `${day} ${monthShort[month - 1]} ${year + 543}`;
+    } catch {
+      return dateKey;
+    }
+  };
+
+  // Group media by date
+  interface DateGroup {
+    dateKey: string;
+    thaiHeading: string;
+    thaiShort: string;
+    items: MediaItem[];
+  }
+
+  const dateGroups: DateGroup[] = React.useMemo(() => {
+    if (!album?.mediaFiles || album.mediaFiles.length === 0) return [];
+
+    const map = new Map<string, MediaItem[]>();
+    for (const media of album.mediaFiles) {
+      const key = getMediaDateKey(media);
+      const list = map.get(key) || [];
+      list.push(media);
+      map.set(key, list);
+    }
+
+    // Sort descending: newest date first
+    const sortedKeys = Array.from(map.keys()).sort((a, b) => {
+      if (a === "no-date") return 1;
+      if (b === "no-date") return -1;
+      return b.localeCompare(a);
+    });
+
+    return sortedKeys.map((dateKey) => ({
+      dateKey,
+      thaiHeading: formatThaiDateHeading(dateKey),
+      thaiShort: formatThaiDateShort(dateKey),
+      items: map.get(dateKey) || [],
+    }));
+  }, [album?.mediaFiles]);
+
+  // Active media list respecting date filter (used for Lightbox and count calculations)
+  const activeMediaList = React.useMemo(() => {
+    if (!album?.mediaFiles) return [];
+    if (selectedDateFilter === "ALL") {
+      // Flatten groups in date order (newest dates first)
+      return dateGroups.length > 0 ? dateGroups.flatMap((g) => g.items) : album.mediaFiles;
+    }
+    const currentGroup = dateGroups.find((g) => g.dateKey === selectedDateFilter);
+    return currentGroup ? currentGroup.items : album.mediaFiles;
+  }, [album?.mediaFiles, selectedDateFilter, dateGroups]);
+
   // Touch swipe state for Lightbox navigation
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
 
   const currentMediaIndex =
-    album?.mediaFiles?.findIndex((m) => m.id === activeLightboxMedia?.id) ?? -1;
-  const totalMediaCount = album?.mediaFiles?.length ?? 0;
+    activeMediaList.findIndex((m) => m.id === activeLightboxMedia?.id) ?? -1;
+  const totalMediaCount = activeMediaList.length;
 
   const handleNextPhoto = () => {
-    if (!album?.mediaFiles || album.mediaFiles.length <= 1) return;
-    const currentIdx = album.mediaFiles.findIndex((m) => m.id === activeLightboxMedia?.id);
-    const nextIdx = (currentIdx + 1) % album.mediaFiles.length;
-    setActiveLightboxMedia(album.mediaFiles[nextIdx]);
+    if (activeMediaList.length <= 1) return;
+    const currentIdx = activeMediaList.findIndex((m) => m.id === activeLightboxMedia?.id);
+    const nextIdx = (currentIdx + 1) % activeMediaList.length;
+    setActiveLightboxMedia(activeMediaList[nextIdx]);
   };
 
   const handlePrevPhoto = () => {
-    if (!album?.mediaFiles || album.mediaFiles.length <= 1) return;
-    const currentIdx = album.mediaFiles.findIndex((m) => m.id === activeLightboxMedia?.id);
+    if (activeMediaList.length <= 1) return;
+    const currentIdx = activeMediaList.findIndex((m) => m.id === activeLightboxMedia?.id);
     const prevIdx =
-      (currentIdx - 1 + album.mediaFiles.length) % album.mediaFiles.length;
-    setActiveLightboxMedia(album.mediaFiles[prevIdx]);
+      (currentIdx - 1 + activeMediaList.length) % activeMediaList.length;
+    setActiveLightboxMedia(activeMediaList[prevIdx]);
   };
 
   // Keyboard navigation for Lightbox (Arrow Left / Right, Escape)
@@ -258,7 +364,15 @@ export default function AlbumDetailPage() {
 
   const selectAll = () => {
     if (!album) return;
-    setSelectedMediaIds(album.mediaFiles.map((m) => m.id));
+    if (selectedDateFilter === "ALL") {
+      setSelectedMediaIds(album.mediaFiles.map((m) => m.id));
+    } else {
+      const currentGroup = dateGroups.find((g) => g.dateKey === selectedDateFilter);
+      if (currentGroup) {
+        const groupIds = currentGroup.items.map((m) => m.id);
+        setSelectedMediaIds((prev) => Array.from(new Set([...prev, ...groupIds])));
+      }
+    }
   };
 
   const clearSelection = () => {
@@ -267,12 +381,29 @@ export default function AlbumDetailPage() {
 
   const selectFeaturedOnly = () => {
     if (!album) return;
-    const featured = album.mediaFiles
+    const targetItems = selectedDateFilter === "ALL"
+      ? album.mediaFiles
+      : (dateGroups.find((g) => g.dateKey === selectedDateFilter)?.items || album.mediaFiles);
+    const featured = targetItems
       .filter((m) => m.isFeatured)
       .map((m) => m.id);
     setSelectedMediaIds(
-      featured.length > 0 ? featured : album.mediaFiles.slice(0, 4).map((m) => m.id)
+      featured.length > 0 ? featured : targetItems.slice(0, 4).map((m) => m.id)
     );
+  };
+
+  // Toggle selection for all photos in a specific date group
+  const toggleSelectDateGroup = (dateKey: string) => {
+    const group = dateGroups.find((g) => g.dateKey === dateKey);
+    if (!group) return;
+    const groupIds = group.items.map((m) => m.id);
+    const allSelected = groupIds.length > 0 && groupIds.every((id) => selectedMediaIds.includes(id));
+
+    if (allSelected) {
+      setSelectedMediaIds((prev) => prev.filter((id) => !groupIds.includes(id)));
+    } else {
+      setSelectedMediaIds((prev) => Array.from(new Set([...prev, ...groupIds])));
+    }
   };
 
   // Check if running inside LINE in-app browser and guide user to Chrome / Safari
@@ -321,11 +452,18 @@ export default function AlbumDetailPage() {
 
     try {
       const base = getClientBasePath();
+      const targetMediaIds =
+        selectedMediaIds.length > 0
+          ? selectedMediaIds
+          : selectedDateFilter !== "ALL"
+          ? activeMediaList.map((m) => m.id)
+          : [];
+
       const res = await fetch(`${base}/api/albums/${album.id}/download-zip`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mediaIds: selectedMediaIds,
+          mediaIds: targetMediaIds,
           quality,
         }),
       });
@@ -336,7 +474,11 @@ export default function AlbumDetailPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${album.albumCode}_${quality.toUpperCase()}.zip`;
+      const dateSuffix =
+        selectedDateFilter !== "ALL" && selectedMediaIds.length === 0
+          ? `_${selectedDateFilter}`
+          : "";
+      a.download = `${album.albumCode}${dateSuffix}_${quality.toUpperCase()}.zip`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -597,6 +739,112 @@ https://service.npc.ac.th/`;
       album.albumType === AlbumType.ADHOC ||
       album.albumType === AlbumType.PORTFOLIO);
 
+  const renderMediaCard = (media: MediaItem) => {
+    const isSelected = selectedMediaIds.includes(media.id);
+    const mediaDateKey = getMediaDateKey(media);
+    const dateChip = mediaDateKey !== "no-date" ? formatThaiDateShort(mediaDateKey) : null;
+
+    return (
+      <div
+        key={media.id}
+        className={`group relative rounded-3xl overflow-hidden border transition-all duration-300 bg-[#130A2E]/90 flex flex-col ${
+          isSelected
+            ? "border-pink-500 shadow-xl shadow-pink-500/20 ring-1 ring-pink-500"
+            : "border-purple-800/30 hover:border-pink-500/40 hover:shadow-lg hover:shadow-purple-500/15"
+        }`}
+      >
+        {/* Photo Image Aspect */}
+        <div
+          onClick={() => setActiveLightboxMedia(media)}
+          className="relative aspect-[4/3] w-full cursor-pointer overflow-hidden bg-[#0F0728]"
+        >
+          <img
+            src={formatMediaUrl(media.thumbnailWebpUrl || media.reportReadyJpgUrl, media.id, "thumb")}
+            alt={media.fileName}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={(e) => {
+              const target = e.currentTarget;
+              const proxyUrl = `${getClientBasePath()}/api/v1/image-proxy/${media.id}?type=thumb`;
+              if (!target.src.includes(`/api/v1/image-proxy/${media.id}`)) {
+                target.src = proxyUrl;
+              }
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+          {/* Badges container */}
+          <div className="absolute left-2.5 top-2.5 z-10 flex flex-col gap-1.5 items-start">
+            {media.isFeatured && (
+              <div className="flex items-center gap-1 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-md shadow-pink-500/40">
+                <Sparkles className="h-3 w-3" />
+                <span>รูปเด่น 5 บท</span>
+              </div>
+            )}
+            {dateChip && (
+              <div className="flex items-center gap-1 rounded-full bg-[#12072D]/90 backdrop-blur-md px-2.5 py-0.5 text-[9px] font-semibold text-purple-200 border border-purple-700/50 shadow-sm">
+                <Calendar className="h-2.5 w-2.5 text-pink-400" />
+                <span>{dateChip}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Checkbox Trigger */}
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSelectMedia(media.id);
+            }}
+            className="absolute right-2.5 top-2.5 z-20 cursor-pointer rounded-full bg-black/60 p-1.5 text-white backdrop-blur-md transition-transform active:scale-90"
+          >
+            {isSelected ? (
+              <CheckSquare className="h-5 w-5 text-pink-400 fill-pink-950" />
+            ) : (
+              <Square className="h-5 w-5 text-purple-300" />
+            )}
+          </div>
+        </div>
+
+        {/* Photo Meta and AI Caption */}
+        <div className="p-3.5 space-y-2 flex-1 flex flex-col justify-between text-xs">
+          <div>
+            <p className="line-clamp-2 text-purple-100 text-xs font-medium">
+              {media.aiCaption || media.fileName}
+            </p>
+            <div className="mt-1 flex items-center gap-2 text-[10px] text-purple-400/80">
+              <span>{media.width}x{media.height}</span>
+              <span>•</span>
+              <span>{media.cameraModel || "กล้องดิจิทัล"}</span>
+            </div>
+          </div>
+
+          {/* Individual Image Quick Actions */}
+          <div className="flex items-center justify-between pt-2 border-t border-purple-900/40 text-[11px]">
+            <button
+              onClick={() => handleDownloadSinglePhoto(media, "report")}
+              disabled={downloadingMediaId === media.id}
+              className="text-pink-300 hover:text-pink-200 hover:underline flex items-center gap-1 font-semibold disabled:opacity-50"
+              title="ดาวน์โหลดภาพระดับ HD เข้ามือถือ/คอมพิวเตอร์"
+            >
+              {downloadingMediaId === media.id ? (
+                <Loader2 className="h-3 w-3 animate-spin text-pink-400" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
+              <span>HD (300KB)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveLightboxMedia(media)}
+              className="text-purple-400 hover:text-white transition-colors"
+            >
+              ซูมดูภาพ
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
     typeof window !== "undefined" ? window.location.href : ""
   )}`;
@@ -801,14 +1049,18 @@ https://service.npc.ac.th/`;
             <span className="text-purple-300/70 mr-1">การเลือกภาพ:</span>
             <button
               onClick={selectAll}
-              className="flex items-center gap-1.5 rounded-full border border-purple-700/50 bg-[#1D0E44] px-3 py-1.5 font-medium text-purple-200 hover:bg-[#291460] hover:text-white transition-colors"
+              className="flex items-center gap-1.5 rounded-full border border-purple-700/50 bg-[#1D0E44] px-3.5 py-1.5 font-medium text-purple-200 hover:bg-[#291460] hover:text-white transition-colors"
             >
               <CheckSquare className="h-3.5 w-3.5 text-pink-400" />
-              <span>เลือกทั้งหมด ({album.mediaFiles.length})</span>
+              <span>
+                {selectedDateFilter === "ALL"
+                  ? `เลือกทั้งหมด (${album.mediaFiles.length})`
+                  : `เลือกเฉพาะวันที่นี้ (${activeMediaList.length})`}
+              </span>
             </button>
             <button
               onClick={selectFeaturedOnly}
-              className="flex items-center gap-1.5 rounded-full border border-purple-700/50 bg-[#1D0E44] px-3 py-1.5 font-medium text-pink-300 hover:bg-[#291460] transition-colors"
+              className="flex items-center gap-1.5 rounded-full border border-purple-700/50 bg-[#1D0E44] px-3.5 py-1.5 font-medium text-pink-300 hover:bg-[#291460] transition-colors"
             >
               <Sparkles className="h-3.5 w-3.5 text-pink-400" />
               <span>เลือกเฉพาะรูปเด่น (รายงาน 5 บท)</span>
@@ -828,103 +1080,167 @@ https://service.npc.ac.th/`;
           </div>
         </section>
 
-        {/* Masonry / Bento Photo Grid */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {album.mediaFiles.map((media) => {
-            const isSelected = selectedMediaIds.includes(media.id);
-            return (
-              <div
-                key={media.id}
-                className={`group relative rounded-3xl overflow-hidden border transition-all duration-300 bg-[#130A2E]/90 flex flex-col ${
-                  isSelected
-                    ? "border-pink-500 shadow-xl shadow-pink-500/20 ring-1 ring-pink-500"
-                    : "border-purple-800/30 hover:border-pink-500/40 hover:shadow-lg hover:shadow-purple-500/15"
-                }`}
-              >
-                {/* Photo Image Aspect */}
-                <div
-                  onClick={() => setActiveLightboxMedia(media)}
-                  className="relative aspect-[4/3] w-full cursor-pointer overflow-hidden bg-[#0F0728]"
-                >
-                  <img
-                    src={formatMediaUrl(media.thumbnailWebpUrl || media.reportReadyJpgUrl, media.id, "thumb")}
-                    alt={media.fileName}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      const proxyUrl = `${getClientBasePath()}/api/v1/image-proxy/${media.id}?type=thumb`;
-                      if (!target.src.includes(`/api/v1/image-proxy/${media.id}`)) {
-                        target.src = proxyUrl;
-                      }
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                  {/* Featured Badge */}
-                  {media.isFeatured && (
-                    <div className="absolute left-2.5 top-2.5 z-10 flex items-center gap-1 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-md shadow-pink-500/40">
-                      <Sparkles className="h-3 w-3" />
-                      <span>รูปเด่น 5 บท</span>
-                    </div>
-                  )}
-
-                  {/* Checkbox Trigger */}
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSelectMedia(media.id);
-                    }}
-                    className="absolute right-2.5 top-2.5 z-20 cursor-pointer rounded-full bg-black/60 p-1.5 text-white backdrop-blur-md transition-transform active:scale-90"
-                  >
-                    {isSelected ? (
-                      <CheckSquare className="h-5 w-5 text-pink-400 fill-pink-950" />
-                    ) : (
-                      <Square className="h-5 w-5 text-purple-300" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Photo Meta and AI Caption */}
-                <div className="p-3.5 space-y-2 flex-1 flex flex-col justify-between text-xs">
-                  <div>
-                    <p className="line-clamp-2 text-purple-100 text-xs font-medium">
-                      {media.aiCaption || media.fileName}
-                    </p>
-                    <div className="mt-1 flex items-center gap-2 text-[10px] text-purple-400/80">
-                      <span>{media.width}x{media.height}</span>
-                      <span>•</span>
-                      <span>{media.cameraModel || "กล้องดิจิทัล"}</span>
-                    </div>
-                  </div>
-
-                  {/* Individual Image Quick Actions */}
-                  <div className="flex items-center justify-between pt-2 border-t border-purple-900/40 text-[11px]">
-                    <button
-                      onClick={() => handleDownloadSinglePhoto(media, "report")}
-                      disabled={downloadingMediaId === media.id}
-                      className="text-pink-300 hover:text-pink-200 hover:underline flex items-center gap-1 font-semibold disabled:opacity-50"
-                      title="ดาวน์โหลดภาพระดับ HD เข้ามือถือ/คอมพิวเตอร์"
-                    >
-                      {downloadingMediaId === media.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin text-pink-400" />
-                      ) : (
-                        <Download className="h-3 w-3" />
-                      )}
-                      <span>HD (300KB)</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveLightboxMedia(media)}
-                      className="text-purple-400 hover:text-white transition-colors"
-                    >
-                      ซูมดูภาพ
-                    </button>
-                  </div>
-                </div>
+        {/* Date Filter & Grouping Bar (สำหรับอัลบั้มงานประจำ หรืออัลบั้มที่มีรูปหลายวันที่) */}
+        {dateGroups.length > 0 && (
+          <section className="space-y-3 rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 sm:px-6 shadow-xl backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2 text-xs text-purple-200">
+                <Calendar className="h-4 w-4 text-pink-400 shrink-0" />
+                <span className="font-bold text-white text-sm">
+                  แยกตามวันที่อัปโหลดกิจกรรม
+                </span>
+                <span className="text-purple-400 text-xs">
+                  (มีทั้งหมด {dateGroups.length} วันที่)
+                </span>
               </div>
-            );
-          })}
-        </section>
+
+              {/* View Mode Switcher */}
+              {dateGroups.length > 1 && (
+                <div className="flex items-center gap-1 bg-[#190C3E] p-1 rounded-full border border-purple-800/50 self-start sm:self-auto text-[11px]">
+                  <button
+                    onClick={() => setIsGroupedByDate(true)}
+                    className={`px-3 py-1 rounded-full transition-all ${
+                      isGroupedByDate
+                        ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-sm"
+                        : "text-purple-300 hover:text-white"
+                    }`}
+                  >
+                    แยกกลุ่มตามวัน
+                  </button>
+                  <button
+                    onClick={() => setIsGroupedByDate(false)}
+                    className={`px-3 py-1 rounded-full transition-all ${
+                      !isGroupedByDate
+                        ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-sm"
+                        : "text-purple-300 hover:text-white"
+                    }`}
+                  >
+                    แสดงตารางรวม
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Date Pills Tabs */}
+            {dateGroups.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-1 scrollbar-thin scrollbar-thumb-purple-800/50">
+                <button
+                  onClick={() => setSelectedDateFilter("ALL")}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold shrink-0 transition-all ${
+                    selectedDateFilter === "ALL"
+                      ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-md shadow-pink-500/30 ring-1 ring-pink-400"
+                      : "bg-[#1E0E48] text-purple-300 hover:text-white border border-purple-800/40 hover:bg-[#28135C]"
+                  }`}
+                >
+                  <span>🌟 ทุกวันที่ ({album.mediaFiles.length} รูป)</span>
+                </button>
+
+                {dateGroups.map((group) => {
+                  const isActive = selectedDateFilter === group.dateKey;
+                  return (
+                    <button
+                      key={group.dateKey}
+                      onClick={() => setSelectedDateFilter(group.dateKey)}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold shrink-0 transition-all ${
+                        isActive
+                          ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-md shadow-pink-500/30 ring-1 ring-pink-400"
+                          : "bg-[#1E0E48] text-purple-300 hover:text-white border border-purple-800/40 hover:bg-[#28135C]"
+                      }`}
+                    >
+                      <Calendar className="h-3.5 w-3.5 text-pink-400" />
+                      <span>{group.thaiShort}</span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          isActive
+                            ? "bg-black/30 text-white"
+                            : "bg-purple-900/60 text-purple-200"
+                        }`}
+                      >
+                        {group.items.length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Render Photos by Date Group or Flat Grid */}
+        {isGroupedByDate ? (
+          <div className="space-y-10">
+            {(selectedDateFilter === "ALL"
+              ? dateGroups
+              : dateGroups.filter((g) => g.dateKey === selectedDateFilter)
+            ).map((group) => {
+              const groupSelectedCount = group.items.filter((m) =>
+                selectedMediaIds.includes(m.id)
+              ).length;
+              const isAllGroupSelected =
+                groupSelectedCount === group.items.length && group.items.length > 0;
+
+              return (
+                <section key={group.dateKey} className="space-y-4">
+                  {/* Group Header Banner */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl bg-gradient-to-r from-[#190B3C]/95 via-[#250F52]/90 to-[#140834]/95 p-4 sm:p-5 border border-purple-700/50 shadow-xl backdrop-blur-md">
+                    <div className="flex items-center gap-3.5">
+                      <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-pink-500/30 to-purple-600/35 border border-pink-500/50 text-pink-300 flex items-center justify-center shrink-0 shadow-inner">
+                        <Calendar className="h-5 w-5 text-pink-400" />
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                            {group.thaiHeading}
+                          </h2>
+                          <span className="rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/35 px-2.5 py-0.5 text-[11px] font-bold">
+                            {group.items.length} รูป
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-purple-300/80">
+                          ภาพกิจกรรมประจำวันที่ {group.thaiShort}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Quick Action: Select / Deselect All Photos in this Day */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => toggleSelectDateGroup(group.dateKey)}
+                        className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold transition-all shadow-md ${
+                          isAllGroupSelected
+                            ? "border-pink-500/60 bg-pink-500/25 text-pink-200 hover:bg-pink-500/35 shadow-pink-500/20"
+                            : "border-purple-600/50 bg-[#160B3A] text-purple-200 hover:border-pink-500 hover:text-white"
+                        }`}
+                      >
+                        {isAllGroupSelected ? (
+                          <>
+                            <CheckSquare className="h-4 w-4 text-pink-400 fill-pink-950" />
+                            <span>ยกเลิกเลือกวันนี้ ({group.items.length})</span>
+                          </>
+                        ) : (
+                          <>
+                            <Square className="h-4 w-4 text-purple-400" />
+                            <span>เลือกทั้งหมดในวันนี้ ({group.items.length})</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Photo Grid for this Date */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {group.items.map((media) => renderMediaCard(media))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          /* Flat Grid Mode */
+          <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {activeMediaList.map((media) => renderMediaCard(media))}
+          </section>
+        )}
       </main>
 
       {/* SMART DOWNLOAD FLOATING ACTION BAR */}
@@ -941,6 +1257,8 @@ https://service.npc.ac.th/`;
               <div className="text-[11px] text-pink-300 font-medium">
                 {selectedMediaIds.length > 0
                   ? `เลือก ${selectedMediaIds.length} รูปภาพ`
+                  : selectedDateFilter !== "ALL"
+                  ? `ดาวน์โหลดเฉพาะวันที่ ${formatThaiDateShort(selectedDateFilter)} (${activeMediaList.length} รูป)`
                   : `ดาวน์โหลดทั้งหมด (${album.mediaFiles.length} รูปภาพ)`}
               </div>
             </div>
@@ -991,12 +1309,20 @@ https://service.npc.ac.th/`;
       {/* LIGHTBOX PREVIEW MODAL WITH SLIDE/SWIPE & DIRECT DOWNLOAD */}
       {activeLightboxMedia && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-3 sm:p-5 backdrop-blur-md animate-in fade-in overflow-y-auto">
-          {/* Top Left: Photo Index Counter */}
+          {/* Top Left: Photo Index Counter & Date Badge */}
           <div className="fixed top-4 left-4 z-50 rounded-full bg-[#1F0F4C]/90 px-3.5 py-2 text-xs font-mono font-bold text-pink-300 border border-purple-700/50 backdrop-blur-md shadow-lg flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-pink-400 animate-pulse" />
             <span>
               ภาพที่ {currentMediaIndex + 1} จาก {totalMediaCount}
             </span>
+            {formatThaiDateShort(getMediaDateKey(activeLightboxMedia)) !== "ไม่ระบุวันที่" && (
+              <>
+                <span className="text-purple-500">•</span>
+                <span className="text-purple-200 font-sans font-medium">
+                  {formatThaiDateShort(getMediaDateKey(activeLightboxMedia))}
+                </span>
+              </>
+            )}
           </div>
 
           {/* Top Right: Close Button */}
