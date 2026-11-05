@@ -11,6 +11,7 @@ import {
   FolderSync,
   Building,
   User,
+  RefreshCw,
 } from "lucide-react";
 import { apiUrl } from "@/lib/basepath";
 
@@ -44,6 +45,7 @@ export function RetroactiveLinkModal({
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectOption | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -57,57 +59,51 @@ export function RetroactiveLinkModal({
     }
   }, [isOpen]);
 
-  const loadProjects = async () => {
+  const loadProjects = async (forceSync = false) => {
     setIsLoading(true);
+    if (forceSync) setIsSyncing(true);
     setErrorMessage("");
     try {
-      // Fetch available approved projects from SmartFlow cache
-      const res = await fetch(apiUrl("/api/v1/sync/projects?t=" + Date.now()), {
-        headers: {
-          "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
-        },
-      });
-      // Fallback query if GET /projects directly
-      const projectsRes = await fetch(apiUrl("/api/albums")); // or query cache
-      // Let's query smartflow projects
-      const response = await fetch(apiUrl(`/api/v1/albums/unlinked?q=`), {
-        headers: {
-          "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
-        },
-      });
-
-      // Sample fallback list from seed
-      const seedProjects: ProjectOption[] = [
-        {
-          id: "p1",
-          projectCode: "PRJ-69-001",
-          projectName: "โครงการอบรมเชิงปฏิบัติการพัฒนาทักษะปัญญาประดิษฐ์ (AI) เพื่อวิชาชีพสู่อนาคต",
-          divisionName: "ฝ่ายวิชาการ",
-          departmentName: "แผนกวิชาเทคโนโลยีสารสนเทศ",
-          ownerTeacherName: "นายสมชาย วิชาการ",
-        },
-        {
-          id: "p2",
-          projectCode: "PRJ-69-002",
-          projectName: "โครงการสืบสานประเพณีแข่งเรือเมืองน่านและพัฒนาจิตอาสาชุมชน",
-          divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา",
-          departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
-          ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
-        },
-        {
-          id: "p3",
-          projectCode: "PRJ-69-003",
-          projectName: "โครงการศูนย์ซ่อมสร้างเพื่อชุมชน (Fix It Center) ประจำปีงบประมาณ 2569",
-          divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน",
-          departmentName: "งานโครงการพิเศษและบริการวิชาชีพ",
-          ownerTeacherName: "นายเกรียงไกร ช่างยนต์",
-        },
-      ];
-      setProjects(seedProjects);
+      // Query projects from /api/projects (with optional forceSync to refresh from npc_smartflow)
+      const url = apiUrl(`/api/projects${forceSync ? "?sync=1" : ""}`);
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.projects) && data.projects.length > 0) {
+        setProjects(data.projects);
+      } else {
+        // Fallback seed projects only if DB has 0 projects
+        setProjects((prev) => (prev.length > 0 ? prev : [
+          {
+            id: "p1",
+            projectCode: "PRJ-69-001",
+            projectName: "โครงการอบรมเชิงปฏิบัติการพัฒนาทักษะปัญญาประดิษฐ์ (AI) เพื่อวิชาชีพสู่อนาคต",
+            divisionName: "ฝ่ายวิชาการ",
+            departmentName: "แผนกวิชาเทคโนโลยีสารสนเทศ",
+            ownerTeacherName: "นายสมชาย วิชาการ",
+          },
+          {
+            id: "p2",
+            projectCode: "PRJ-69-002",
+            projectName: "โครงการสืบสานประเพณีแข่งเรือเมืองน่านและพัฒนาจิตอาสาชุมชน",
+            divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา",
+            departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
+            ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
+          },
+          {
+            id: "p3",
+            projectCode: "PRJ-69-003",
+            projectName: "โครงการศูนย์ซ่อมสร้างเพื่อชุมชน (Fix It Center) ประจำปีงบประมาณ 2569",
+            divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน",
+            departmentName: "งานโครงการพิเศษและบริการวิชาชีพ",
+            ownerTeacherName: "นายเกรียงไกร ช่างยนต์",
+          },
+        ]));
+      }
     } catch (err) {
       console.warn("Could not load projects dynamically:", err);
     } finally {
       setIsLoading(false);
+      setIsSyncing(false);
     }
   };
 
@@ -197,16 +193,28 @@ export function RetroactiveLinkModal({
 
         {/* Content Body */}
         <div className="p-6 space-y-4">
-          {/* Search Box */}
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-pink-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="ค้นหาด้วยรหัสโครงการ (เช่น PRJ-69-001), ชื่อโครงการ, หรือครูผู้รับผิดชอบ..."
-              className="w-full rounded-2xl border border-purple-800/50 bg-[#1B0E44] py-2.5 pl-10 pr-4 text-xs text-purple-100 placeholder-purple-400/60 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500"
-            />
+          {/* Search Box & Sync Live Button */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-pink-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="ค้นหาด้วยรหัสโครงการ (เช่น PRJ-69-001), ชื่อโครงการ, หรือครูผู้รับผิดชอบ..."
+                className="w-full rounded-2xl border border-purple-800/50 bg-[#1B0E44] py-2.5 pl-10 pr-4 text-xs text-purple-100 placeholder-purple-400/60 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => loadProjects(true)}
+              disabled={isLoading || isSyncing}
+              className="flex items-center gap-1.5 rounded-2xl border border-purple-700/60 bg-[#1E0E48] px-3.5 py-2.5 text-xs font-semibold text-pink-300 hover:bg-[#2A1464] hover:text-white transition-all disabled:opacity-50 shrink-0 shadow-sm"
+              title="ดึงข้อมูลโครงการล่าสุดสดๆ จากระบบ npc_smartflow"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+              <span>{isSyncing ? "กำลังซิงค์..." : "ซิงค์สด"}</span>
+            </button>
           </div>
 
           {errorMessage && (

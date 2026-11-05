@@ -495,11 +495,7 @@ export default function AdminPage() {
 
       // 3. Load Synced Projects
       try {
-        const syncRes = await fetch("/api/v1/sync/projects?t=" + Date.now(), {
-          headers: {
-            "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
-          },
-        });
+        const syncRes = await fetch(`${getClientBasePath()}/api/projects?t=${Date.now()}`);
         const syncData = await syncRes.json();
         if (syncData.success && Array.isArray(syncData.projects) && syncData.projects.length > 0) {
           setProjects(syncData.projects);

@@ -17,6 +17,9 @@ import {
   MessageSquare,
   FileImage,
   Sparkles,
+  Search,
+  RefreshCw,
+  User,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 import {
@@ -76,6 +79,8 @@ export function QuickUploadModal({
   const [errorMessage, setErrorMessage] = useState("");
   const [configuredCurrentTerm, setConfiguredCurrentTerm] = useState<any | null>(null);
   const [departmentsList, setDepartmentsList] = useState<string[]>(Array.from(NPC_DEPARTMENTS));
+  const [projectSearchTerm, setProjectSearchTerm] = useState("");
+  const [isSyncingProjects, setIsSyncingProjects] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -124,38 +129,45 @@ export function QuickUploadModal({
     }
   };
 
-  const loadProjects = async () => {
+  const loadProjects = async (forceSync = false) => {
     setIsProjectsLoading(true);
+    if (forceSync) setIsSyncingProjects(true);
     try {
-      // Query local SmartFlow cache projects
-      const res = await fetch(apiUrl("/api/albums"));
-      const seedProjects: SmartFlowProjectItem[] = [
-        {
-          id: "p1",
-          projectCode: "PRJ-69-001",
-          projectName: "โครงการอบรมเชิงปฏิบัติการพัฒนาทักษะปัญญาประดิษฐ์ (AI) เพื่อวิชาชีพสู่อนาคต",
-          divisionName: "ฝ่ายวิชาการ",
-          departmentName: "แผนกวิชาเทคโนโลยีสารสนเทศ",
-          ownerTeacherName: "นายสมชาย วิชาการ",
-        },
-        {
-          id: "p2",
-          projectCode: "PRJ-69-002",
-          projectName: "โครงการสืบสานประเพณีแข่งเรือเมืองน่านและพัฒนาจิตอาสาชุมชน",
-          divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา",
-          departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
-          ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
-        },
-        {
-          id: "p3",
-          projectCode: "PRJ-69-003",
-          projectName: "โครงการศูนย์ซ่อมสร้างเพื่อชุมชน (Fix It Center) ประจำปีงบประมาณ 2569",
-          divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน",
-          departmentName: "งานโครงการพิเศษและบริการวิชาชีพ",
-          ownerTeacherName: "นายเกรียงไกร ช่างยนต์",
-        },
-      ];
-      setProjects(seedProjects);
+      // Query projects from /api/projects (with optional forceSync to refresh from npc_smartflow)
+      const url = apiUrl(`/api/projects${forceSync ? "?sync=1" : ""}`);
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.projects) && data.projects.length > 0) {
+        setProjects(data.projects);
+      } else {
+        // Fallback seed projects only if DB has 0 projects
+        setProjects((prev) => (prev.length > 0 ? prev : [
+          {
+            id: "p1",
+            projectCode: "PRJ-69-001",
+            projectName: "โครงการอบรมเชิงปฏิบัติการพัฒนาทักษะปัญญาประดิษฐ์ (AI) เพื่อวิชาชีพสู่อนาคต",
+            divisionName: "ฝ่ายวิชาการ",
+            departmentName: "แผนกวิชาเทคโนโลยีสารสนเทศ",
+            ownerTeacherName: "นายสมชาย วิชาการ",
+          },
+          {
+            id: "p2",
+            projectCode: "PRJ-69-002",
+            projectName: "โครงการสืบสานประเพณีแข่งเรือเมืองน่านและพัฒนาจิตอาสาชุมชน",
+            divisionName: "ฝ่ายกิจการนักเรียนนักศึกษา",
+            departmentName: "งานกิจกรรมนักเรียนนักศึกษา",
+            ownerTeacherName: "นางสาวกัญญา พัฒนกิจ",
+          },
+          {
+            id: "p3",
+            projectCode: "PRJ-69-003",
+            projectName: "โครงการศูนย์ซ่อมสร้างเพื่อชุมชน (Fix It Center) ประจำปีงบประมาณ 2569",
+            divisionName: "ฝ่ายยุทธศาสตร์และแผนงาน",
+            departmentName: "งานโครงการพิเศษและบริการวิชาชีพ",
+            ownerTeacherName: "นายเกรียงไกร ช่างยนต์",
+          },
+        ]));
+      }
 
       // Load active system academic term
       const termsRes = await fetch(apiUrl("/api/admin/academic-terms"));
@@ -167,6 +179,7 @@ export function QuickUploadModal({
       console.warn("Could not load projects:", err);
     } finally {
       setIsProjectsLoading(false);
+      setIsSyncingProjects(false);
     }
   };
 
@@ -176,6 +189,7 @@ export function QuickUploadModal({
     setEventDate(new Date().toISOString().split("T")[0]);
     setAlbumType(AlbumType.ROUTINE);
     setProjectId("");
+    setProjectSearchTerm("");
     setDivisionName("ฝ่ายบริหารทรัพยากร");
     setDepartmentName("งานศูนย์ดิจิทัลและสื่อสารองค์กร");
     setSelectedFiles([]);
@@ -187,7 +201,7 @@ export function QuickUploadModal({
     setErrorMessage("");
   };
 
-  // Handle Project Selection & Auto-fill Division/Department
+  // Handle Project Selection & Auto-fill Division/Department & Title
   const handleProjectSelect = (pId: string) => {
     setProjectId(pId);
     const selected = projects.find((p) => p.id === pId || p.projectCode === pId);
@@ -195,6 +209,10 @@ export function QuickUploadModal({
       setDivisionName(selected.divisionName);
       if (selected.departmentName) {
         setDepartmentName(selected.departmentName);
+      }
+      // Auto-fill title if teacher hasn't entered a title yet
+      if (!title.trim()) {
+        setTitle(selected.projectName);
       }
     }
   };
@@ -680,30 +698,115 @@ export function QuickUploadModal({
 
             {/* PROGRESSIVE DISCLOSURE: SmartFlow Project Selector (Only visible if PROJECT is selected) */}
             {albumType === AlbumType.PROJECT && (
-              <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-4 space-y-3 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                    <FolderSync className="h-4 w-4 text-cyan-400" />
-                    เลือกรหัสโครงการที่อนุมัติแล้ว (npc_smartflow){" "}
-                    <span className="text-red-400">*</span>
-                  </label>
-                  <span className="text-[10px] text-slate-400">
-                    ข้อมูลฝ่ายและแผนกจะถูกเติมอัตโนมัติ
-                  </span>
+              <div className="rounded-2xl border-2 border-cyan-500/40 bg-gradient-to-br from-cyan-950/40 via-slate-900/90 to-purple-950/40 p-4 sm:p-5 space-y-3 animate-in fade-in duration-200 shadow-xl">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
+                      <FolderSync className="h-4 w-4 text-cyan-400" />
+                    </div>
+                    <div>
+                      <label className="text-xs sm:text-sm font-bold text-cyan-200 flex items-center gap-1.5">
+                        เลือกรหัสโครงการที่อนุมัติแล้ว (npc_smartflow){" "}
+                        <span className="text-red-400">*</span>
+                      </label>
+                      <span className="text-[10px] text-cyan-400/80 font-medium">
+                        ซิงค์อัตโนมัติจาก SmartFlow • ฝ่ายและแผนกจะถูกเติมให้อัตโนมัติ
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-cyan-500/20 border border-cyan-500/40 px-2.5 py-0.5 text-[11px] font-bold text-cyan-300">
+                      {isProjectsLoading ? "กำลังโหลด..." : `${projects.length} โครงการ`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => loadProjects(true)}
+                      disabled={isProjectsLoading || isSyncingProjects}
+                      className="flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-900/40 px-2.5 py-1 text-[11px] font-medium text-cyan-200 hover:bg-cyan-800/60 hover:text-white transition-all disabled:opacity-50"
+                      title="กดเพื่อดึงโครงการล่าสุดสดๆ จากระบบ npc_smartflow"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${isSyncingProjects ? "animate-spin" : ""}`} />
+                      <span>{isSyncingProjects ? "กำลังซิงค์..." : "ซิงค์สด"}</span>
+                    </button>
+                  </div>
                 </div>
 
-                <select
-                  value={projectId}
-                  onChange={(e) => handleProjectSelect(e.target.value)}
-                  className="w-full rounded-xl border border-cyan-500/40 bg-slate-900/95 px-3.5 py-2.5 text-xs sm:text-sm text-cyan-200 focus:border-cyan-400 focus:outline-none"
-                >
-                  <option value="">-- กรุณาเลือกรหัสโครงการ --</option>
-                  {projects.map((proj) => (
-                    <option key={proj.id} value={proj.id}>
-                      {proj.projectCode} • {proj.projectName} ({proj.divisionName})
-                    </option>
-                  ))}
-                </select>
+                {/* Quick Search filter if there are many projects */}
+                {projects.length > 5 && (
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-cyan-400/70" />
+                    <input
+                      type="text"
+                      value={projectSearchTerm}
+                      onChange={(e) => setProjectSearchTerm(e.target.value)}
+                      placeholder="พิมพ์ค้นหารหัสโครงการ (เช่น PRJ-69), ชื่อโครงการ, หรือครูผู้รับผิดชอบ..."
+                      className="w-full rounded-xl border border-cyan-500/30 bg-slate-900/90 py-1.5 pl-8 pr-3 text-xs text-cyan-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                    />
+                  </div>
+                )}
+
+                {(() => {
+                  const filtered = projects.filter((p) => {
+                    if (!projectSearchTerm.trim()) return true;
+                    const term = projectSearchTerm.toLowerCase();
+                    return (
+                      (p.projectCode && p.projectCode.toLowerCase().includes(term)) ||
+                      (p.projectName && p.projectName.toLowerCase().includes(term)) ||
+                      (p.divisionName && p.divisionName.toLowerCase().includes(term)) ||
+                      (p.departmentName && p.departmentName.toLowerCase().includes(term)) ||
+                      (p.ownerTeacherName && p.ownerTeacherName.toLowerCase().includes(term))
+                    );
+                  });
+
+                  return (
+                    <select
+                      value={projectId}
+                      onChange={(e) => handleProjectSelect(e.target.value)}
+                      className="w-full rounded-xl border border-cyan-500/50 bg-slate-900/95 px-3.5 py-2.5 text-xs sm:text-sm text-cyan-100 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                    >
+                      <option value="">
+                        {isProjectsLoading
+                          ? "-- กำลังโหลดโครงการจาก npc_smartflow... --"
+                          : filtered.length === 0
+                          ? "-- ไม่พบโครงการที่ตรงกับคำค้นหา --"
+                          : `-- กรุณาเลือกรหัสโครงการ (${filtered.length} โครงการ) --`}
+                      </option>
+                      {filtered.map((proj) => (
+                        <option key={proj.id} value={proj.id}>
+                          {proj.projectCode} • {proj.projectName} ({proj.divisionName}{proj.ownerTeacherName ? ` • โดย ${proj.ownerTeacherName}` : ""})
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
+
+                {/* Selected Project Info Preview */}
+                {(() => {
+                  const selectedProj = projects.find((p) => p.id === projectId || p.projectCode === projectId);
+                  if (!selectedProj) return null;
+                  return (
+                    <div className="rounded-xl border border-cyan-500/40 bg-cyan-950/50 p-3 text-xs space-y-1.5 animate-in fade-in">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-bold text-cyan-300 bg-cyan-900/60 border border-cyan-400/40 px-2 py-0.5 rounded-md text-[11px]">
+                          {selectedProj.projectCode}
+                        </span>
+                        {selectedProj.ownerTeacherName && (
+                          <span className="text-[11px] text-cyan-200/90 flex items-center gap-1 font-medium">
+                            <User className="h-3 w-3 text-cyan-400" />
+                            {selectedProj.ownerTeacherName}
+                          </span>
+                        )}
+                      </div>
+                      <p className="font-semibold text-white text-xs sm:text-sm">
+                        {selectedProj.projectName}
+                      </p>
+                      <p className="text-[11px] text-cyan-300/80">
+                        {selectedProj.divisionName} {selectedProj.departmentName ? `• ${selectedProj.departmentName}` : ""}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

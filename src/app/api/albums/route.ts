@@ -180,8 +180,14 @@ export async function POST(req: NextRequest) {
     let departmentName = inputDepartment || "งานประชาสัมพันธ์";
 
     if (projectId) {
-      project = await prisma.smartFlowProject.findUnique({
-        where: { id: projectId },
+      project = await prisma.smartFlowProject.findFirst({
+        where: {
+          OR: [
+            { id: projectId },
+            { projectCode: projectId },
+            { smartflowId: projectId },
+          ],
+        },
       });
       if (project) {
         finalAlbumType = AlbumType.PROJECT;
