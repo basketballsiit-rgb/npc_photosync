@@ -33,6 +33,7 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  ZoomIn,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 import { showAlert, npcSwal } from "@/lib/sweetalert";
@@ -817,39 +818,18 @@ https://service.npc.ac.th/`;
             </div>
           </div>
 
-          {/* Individual Image Quick Actions */}
-          <div className="flex items-center justify-between gap-1 pt-2 border-t border-purple-900/40 text-[11px]">
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => handleDownloadSinglePhoto(media, "original")}
-                disabled={downloadingMediaId === media.id}
-                className="flex items-center gap-1 rounded-md px-2 py-0.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border border-pink-500/40 font-bold transition-all disabled:opacity-50 shadow-sm"
-                title="ดาวน์โหลดไฟล์ภาพต้นฉบับคมชัดสูงสุด 100% เท่ากับที่ถ่ายจากกล้อง"
-              >
-                {downloadingMediaId === media.id ? (
-                  <Loader2 className="h-3 w-3 animate-spin text-pink-400" />
-                ) : (
-                  <Download className="h-3 w-3 text-pink-400" />
-                )}
-                <span>ต้นฉบับ 100%</span>
-              </button>
-
-              <button
-                onClick={() => handleDownloadSinglePhoto(media, "report")}
-                disabled={downloadingMediaId === media.id}
-                className="text-purple-300 hover:text-white hover:underline flex items-center gap-0.5 px-1 py-0.5 text-[10px] font-medium disabled:opacity-50"
-                title="ดาวน์โหลดขนาด HD (1920px) เหมาะสำหรับทำรายงาน 5 บท"
-              >
-                <span>HD รายงาน</span>
-              </button>
-            </div>
-
-            <button
-              onClick={() => setActiveLightboxMedia(media)}
-              className="text-purple-400 hover:text-white transition-colors text-[11px]"
-            >
-              ซูมดูภาพ
-            </button>
+          {/* Card Footer: Click to View & Download in Lightbox */}
+          <div
+            onClick={() => setActiveLightboxMedia(media)}
+            className="flex items-center justify-between pt-2 border-t border-purple-900/40 text-[11px] text-purple-300 hover:text-pink-300 transition-colors cursor-pointer group/zoom"
+          >
+            <span className="flex items-center gap-1 font-semibold group-hover/zoom:text-pink-300">
+              <ZoomIn className="h-3.5 w-3.5 text-pink-400" />
+              <span>คลิกดูภาพและดาวน์โหลด</span>
+            </span>
+            <span className="text-[10px] text-purple-400/70">
+              {media.fileName}
+            </span>
           </div>
         </div>
       </div>
@@ -1263,68 +1243,66 @@ https://service.npc.ac.th/`;
         )}
       </main>
 
-      {/* SMART DOWNLOAD FLOATING ACTION BAR */}
-      <div className="fixed bottom-6 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
-        <div className="pointer-events-auto flex flex-col sm:flex-row items-center gap-3 rounded-3xl border border-purple-700/60 bg-[#13072E]/95 p-3.5 sm:px-6 shadow-2xl backdrop-blur-2xl max-w-4xl w-full">
-          <div className="flex items-center gap-2.5 text-xs">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/30">
-              <Download className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="font-bold text-white text-xs sm:text-sm">
-                ดาวน์โหลดแบบสมาร์ท (Smart Download)
+      {/* SMART DOWNLOAD FLOATING ACTION BAR (Only visible when user explicitly selects photos) */}
+      {selectedMediaIds.length > 0 && (
+        <div className="fixed bottom-6 inset-x-0 z-40 flex justify-center px-4 pointer-events-none animate-in slide-in-from-bottom-5 duration-300">
+          <div className="pointer-events-auto flex flex-col sm:flex-row items-center gap-3 rounded-3xl border-2 border-pink-500/50 bg-[#13072E]/95 p-3.5 sm:px-6 shadow-2xl backdrop-blur-2xl max-w-4xl w-full">
+            <div className="flex items-center gap-2.5 text-xs">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/30">
+                <Download className="h-4 w-4" />
               </div>
-              <div className="text-[11px] text-pink-300 font-medium">
-                {selectedMediaIds.length > 0
-                  ? `เลือก ${selectedMediaIds.length} รูปภาพ`
-                  : selectedDateFilter !== "ALL"
-                  ? `ดาวน์โหลดเฉพาะวันที่ ${formatThaiDateShort(selectedDateFilter)} (${activeMediaList.length} รูป)`
-                  : `ดาวน์โหลดทั้งหมด (${album.mediaFiles.length} รูปภาพ)`}
+              <div>
+                <div className="font-bold text-white text-xs sm:text-sm">
+                  ดาวน์โหลดแบบสมาร์ท (Smart Download)
+                </div>
+                <div className="text-[11px] text-pink-300 font-medium">
+                  เลือกไว้ {selectedMediaIds.length} รูปภาพ
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="h-6 w-px bg-purple-800/80 hidden sm:block" />
+            <div className="h-6 w-px bg-purple-800/80 hidden sm:block" />
 
-          {/* 3 Resolution Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:flex-1">
-            {/* Option 1: Original Master */}
-            <button
-              onClick={() => handleDownloadZip("original")}
-              disabled={isDownloadingZip}
-              className="flex items-center justify-center gap-1.5 rounded-full border border-purple-700/60 bg-[#1F0F4C] px-3.5 py-2 text-xs font-semibold text-purple-200 hover:border-pink-500 hover:text-white transition-all disabled:opacity-50"
-            >
-              <span>💎 ต้นฉบับ (Original)</span>
-            </button>
+            {/* 3 Resolution Options */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:flex-1">
+              {/* Option 1: Original Master */}
+              <button
+                onClick={() => handleDownloadZip("original")}
+                disabled={isDownloadingZip}
+                className="flex items-center justify-center gap-1.5 rounded-full border border-pink-500/60 bg-[#1F0F4C] px-3.5 py-2 text-xs font-bold text-pink-200 hover:border-pink-400 hover:text-white transition-all disabled:opacity-50"
+              >
+                <span>💎 ต้นฉบับ (Original)</span>
+              </button>
 
-            {/* Option 2: Report-Ready HD (Optimized for 5 Chapters) - Sunset Gradient */}
-            <button
-              onClick={() => handleDownloadZip("report")}
-              disabled={isDownloadingZip}
-              className="flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              <span>📄 รายงาน 5 บท (1920px)</span>
-            </button>
+              {/* Option 2: Report-Ready HD (Optimized for 5 Chapters) - Sunset Gradient */}
+              <button
+                onClick={() => handleDownloadZip("report")}
+                disabled={isDownloadingZip}
+                className="flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>📄 รายงาน 5 บท (1920px)</span>
+              </button>
 
-            {/* Option 3: Watermarked PR Ready */}
-            <button
-              onClick={() => handleDownloadZip("watermark")}
-              disabled={isDownloadingZip}
-              className="flex items-center justify-center gap-1.5 rounded-full border border-cyan-500/40 bg-cyan-950/40 px-3.5 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/40 transition-all disabled:opacity-50"
-            >
-              <span>🏷️ พร้อม PR โซเชียล (ติดโลโก้)</span>
-            </button>
-          </div>
-
-          {isDownloadingZip && (
-            <div className="flex items-center gap-1.5 text-xs text-pink-300 animate-pulse">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>กำลังสร้าง ZIP...</span>
+              {/* Option 3: Watermarked PR Ready */}
+              <button
+                onClick={() => handleDownloadZip("watermark")}
+                disabled={isDownloadingZip}
+                className="flex items-center justify-center gap-1.5 rounded-full border border-cyan-500/40 bg-cyan-950/40 px-3.5 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/40 transition-all disabled:opacity-50"
+              >
+                <span>🏷️ พร้อม PR โซเชียล (ติดโลโก้)</span>
+              </button>
             </div>
-          )}
+
+            {isDownloadingZip && (
+              <div className="flex items-center gap-1.5 text-xs text-pink-300 animate-pulse">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>กำลังสร้าง ZIP...</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* LIGHTBOX PREVIEW MODAL WITH SLIDE/SWIPE & DIRECT DOWNLOAD */}
       {activeLightboxMedia && (
