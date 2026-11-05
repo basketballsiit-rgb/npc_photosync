@@ -28,6 +28,8 @@ import {
   NPC_DIVISIONS,
   NPC_DEPARTMENTS,
   ALBUM_TYPE_PREFIX_MAP,
+  normalizeNpcDivision,
+  NPC_DIVISION_DEFAULT_DEPARTMENTS,
 } from "@/lib/academic-utils";
 import { showAlert, npcSwal } from "@/lib/sweetalert";
 import { apiUrl, getClientBasePath } from "@/lib/basepath";
@@ -36,6 +38,8 @@ interface SmartFlowProjectItem {
   id: string;
   projectCode: string;
   projectName: string;
+  academicYear?: number;
+  budgetYear?: number;
   divisionName: string;
   departmentName?: string | null;
   ownerTeacherName: string;
@@ -104,7 +108,22 @@ export function QuickUploadModal({
       ? "03_กิจกรรมเฉพาะกิจ"
       : "04_คลังภาพประชาสัมพันธ์";
 
-  const drivePathPreview = `/${termInfo.academicYear}/${driveCategory}/${estimatedCode}`;
+  // Selected project reference for dynamic path preview
+  const selectedProj = projects.find(
+    (p) => p.id === projectId || p.projectCode === projectId
+  );
+
+  const driveYear =
+    albumType === AlbumType.PROJECT && selectedProj?.academicYear
+      ? selectedProj.academicYear
+      : termInfo.academicYear;
+
+  const displayAlbumCode =
+    albumType === AlbumType.PROJECT && selectedProj?.projectCode
+      ? selectedProj.projectCode
+      : estimatedCode;
+
+  const drivePathPreview = `/${driveYear}/${driveCategory}/${displayAlbumCode}`;
 
   // Load SmartFlow Projects & Dynamic Departments when modal opens
   useEffect(() => {
@@ -201,19 +220,51 @@ export function QuickUploadModal({
     setErrorMessage("");
   };
 
-  // Handle Project Selection & Auto-fill Division/Department & Title
+  // Handle Project Selection & Auto-fill Division/Department, Title & Description
   const handleProjectSelect = (pId: string) => {
     setProjectId(pId);
     const selected = projects.find((p) => p.id === pId || p.projectCode === pId);
     if (selected) {
-      setDivisionName(selected.divisionName);
-      if (selected.departmentName) {
-        setDepartmentName(selected.departmentName);
+      // 1. Normalize and set Division
+      const normalizedDiv = normalizeNpcDivision(selected.divisionName);
+      setDivisionName(normalizedDiv);
+
+      // 2. Set Department / Section
+      if (selected.departmentName && selected.departmentName.trim()) {
+        const dName = selected.departmentName.trim();
+        setDepartmentName(dName);
+        setDepartmentsList((prev) => (prev.includes(dName) ? prev : [dName, ...prev]));
+      } else {
+        const defaultDept =
+          NPC_DIVISION_DEFAULT_DEPARTMENTS[normalizedDiv] || "งานกิจกรรมนักเรียนนักศึกษา";
+        setDepartmentName(defaultDept);
+        setDepartmentsList((prev) =>
+          prev.includes(defaultDept) ? prev : [defaultDept, ...prev]
+        );
       }
-      // Auto-fill title if teacher hasn't entered a title yet
-      if (!title.trim()) {
-        setTitle(selected.projectName);
+
+      // 3. Auto-fill title with project name
+      setTitle(selected.projectName);
+
+      // 4. If description is empty or default, auto-generate project context
+      if (!description.trim() || description.startsWith("โครงการตามแผนปฏิบัติการ:")) {
+        setDescription(
+          `โครงการตามแผนปฏิบัติการ: ${selected.projectName} (${selected.projectCode}) สังกัด${normalizedDiv}${
+            selected.ownerTeacherName ? ` • ผู้รับผิดชอบ: ${selected.ownerTeacherName}` : ""
+          }`
+        );
       }
+    }
+  };
+
+  // Handle manual Division Change & adjust default Department
+  const handleDivisionChange = (newDiv: string) => {
+    const normalized = normalizeNpcDivision(newDiv);
+    setDivisionName(normalized);
+    const defaultDept = NPC_DIVISION_DEFAULT_DEPARTMENTS[normalized];
+    if (defaultDept) {
+      setDepartmentName(defaultDept);
+      setDepartmentsList((prev) => (prev.includes(defaultDept) ? prev : [defaultDept, ...prev]));
     }
   };
 
@@ -818,10 +869,10 @@ export function QuickUploadModal({
                 </label>
                 <select
                   value={divisionName}
-                  onChange={(e) => setDivisionName(e.target.value)}
+                  onChange={(e) => handleDivisionChange(e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
                 >
-                  {NPC_DIVISIONS.map((div) => (
+                  {Array.from(new Set([...NPC_DIVISIONS, divisionName].filter(Boolean))).map((div) => (
                     <option key={div} value={div}>
                       {div}
                     </option>
@@ -838,7 +889,7 @@ export function QuickUploadModal({
                   onChange={(e) => setDepartmentName(e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
                 >
-                  {departmentsList.map((dept) => (
+                  {Array.from(new Set([...departmentsList, departmentName].filter(Boolean))).map((dept) => (
                     <option key={dept} value={dept}>
                       {dept}
                     </option>

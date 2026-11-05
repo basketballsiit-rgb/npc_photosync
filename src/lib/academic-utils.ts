@@ -12,6 +12,38 @@ export const NPC_DIVISIONS = [
 
 export type NpcDivision = (typeof NPC_DIVISIONS)[number];
 
+/**
+ * Normalizes division names from external sources (e.g. SmartFlow)
+ * to standard NPC division values, handling spaces and common synonyms.
+ */
+export function normalizeNpcDivision(div?: string | null): string {
+  if (!div) return "ฝ่ายบริหารทรัพยากร";
+  const cleaned = div.replace(/\s+/g, "").trim();
+  if (cleaned.includes("กิจการนักเรียน") || cleaned.includes("พัฒนากิจการ")) {
+    return "ฝ่ายกิจการนักเรียนนักศึกษา";
+  }
+  if (cleaned.includes("ยุทธศาสตร์") || cleaned.includes("แผนงาน") || cleaned.includes("ความร่วมมือ")) {
+    return "ฝ่ายยุทธศาสตร์และแผนงาน";
+  }
+  if (cleaned.includes("วิชาการ")) {
+    return "ฝ่ายวิชาการ";
+  }
+  if (cleaned.includes("บริหารทรัพยากร") || cleaned.includes("บริหาร")) {
+    return "ฝ่ายบริหารทรัพยากร";
+  }
+  return div.trim();
+}
+
+/**
+ * Default departments/sections corresponding to each division
+ */
+export const NPC_DIVISION_DEFAULT_DEPARTMENTS: Record<string, string> = {
+  "ฝ่ายกิจการนักเรียนนักศึกษา": "งานกิจกรรมนักเรียนนักศึกษา",
+  "ฝ่ายยุทธศาสตร์และแผนงาน": "งานโครงการพิเศษและบริการวิชาชีพ",
+  "ฝ่ายวิชาการ": "งานพัฒนาหลักสูตรการเรียนการสอน",
+  "ฝ่ายบริหารทรัพยากร": "งานศูนย์ดิจิทัลและสื่อสารองค์กร",
+};
+
 export const NPC_DEPARTMENTS = [
   "แผนกวิชาช่างยนต์",
   "แผนกวิชาช่างไฟฟ้ากำลัง",

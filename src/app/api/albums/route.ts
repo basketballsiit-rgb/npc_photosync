@@ -5,6 +5,8 @@ import {
   getAcademicTermInfo,
   generateNextAlbumCode,
   getCurrentConfiguredTerm,
+  normalizeNpcDivision,
+  NPC_DIVISION_DEFAULT_DEPARTMENTS,
 } from "@/lib/academic-utils";
 import { ensureAlbumDriveFolder } from "@/lib/services/googleDriveService";
 
@@ -191,8 +193,12 @@ export async function POST(req: NextRequest) {
       });
       if (project) {
         finalAlbumType = AlbumType.PROJECT;
-        divisionName = project.divisionName;
-        departmentName = project.departmentName || departmentName;
+        divisionName = normalizeNpcDivision(project.divisionName);
+        departmentName =
+          project.departmentName ||
+          inputDepartment ||
+          NPC_DIVISION_DEFAULT_DEPARTMENTS[divisionName] ||
+          "งานกิจกรรมนักเรียนนักศึกษา";
       }
     }
 

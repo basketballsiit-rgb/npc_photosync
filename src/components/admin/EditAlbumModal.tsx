@@ -13,7 +13,7 @@ import {
   Edit,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
-import { NPC_DIVISIONS } from "@/lib/academic-utils";
+import { NPC_DIVISIONS, normalizeNpcDivision } from "@/lib/academic-utils";
 import { showAlert } from "@/lib/sweetalert";
 
 interface EditAlbumModalProps {
@@ -71,7 +71,7 @@ export function EditAlbumModal({
         description: album.description || "",
         eventDate: formattedDate || new Date().toISOString().split("T")[0],
         albumType: album.albumType || AlbumType.ROUTINE,
-        divisionName: album.divisionName || "ฝ่ายบริหารทรัพยากร",
+        divisionName: normalizeNpcDivision(album.divisionName) || "ฝ่ายบริหารทรัพยากร",
         departmentName: album.departmentName || "",
         academicYear: album.academicYear || 2569,
         semester: album.semester || 1,
@@ -304,7 +304,7 @@ export function EditAlbumModal({
                 }}
                 className="w-full rounded-2xl border border-purple-800/50 bg-[#1A0E44] px-3.5 py-2.5 text-white focus:border-pink-500 focus:outline-none"
               >
-                {NPC_DIVISIONS.map((div) => (
+                {Array.from(new Set([...NPC_DIVISIONS, formData.divisionName].filter(Boolean))).map((div) => (
                   <option key={div} value={div} className="bg-[#140A32]">
                     {div}
                   </option>
