@@ -21,7 +21,11 @@ import {
   RefreshCw,
   User,
   ChevronDown,
+  ChevronUp,
   Check,
+  Newspaper,
+  Wand2,
+  FileText,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 import {
@@ -35,6 +39,10 @@ import {
 } from "@/lib/academic-utils";
 import { showAlert, npcSwal } from "@/lib/sweetalert";
 import { apiUrl, getClientBasePath } from "@/lib/basepath";
+import {
+  serializeNewsDescription,
+  generateDraftNewsArticle,
+} from "@/lib/news-utils";
 
 interface SmartFlowProjectItem {
   id: string;
@@ -68,6 +76,15 @@ export function QuickUploadModal({
   const [projectId, setProjectId] = useState<string>("");
   const [divisionName, setDivisionName] = useState<string>("ฝ่ายบริหารทรัพยากร");
   const [departmentName, setDepartmentName] = useState<string>("งานศูนย์ดิจิทัลและสื่อสารองค์กร");
+
+  // 5W1H Journalism & PR News State
+  const [newsWho, setNewsWho] = useState("");
+  const [newsWhat, setNewsWhat] = useState("");
+  const [newsWhere, setNewsWhere] = useState("ณ วิทยาลัยสารพัดช่างน่าน");
+  const [newsWhen, setNewsWhen] = useState("");
+  const [newsWhy, setNewsWhy] = useState("");
+  const [newsHow, setNewsHow] = useState("");
+  const [isNewsExpanded, setIsNewsExpanded] = useState(false);
 
   // Options Toggles
   const [autoOptimize, setAutoOptimize] = useState(true);
@@ -230,6 +247,13 @@ export function QuickUploadModal({
     setIsProjectDropdownOpen(false);
     setDivisionName("ฝ่ายบริหารทรัพยากร");
     setDepartmentName("งานศูนย์ดิจิทัลและสื่อสารองค์กร");
+    setNewsWho("");
+    setNewsWhat("");
+    setNewsWhere("ณ วิทยาลัยสารพัดช่างน่าน");
+    setNewsWhen("");
+    setNewsWhy("");
+    setNewsHow("");
+    setIsNewsExpanded(false);
     setSelectedFiles([]);
     previewUrls.forEach((u) => URL.revokeObjectURL(u));
     setPreviewUrls([]);
@@ -239,7 +263,36 @@ export function QuickUploadModal({
     setErrorMessage("");
   };
 
-  // Handle Project Selection & Auto-fill Division/Department, Title & Description
+  // Auto Draft Formal News Article using 5W1H fields
+  const handleAutoDraftNews = () => {
+    const formattedDate = eventDate
+      ? new Date(eventDate).toLocaleDateString("th-TH", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : "";
+
+    const draft = generateDraftNewsArticle(
+      {
+        who: newsWho || "คณะผู้บริหาร คณะครู บุคลากรทางการศึกษา และนักเรียนนักศึกษา วิทยาลัยสารพัดช่างน่าน",
+        what: newsWhat || (title ? `เข้าร่วมดำเนินกิจกรรม "${title}"` : ""),
+        where: newsWhere || "ณ วิทยาลัยสารพัดช่างน่าน",
+        when: newsWhen || (formattedDate ? `วันที่ ${formattedDate}` : ""),
+        why: newsWhy || "เพื่อส่งเสริมทักษะวิชาชีพและพัฒนาคุณภาพการจัดการศึกษา",
+        how: newsHow || "การดำเนินกิจกรรมเป็นไปด้วยความเรียบร้อยและบรรลุตามวัตถุประสงค์ทุกประการ",
+      },
+      title || "กิจกรรมวิทยาลัยสารพัดช่างน่าน",
+      eventDate,
+      divisionName,
+      departmentName
+    );
+
+    setDescription(draft);
+    showAlert.toast("ร่างเนื้อหาข่าวประชาสัมพันธ์เรียบร้อยแล้ว", "success");
+  };
+
+  // Handle Project Selection & Auto-fill Division/Department, Title, 5W1H & Description
   const handleProjectSelect = (pId: string) => {
     setProjectId(pId);
     const selected = projects.find((p) => p.id === pId || p.projectCode === pId);
@@ -249,30 +302,52 @@ export function QuickUploadModal({
       setDivisionName(normalizedDiv);
 
       // 2. Set Department / Section
+      let matchedDept = "";
       if (selected.departmentName && selected.departmentName.trim()) {
-        const dName = selected.departmentName.trim();
-        setDepartmentName(dName);
-        setDepartmentsList((prev) => (prev.includes(dName) ? prev : [dName, ...prev]));
+        matchedDept = selected.departmentName.trim();
+        setDepartmentName(matchedDept);
+        setDepartmentsList((prev) => (prev.includes(matchedDept) ? prev : [matchedDept, ...prev]));
       } else {
-        const defaultDept =
+        matchedDept =
           NPC_DIVISION_DEFAULT_DEPARTMENTS[normalizedDiv] || "งานกิจกรรมนักเรียนนักศึกษา";
-        setDepartmentName(defaultDept);
+        setDepartmentName(matchedDept);
         setDepartmentsList((prev) =>
-          prev.includes(defaultDept) ? prev : [defaultDept, ...prev]
+          prev.includes(matchedDept) ? prev : [matchedDept, ...prev]
         );
       }
 
       // 3. Auto-fill title with project name
       setTitle(selected.projectName);
 
-      // 4. If description is empty or default, auto-generate project context
-      if (!description.trim() || description.startsWith("โครงการตามแผนปฏิบัติการ:")) {
-        setDescription(
-          `โครงการตามแผนปฏิบัติการ: ${selected.projectName} (${selected.projectCode}) สังกัด${normalizedDiv}${
-            selected.ownerTeacherName ? ` • ผู้รับผิดชอบ: ${selected.ownerTeacherName}` : ""
-          }`
-        );
-      }
+      // 4. Auto-fill 5W1H Journalism Details
+      const whoValue = `คณะผู้บริหาร คณะครู และนักเรียนนักศึกษา วิทยาลัยสารพัดช่างน่าน${
+        selected.ownerTeacherName ? ` (ผู้รับผิดชอบโครงการ: ${selected.ownerTeacherName})` : ""
+      }`;
+      const whatValue = `ดำเนินงานตาม ${selected.projectName} (${selected.projectCode})`;
+      const whyValue = `เพื่อขับเคลื่อนการดำเนินงานตามแผนปฏิบัติราชการ สังกัด${normalizedDiv}`;
+      const howValue = "การดำเนินงานโครงการเป็นไปด้วยความเรียบร้อย บรรลุตามวัตถุประสงค์และตัวชี้วัดที่กำหนด";
+
+      setNewsWho(whoValue);
+      setNewsWhat(whatValue);
+      setNewsWhy(whyValue);
+      setNewsHow(howValue);
+
+      // 5. Auto-generate draft news in description
+      const draft = generateDraftNewsArticle(
+        {
+          who: whoValue,
+          what: whatValue,
+          where: newsWhere || "ณ วิทยาลัยสารพัดช่างน่าน",
+          when: newsWhen || `วันที่ ${new Date(eventDate).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}`,
+          why: whyValue,
+          how: howValue,
+        },
+        selected.projectName,
+        eventDate,
+        normalizedDiv,
+        matchedDept
+      );
+      setDescription(draft);
     }
   };
 
@@ -337,13 +412,34 @@ export function QuickUploadModal({
     setUploadStatusText("กำลังสร้างอัลบั้มและเตรียมพื้นที่ Google Shared Drive...");
 
     try {
-      // 1. Create Album with safe JSON parsing
+      // 1. Serialize 5W1H News & readable description
+      const formattedDate = eventDate
+        ? new Date(eventDate).toLocaleDateString("th-TH", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : "";
+
+      const finalDescription = serializeNewsDescription(
+        {
+          who: newsWho,
+          what: newsWhat,
+          where: newsWhere,
+          when: newsWhen || (formattedDate ? `วันที่ ${formattedDate}` : ""),
+          why: newsWhy,
+          how: newsHow,
+        },
+        description
+      );
+
+      // 2. Create Album with safe JSON parsing
       const createRes = await fetch(apiUrl("/api/albums"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          description,
+          description: finalDescription,
           eventDate,
           albumType,
           projectId: albumType === AlbumType.PROJECT ? projectId : null,
@@ -659,6 +755,176 @@ export function QuickUploadModal({
                   className="w-full rounded-2xl border border-purple-800/50 bg-[#1A0E42]/80 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm text-purple-100 focus:border-pink-500 focus:outline-none"
                 />
               </div>
+            </div>
+
+            {/* 5W1H PR News & One-Page Bulletin Section */}
+            <div className="rounded-2xl border border-pink-500/30 bg-gradient-to-br from-[#1C0E46]/90 via-[#150836]/95 to-[#1A0A3D]/90 p-3.5 sm:p-4 space-y-3 shadow-lg">
+              <div
+                onClick={() => setIsNewsExpanded((prev) => !prev)}
+                className="flex items-center justify-between cursor-pointer select-none group"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/20">
+                    <Newspaper className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-white flex flex-wrap items-center gap-2">
+                      <span>เขียนข่าวประชาสัมพันธ์ & ข่าวแผ่นเดียว (หลัก 5W1H)</span>
+                      <span className="rounded-full bg-pink-500/20 border border-pink-500/40 px-2 py-0.5 text-[10px] font-bold text-pink-300">
+                        ใคร • ทำอะไร • ที่ไหน • เมื่อไร • อย่างไร
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-purple-300/80">
+                      กรอกข้อมูลเพื่อนำไปแสดงใต้อัลบั้ม และแปลงเป็น "ข่าวแผ่นเดียว (One-Page PR Flyer)" อัตโนมัติ
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-pink-300 font-medium group-hover:text-pink-200 shrink-0">
+                  <span>{isNewsExpanded ? "ย่อส่วนนี้" : "เปิดเขียนข่าว"}</span>
+                  {isNewsExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </div>
+              </div>
+
+              {/* Collapsible 5W1H Details */}
+              {isNewsExpanded && (
+                <div className="space-y-3 pt-2 border-t border-purple-800/40 animate-in fade-in duration-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Who */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-pink-200 flex items-center gap-1">
+                        <span>👤 ใคร (Who)</span>
+                        <span className="text-[10px] font-normal text-purple-300">
+                          (ผู้บริหาร, คณะครู, นักเรียน, วิทยากร)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newsWho}
+                        onChange={(e) => setNewsWho(e.target.value)}
+                        placeholder="เช่น นายสมเกียรติ ผอ.วช.น่าน, คณะครู และนักเรียนแผนก..."
+                        className="w-full rounded-xl border border-purple-800/60 bg-[#140832] px-3 py-1.5 text-xs text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* What */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-pink-200 flex items-center gap-1">
+                        <span>🎯 ทำอะไร (What)</span>
+                        <span className="text-[10px] font-normal text-purple-300">
+                          (พิธีเปิด, อบรม, มอบรางวัล, ประชุม)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newsWhat}
+                        onChange={(e) => setNewsWhat(e.target.value)}
+                        placeholder="เช่น เป็นประธานในพิธีเปิดการอบรมเชิงปฏิบัติการ..."
+                        className="w-full rounded-xl border border-purple-800/60 bg-[#140832] px-3 py-1.5 text-xs text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Where */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-pink-200 flex items-center gap-1">
+                        <span>📍 ที่ไหน (Where)</span>
+                        <span className="text-[10px] font-normal text-purple-300">
+                          (สถานที่จัดงาน)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newsWhere}
+                        onChange={(e) => setNewsWhere(e.target.value)}
+                        placeholder="เช่น ณ หอประชุมสารพัดช่างน่าน วิทยาลัยสารพัดช่างน่าน"
+                        className="w-full rounded-xl border border-purple-800/60 bg-[#140832] px-3 py-1.5 text-xs text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* When */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-pink-200 flex items-center gap-1">
+                        <span>📅 เมื่อไร (When)</span>
+                        <span className="text-[10px] font-normal text-purple-300">
+                          (วันที่และช่วงเวลา)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newsWhen}
+                        onChange={(e) => setNewsWhen(e.target.value)}
+                        placeholder="เช่น วันที่ 30 ตุลาคม 2569 เวลา 09.00 น."
+                        className="w-full rounded-xl border border-purple-800/60 bg-[#140832] px-3 py-1.5 text-xs text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Why */}
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className="text-[11px] font-bold text-pink-200 flex items-center gap-1">
+                        <span>💡 เพื่ออะไร / วัตถุประสงค์ (Why)</span>
+                        <span className="text-[10px] font-normal text-purple-300">
+                          (เป้าหมายหรือประโยชน์ที่ได้รับ)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newsWhy}
+                        onChange={(e) => setNewsWhy(e.target.value)}
+                        placeholder="เช่น เพื่อเสริมสร้างทักษะวิชาชีพและสมรรถนะการปฏิบัติงานจริงสู่ความเป็นเลิศ..."
+                        className="w-full rounded-xl border border-purple-800/60 bg-[#140832] px-3 py-1.5 text-xs text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* How */}
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className="text-[11px] font-bold text-pink-200 flex items-center gap-1">
+                        <span>🌟 อย่างไร / บรรยากาศและผลลัพธ์ (How)</span>
+                        <span className="text-[10px] font-normal text-purple-300">
+                          (บรรยากาศ, จำนวนผู้ร่วมงาน, ผลสำเร็จ)
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newsHow}
+                        onChange={(e) => setNewsHow(e.target.value)}
+                        placeholder="เช่น บรรยากาศเป็นไปด้วยความเรียบร้อย มีผู้เข้าร่วมกว่า 150 คน ได้รับความรู้เต็มพิกัด..."
+                        className="w-full rounded-xl border border-purple-800/60 bg-[#140832] px-3 py-1.5 text-xs text-white placeholder-purple-400/50 focus:border-pink-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* AI Drafter Button & Headline */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-pink-400" />
+                      <span>เนื้อหาข่าวประชาสัมพันธ์ฉบับเต็ม (Full PR News Body)</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleAutoDraftNews}
+                      className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-3 py-1 text-[11px] font-bold text-white shadow-md shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all"
+                      title="กดเพื่อให้ระบบนำข้อมูล 5W1H ด้านบนมาร้อยเรียงเป็นเนื้อหาข่าวทางการให้อัตโนมัติ"
+                    >
+                      <Wand2 className="h-3.5 w-3.5" />
+                      <span>✨ ช่วยร่างเนื้อหาข่าวอัตโนมัติ</span>
+                    </button>
+                  </div>
+
+                  {/* News Body Textarea */}
+                  <textarea
+                    rows={4}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="พิมพ์หรือกดปุ่ม 'ช่วยร่างเนื้อหาข่าวอัตโนมัติ' ด้านบนเพื่อสร้างเนื้อข่าวภาษาทางการสำหรับนำไปแสดงใต้อัลบั้มและข่าวแผ่นเดียว..."
+                    className="w-full rounded-2xl border border-purple-800/60 bg-[#140832] p-3 text-xs text-white placeholder-purple-400/40 focus:border-pink-500 focus:outline-none leading-relaxed"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

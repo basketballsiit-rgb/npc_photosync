@@ -34,9 +34,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ZoomIn,
+  Newspaper,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 import { showAlert, npcSwal } from "@/lib/sweetalert";
+import { OnePageNewsModal } from "@/components/gallery/OnePageNewsModal";
+import { parseNewsDescription, formatSocialShareText } from "@/lib/news-utils";
 
 interface MediaItem {
   id: string;
@@ -90,6 +93,7 @@ export default function AlbumDetailPage() {
   const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>([]);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<MediaItem | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isOnePageModalOpen, setIsOnePageModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -545,6 +549,19 @@ export default function AlbumDetailPage() {
     setTimeout(() => setCopySuccess(false), 2000);
   };
 
+  // Copy news formatted for Facebook / LINE
+  const handleCopyNewsForSocial = () => {
+    if (!album) return;
+    const textToCopy = formatSocialShareText(
+      { ...news5w1h, fullNews: newsFullText },
+      album.title,
+      typeof window !== "undefined" ? window.location.href : "",
+      album.eventDate
+    );
+    navigator.clipboard.writeText(textToCopy);
+    showAlert.toast("คัดลอกข้อความข่าวสำหรับ Facebook/LINE แล้ว", "success");
+  };
+
   // Share formatted message to LINE (Matching exact format: 📢 [คลังภาพกิจกรรม วช.น่าน])
   const handleShareToLine = async () => {
     if (!album) return;
@@ -836,6 +853,18 @@ https://service.npc.ac.th/`;
     );
   };
 
+  const { news: news5w1h, fullText: newsFullText, hasStructuredNews } = parseNewsDescription(
+    album?.description,
+    album
+      ? {
+          title: album.title,
+          eventDate: album.eventDate,
+          divisionName: album.divisionName,
+          departmentName: album.departmentName || undefined,
+        }
+      : undefined
+  );
+
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
     typeof window !== "undefined" ? window.location.href : ""
   )}`;
@@ -989,6 +1018,16 @@ https://service.npc.ac.th/`;
                 <span>QR Code แนบรายงาน 5 บท</span>
               </button>
 
+              {/* One-Page PR Bulletin Button */}
+              <button
+                onClick={() => setIsOnePageModalOpen(true)}
+                className="flex items-center justify-center gap-2 rounded-full border border-cyan-500/50 bg-gradient-to-r from-cyan-500/20 to-blue-500/25 px-4 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-500/35 transition-all shadow-md shadow-cyan-500/15 active:scale-95"
+                title="สร้างและพิมพ์ข่าวประชาสัมพันธ์แผ่นเดียว (One-Page PR Bulletin / Flyer)"
+              >
+                <Newspaper className="h-4 w-4 text-cyan-400" />
+                <span>📰 ข่าวแผ่นเดียว (One-Page PR)</span>
+              </button>
+
               {/* Open Google Shared Drive */}
               {album.driveFolderUrl && (
                 <a
@@ -1032,6 +1071,118 @@ https://service.npc.ac.th/`;
               </button>
             </div>
           </div>
+        </section>
+
+        {/* 5W1H PR NEWS BULLETIN & HIGHLIGHTS CARD */}
+        <section className="rounded-3xl border border-purple-800/60 bg-[#13072E]/90 p-5 sm:p-6 text-xs space-y-4 backdrop-blur-xl shadow-2xl animate-in fade-in">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-purple-800/50 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25">
+                <Newspaper className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-sm sm:text-base flex items-center gap-2">
+                  <span>ข่าวประชาสัมพันธ์และรายงานกิจกรรม (PR News Bulletin)</span>
+                  <span className="rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 text-[10px] font-bold">
+                    หลัก 5W1H
+                  </span>
+                </h3>
+                <p className="text-[11px] text-purple-300/80">
+                  โครงสร้างข่าวสารสำหรับรายงานผู้บริหาร เผยแพร่เว็บไซต์ และจัดทำข่าวแผ่นเดียว
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleCopyNewsForSocial}
+                className="flex items-center gap-1.5 rounded-full border border-purple-700 bg-purple-900/60 px-3.5 py-1.5 text-xs font-semibold text-purple-200 hover:bg-purple-800 hover:text-white transition-all shadow-sm"
+                title="คัดลอกเนื้อหาข่าวพร้อมอีโมจิสำหรับโพสต์ Facebook หรือ LINE"
+              >
+                <Copy className="h-3.5 w-3.5 text-pink-400" />
+                <span>คัดลอกข่าว (Facebook/LINE)</span>
+              </button>
+
+              <button
+                onClick={() => setIsOnePageModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all"
+                title="เปิดดูและพิมพ์หรือดาวน์โหลดข่าวแผ่นเดียว (One-Page PR Flyer)"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>📰 สร้างข่าวแผ่นเดียว (A4)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 5W1H Structured Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            <div className="rounded-2xl border border-purple-800/40 bg-[#1A0E44]/70 p-3 space-y-1">
+              <div className="text-[10px] font-bold text-pink-300 uppercase tracking-wider flex items-center gap-1">
+                <span>👤 ใคร (Who)</span>
+              </div>
+              <p className="text-white text-xs leading-relaxed line-clamp-2">
+                {news5w1h.who || "-"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-purple-800/40 bg-[#1A0E44]/70 p-3 space-y-1">
+              <div className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1">
+                <span>🎯 ทำอะไร (What)</span>
+              </div>
+              <p className="text-white text-xs leading-relaxed line-clamp-2">
+                {news5w1h.what || "-"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-purple-800/40 bg-[#1A0E44]/70 p-3 space-y-1">
+              <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                <span>📍 ที่ไหน (Where)</span>
+              </div>
+              <p className="text-white text-xs leading-relaxed line-clamp-2">
+                {news5w1h.where || "-"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-purple-800/40 bg-[#1A0E44]/70 p-3 space-y-1">
+              <div className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1">
+                <span>📅 เมื่อไร (When)</span>
+              </div>
+              <p className="text-white text-xs leading-relaxed line-clamp-2">
+                {news5w1h.when || "-"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-purple-800/40 bg-[#1A0E44]/70 p-3 space-y-1 sm:col-span-2 lg:col-span-1">
+              <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1">
+                <span>💡 เพื่ออะไร / วัตถุประสงค์ (Why)</span>
+              </div>
+              <p className="text-white text-xs leading-relaxed line-clamp-2">
+                {news5w1h.why || "-"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-purple-800/40 bg-[#1A0E44]/70 p-3 space-y-1 sm:col-span-2 lg:col-span-1">
+              <div className="text-[10px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1">
+                <span>🌟 อย่างไร / ผลลัพธ์ (How)</span>
+              </div>
+              <p className="text-white text-xs leading-relaxed line-clamp-2">
+                {news5w1h.how || "-"}
+              </p>
+            </div>
+          </div>
+
+          {/* Full News Story */}
+          {newsFullText && (
+            <div className="rounded-2xl border border-purple-800/40 bg-[#150836]/90 p-3.5 sm:p-4 text-xs text-purple-200/90 leading-relaxed font-light space-y-2 text-justify">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-pink-400" />
+                <span>เนื้อหาข่าวประชาสัมพันธ์ฉบับเต็ม:</span>
+              </div>
+              {newsFullText.split("\n\n").map((para, i) => (
+                <p key={i}>{para}</p>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Multi-Selection Control Toolbar */}
@@ -1514,6 +1665,17 @@ https://service.npc.ac.th/`;
             </div>
           </div>
         </div>
+      )}
+
+      {/* ONE-PAGE PR BULLETIN FLYER MODAL */}
+      {isOnePageModalOpen && album && (
+        <OnePageNewsModal
+          isOpen={isOnePageModalOpen}
+          onClose={() => setIsOnePageModalOpen(false)}
+          album={album}
+          news={news5w1h}
+          fullNewsText={newsFullText}
+        />
       )}
 
       {/* COLLABORATIVE ADD PHOTOS MODAL */}
