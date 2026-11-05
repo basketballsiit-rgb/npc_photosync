@@ -97,8 +97,31 @@ export async function GET(
         });
       }
     } else if (type === "original") {
-      // 1. Check if original is available from Google Drive
-      if (media.driveFileId) {
+      // 1. Check if 100% untouched original file is available on local disk storage
+      const originalDir = path.resolve(baseUploadPath, "original", albumCode);
+      const fileExt = path.extname(media.fileName || "");
+      const possibleExts = Array.from(new Set([fileExt, ".jpg", ".jpeg", ".png", ".webp", ".heic"].filter(Boolean)));
+      for (const ext of possibleExts) {
+        const localOriginalPath = path.join(originalDir, `${media.id}${ext.startsWith(".") ? ext : "." + ext}`);
+        if (existsSync(localOriginalPath)) {
+          const fileBuf = await fs.readFile(localOriginalPath);
+          return new NextResponse(new Uint8Array(fileBuf), {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": media.mimeType || "image/jpeg",
+              "Content-Disposition": contentDisposition,
+              "Cache-Control": isDownload ? "no-cache" : "public, max-age=604800, immutable",
+            },
+          });
+        }
+      }
+
+      // 2. Check if original is available from Google Shared Drive
+      if (
+        media.driveFileId &&
+        !media.driveFileId.startsWith("mock_") &&
+        !media.driveFileId.startsWith("err_")
+      ) {
         try {
           const stream = await getOriginalFileStream(media.driveFileId);
           // Convert Node Readable to Web ReadableStream

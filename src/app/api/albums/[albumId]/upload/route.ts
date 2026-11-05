@@ -92,10 +92,11 @@ export async function POST(
       const fileSize = BigInt(fileBuffer.length);
       addedSizeBytes += fileSize;
 
-      // 1. Image Processing Pipeline (Thumbnail WebP & Report-Ready HD JPG)
+      // 1. Image Processing Pipeline (Thumbnail WebP, Report-Ready HD JPG, and 100% Original Local Master)
       const processed = await processAndSaveImage(fileBuffer, {
         albumCode: album.albumCode,
         mediaId,
+        originalFileName: file.name,
       });
 
       // 2. Upload Original Master Photo to Google Shared Drive

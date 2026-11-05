@@ -818,24 +818,35 @@ https://service.npc.ac.th/`;
           </div>
 
           {/* Individual Image Quick Actions */}
-          <div className="flex items-center justify-between pt-2 border-t border-purple-900/40 text-[11px]">
-            <button
-              onClick={() => handleDownloadSinglePhoto(media, "report")}
-              disabled={downloadingMediaId === media.id}
-              className="text-pink-300 hover:text-pink-200 hover:underline flex items-center gap-1 font-semibold disabled:opacity-50"
-              title="ดาวน์โหลดภาพระดับ HD เข้ามือถือ/คอมพิวเตอร์"
-            >
-              {downloadingMediaId === media.id ? (
-                <Loader2 className="h-3 w-3 animate-spin text-pink-400" />
-              ) : (
-                <Download className="h-3 w-3" />
-              )}
-              <span>HD (300KB)</span>
-            </button>
+          <div className="flex items-center justify-between gap-1 pt-2 border-t border-purple-900/40 text-[11px]">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleDownloadSinglePhoto(media, "original")}
+                disabled={downloadingMediaId === media.id}
+                className="flex items-center gap-1 rounded-md px-2 py-0.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border border-pink-500/40 font-bold transition-all disabled:opacity-50 shadow-sm"
+                title="ดาวน์โหลดไฟล์ภาพต้นฉบับคมชัดสูงสุด 100% เท่ากับที่ถ่ายจากกล้อง"
+              >
+                {downloadingMediaId === media.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-pink-400" />
+                ) : (
+                  <Download className="h-3 w-3 text-pink-400" />
+                )}
+                <span>ต้นฉบับ 100%</span>
+              </button>
+
+              <button
+                onClick={() => handleDownloadSinglePhoto(media, "report")}
+                disabled={downloadingMediaId === media.id}
+                className="text-purple-300 hover:text-white hover:underline flex items-center gap-0.5 px-1 py-0.5 text-[10px] font-medium disabled:opacity-50"
+                title="ดาวน์โหลดขนาด HD (1920px) เหมาะสำหรับทำรายงาน 5 บท"
+              >
+                <span>HD รายงาน</span>
+              </button>
+            </div>
 
             <button
               onClick={() => setActiveLightboxMedia(media)}
-              className="text-purple-400 hover:text-white transition-colors"
+              className="text-purple-400 hover:text-white transition-colors text-[11px]"
             >
               ซูมดูภาพ
             </button>
@@ -1417,26 +1428,27 @@ https://service.npc.ac.th/`;
                 {/* Direct Mobile & Desktop Download Buttons */}
                 <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
                   <button
-                    onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "report")}
+                    onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "original")}
                     disabled={downloadingMediaId === activeLightboxMedia.id}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
-                    title="ดาวน์โหลดภาพขนาด HD สำหรับทำรายงาน 5 บท"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                    title="ดาวน์โหลดไฟล์ภาพต้นฉบับคมชัดสูงสุด 100% เท่ากับที่ถ่ายจากกล้อง"
                   >
                     {downloadingMediaId === activeLightboxMedia.id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Download className="h-3.5 w-3.5" />
                     )}
-                    <span>ดาวน์โหลด HD</span>
+                    <span>💎 ต้นฉบับ 100%</span>
                   </button>
 
                   <button
-                    onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "original")}
+                    onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "report")}
                     disabled={downloadingMediaId === activeLightboxMedia.id}
                     className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full border border-purple-600 bg-purple-900/60 px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-purple-800 hover:text-white active:scale-95 transition-all disabled:opacity-50"
-                    title="ดาวน์โหลดไฟล์ภาพต้นฉบับคมชัดสูงสุด 100%"
+                    title="ดาวน์โหลดภาพขนาด HD สำหรับทำรายงาน 5 บท"
                   >
-                    <span>ดาวน์โหลดฉบับเต็ม</span>
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>📄 รายงาน 5 บท (HD)</span>
                   </button>
 
                   <button
@@ -1445,7 +1457,7 @@ https://service.npc.ac.th/`;
                     className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full border border-purple-700/60 bg-[#1F0F4C] px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white active:scale-95 transition-all disabled:opacity-50"
                     title="ดาวน์โหลดภาพพร้อมประทับลายน้ำโลโก้วิทยาลัย"
                   >
-                    <span>ติดโลโก้ PR</span>
+                    <span>🏷️ ติดโลโก้ PR</span>
                   </button>
                 </div>
               </div>

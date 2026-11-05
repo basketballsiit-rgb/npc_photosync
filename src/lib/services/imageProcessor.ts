@@ -12,11 +12,13 @@ export interface ProcessedImageMetadata {
   thumbnailUrl: string;
   reportBuffer: Buffer;
   reportReadyUrl: string;
+  originalUrl?: string;
 }
 
 export interface ImageProcessingOptions {
   albumCode: string;
   mediaId: string;
+  originalFileName?: string;
   baseStoragePath?: string; // Default: ./public/uploads
 }
 
@@ -107,21 +109,29 @@ export async function processAndSaveImage(
   const width = finalMeta.width || rawMetadata.width || 1920;
   const height = finalMeta.height || rawMetadata.height || 1080;
 
-  // 4. Ensure directories exist on disk
+  // 4. Ensure directories exist on disk (thumbs, report, and 100% untouched original)
   const thumbsDir = path.resolve(baseStorage, "thumbs", albumCode);
   const reportDir = path.resolve(baseStorage, "report", albumCode);
+  const originalDir = path.resolve(baseStorage, "original", albumCode);
 
   await fs.mkdir(thumbsDir, { recursive: true });
   await fs.mkdir(reportDir, { recursive: true });
+  await fs.mkdir(originalDir, { recursive: true });
 
   const thumbFilePath = path.join(thumbsDir, `${mediaId}.webp`);
   const reportFilePath = path.join(reportDir, `${mediaId}.jpg`);
 
+  const originalExt = (options.originalFileName && path.extname(options.originalFileName)) || ".jpg";
+  const originalFilePath = path.join(originalDir, `${mediaId}${originalExt}`);
+
   await fs.writeFile(thumbFilePath, thumbnailBuffer);
   await fs.writeFile(reportFilePath, reportBuffer);
+  // Store 100% byte-for-byte untouched camera original
+  await fs.writeFile(originalFilePath, inputBuffer);
 
   const thumbnailUrl = `/uploads/thumbs/${albumCode}/${mediaId}.webp`;
   const reportReadyUrl = `/uploads/report/${albumCode}/${mediaId}.jpg`;
+  const originalUrl = `/uploads/original/${albumCode}/${mediaId}${originalExt}`;
 
   return {
     width,
@@ -132,6 +142,7 @@ export async function processAndSaveImage(
     thumbnailUrl,
     reportBuffer,
     reportReadyUrl,
+    originalUrl,
   };
 }
 

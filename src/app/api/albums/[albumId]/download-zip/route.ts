@@ -68,7 +68,26 @@ export async function POST(
             `${file.id}.jpg`
           );
 
-          // 1. If Original and Drive stream available, use it directly
+          // 1. If Original requested: check local 100% original master storage first
+          if (quality === "original") {
+            const originalDir = path.resolve(baseUploadPath, "original", album.albumCode);
+            const fileExt = path.extname(file.fileName || "");
+            const possibleExts = Array.from(new Set([fileExt, ".jpg", ".jpeg", ".png", ".webp", ".heic"].filter(Boolean)));
+            let foundLocalOriginal = false;
+            for (const ext of possibleExts) {
+              const localOriginalPath = path.join(originalDir, `${file.id}${ext.startsWith(".") ? ext : "." + ext}`);
+              if (existsSync(localOriginalPath)) {
+                archive.file(localOriginalPath, { name: file.fileName });
+                foundLocalOriginal = true;
+                break;
+              }
+            }
+            if (foundLocalOriginal) {
+              continue;
+            }
+          }
+
+          // 2. If Original and Drive stream available, stream from Google Drive
           if (
             quality === "original" &&
             file.driveFileId &&
