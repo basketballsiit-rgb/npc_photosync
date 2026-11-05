@@ -20,6 +20,8 @@ import {
   Search,
   RefreshCw,
   User,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 import {
@@ -85,9 +87,25 @@ export function QuickUploadModal({
   const [departmentsList, setDepartmentsList] = useState<string[]>(Array.from(NPC_DEPARTMENTS));
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
   const [isSyncingProjects, setIsSyncingProjects] = useState(false);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close project combobox when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        projectDropdownRef.current &&
+        !projectDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsProjectDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Calculate Academic Info Dynamically
   const termInfo = getAcademicTermInfo(new Date(eventDate || new Date()));
@@ -209,6 +227,7 @@ export function QuickUploadModal({
     setAlbumType(AlbumType.ROUTINE);
     setProjectId("");
     setProjectSearchTerm("");
+    setIsProjectDropdownOpen(false);
     setDivisionName("ฝ่ายบริหารทรัพยากร");
     setDepartmentName("งานศูนย์ดิจิทัลและสื่อสารองค์กร");
     setSelectedFiles([]);
@@ -783,20 +802,7 @@ export function QuickUploadModal({
                   </div>
                 </div>
 
-                {/* Quick Search filter if there are many projects */}
-                {projects.length > 5 && (
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-cyan-400/70" />
-                    <input
-                      type="text"
-                      value={projectSearchTerm}
-                      onChange={(e) => setProjectSearchTerm(e.target.value)}
-                      placeholder="พิมพ์ค้นหารหัสโครงการ (เช่น PRJ-69), ชื่อโครงการ, หรือครูผู้รับผิดชอบ..."
-                      className="w-full rounded-xl border border-cyan-500/30 bg-slate-900/90 py-1.5 pl-8 pr-3 text-xs text-cyan-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                    />
-                  </div>
-                )}
-
+                {/* Custom Interactive Combobox for Project Selection */}
                 {(() => {
                   const filtered = projects.filter((p) => {
                     if (!projectSearchTerm.trim()) return true;
@@ -810,25 +816,137 @@ export function QuickUploadModal({
                     );
                   });
 
+                  const currentSelectedProj = projects.find(
+                    (p) => p.id === projectId || p.projectCode === projectId
+                  );
+
                   return (
-                    <select
-                      value={projectId}
-                      onChange={(e) => handleProjectSelect(e.target.value)}
-                      className="w-full rounded-xl border border-cyan-500/50 bg-slate-900/95 px-3.5 py-2.5 text-xs sm:text-sm text-cyan-100 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-                    >
-                      <option value="">
-                        {isProjectsLoading
-                          ? "-- กำลังโหลดโครงการจาก npc_smartflow... --"
-                          : filtered.length === 0
-                          ? "-- ไม่พบโครงการที่ตรงกับคำค้นหา --"
-                          : `-- กรุณาเลือกรหัสโครงการ (${filtered.length} โครงการ) --`}
-                      </option>
-                      {filtered.map((proj) => (
-                        <option key={proj.id} value={proj.id}>
-                          {proj.projectCode} • {proj.projectName} ({proj.divisionName}{proj.ownerTeacherName ? ` • โดย ${proj.ownerTeacherName}` : ""})
-                        </option>
-                      ))}
-                    </select>
+                    <div ref={projectDropdownRef} className="relative w-full">
+                      {/* Trigger Button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsProjectDropdownOpen((prev) => !prev)}
+                        className={`w-full flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-left text-xs sm:text-sm transition-all ${
+                          currentSelectedProj
+                            ? "border-cyan-400 bg-cyan-950/70 text-white shadow-md shadow-cyan-500/10 ring-1 ring-cyan-400/30"
+                            : "border-cyan-500/50 bg-slate-900/95 text-cyan-100 hover:border-cyan-400 hover:bg-slate-900"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {currentSelectedProj ? (
+                            <>
+                              <span className="shrink-0 font-mono font-bold text-cyan-300 bg-cyan-900/80 border border-cyan-400/50 px-2 py-0.5 rounded text-[11px]">
+                                {currentSelectedProj.projectCode}
+                              </span>
+                              <span className="font-semibold text-white truncate">
+                                {currentSelectedProj.projectName}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-cyan-300/80">
+                              {isProjectsLoading
+                                ? "-- กำลังโหลดโครงการจาก npc_smartflow... --"
+                                : `-- กรุณาเลือกโครงการ (${projects.length} โครงการ) --`}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {currentSelectedProj && (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setProjectId("");
+                              }}
+                              className="p-1 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
+                              title="ยกเลิกการเลือกโครงการ"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </span>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 text-cyan-400 transition-transform duration-200 ${
+                              isProjectDropdownOpen ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Dropdown Menu Panel (Constrained strictly to container width) */}
+                      {isProjectDropdownOpen && (
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1.5 rounded-2xl border-2 border-cyan-500/60 bg-[#0F172A] p-2.5 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-150 max-w-full">
+                          {/* Search Input inside Dropdown */}
+                          <div className="relative mb-2">
+                            <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-cyan-400/80" />
+                            <input
+                              type="text"
+                              value={projectSearchTerm}
+                              onChange={(e) => setProjectSearchTerm(e.target.value)}
+                              placeholder="พิมพ์ค้นหารหัสโครงการ (เช่น PRJ-69, PRJ-70), ชื่อโครงการ..."
+                              autoFocus
+                              className="w-full rounded-xl border border-cyan-500/40 bg-slate-900 py-1.5 pl-8 pr-3 text-xs text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                            />
+                          </div>
+
+                          {/* Filtered Projects Scrollable List */}
+                          <div className="max-h-64 sm:max-h-80 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-800/60">
+                            {filtered.length === 0 ? (
+                              <div className="py-6 text-center text-xs text-slate-400">
+                                ไม่พบโครงการที่ตรงกับคำค้นหา "{projectSearchTerm}"
+                              </div>
+                            ) : (
+                              filtered.map((proj) => {
+                                const isSelected =
+                                  proj.id === projectId || proj.projectCode === projectId;
+                                return (
+                                  <div
+                                    key={proj.id}
+                                    onClick={() => {
+                                      handleProjectSelect(proj.id);
+                                      setIsProjectDropdownOpen(false);
+                                    }}
+                                    className={`cursor-pointer rounded-xl p-2.5 text-left transition-all ${
+                                      isSelected
+                                        ? "bg-cyan-900/60 border border-cyan-400/60 shadow-sm"
+                                        : "hover:bg-slate-800 hover:border hover:border-slate-700/60"
+                                    }`}
+                                  >
+                                    {/* Top Line: Project Code badge, Division, Owner Teacher */}
+                                    <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-mono font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 rounded text-[11px]">
+                                          {proj.projectCode}
+                                        </span>
+                                        <span className="text-[11px] text-cyan-200/90 font-medium">
+                                          {proj.divisionName}
+                                        </span>
+                                      </div>
+
+                                      {proj.ownerTeacherName && (
+                                        <span className="text-[10px] text-slate-300 flex items-center gap-1">
+                                          <User className="h-3 w-3 text-cyan-400" />
+                                          <span>{proj.ownerTeacherName}</span>
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Project Name: Fully legible, never cropped on the left */}
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="text-xs font-semibold text-white leading-relaxed break-words flex-1">
+                                        {proj.projectName}
+                                      </p>
+                                      {isSelected && (
+                                        <Check className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })()}
 
