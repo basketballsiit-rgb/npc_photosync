@@ -108,10 +108,9 @@ export default function LineShareModal({
 }: LineShareModalProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [isSendingLine, setIsSendingLine] = useState(false);
   const [isCopiedImage, setIsCopiedImage] = useState(false);
   const [isCopiedText, setIsCopiedText] = useState(false);
-  const [autoSentSuccess, setAutoSentSuccess] = useState(false);
+  const [isCopiedLinkOnly, setIsCopiedLinkOnly] = useState(false);
 
   if (!isOpen) return null;
 
@@ -165,32 +164,7 @@ export default function LineShareModal({
 ${album.project ? `🔗 โครงการ: ${album.project.projectCode} ${album.project.projectName}\n` : ""}🌐 เปิดดูภาพและดาวน์โหลด:
 ${shareUrl}`;
 
-  // 1. Direct Push to LINE Group (Without opening LINE app)
-  const handleAutoPushToLine = async () => {
-    setIsSendingLine(true);
-    try {
-      const res = await fetch(`${basePath}/api/albums/${album.id}/share-line`, {
-        method: "POST",
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        setAutoSentSuccess(true);
-        showAlert.toast("🚀 ส่งการ์ดสรุปเข้ากลุ่ม LINE สำเร็จเรียบร้อยแล้ว!", "success");
-      } else {
-        showAlert.error(
-          "ไม่สามารถส่งเข้ากลุ่ม LINE ได้โดยตรง",
-          data.error || "กรุณาตรวจสอบการตั้งค่า LINE Bot หรือสิทธิ์ในกลุ่ม LINE"
-        );
-      }
-    } catch (err: any) {
-      showAlert.error("เกิดข้อผิดพลาด", err?.message || "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์");
-    } finally {
-      setIsSendingLine(false);
-    }
-  };
-
-  // 2. Copy Card as Image to Clipboard (Instant Ctrl+V into LINE)
+  // 1. Copy Card as Image to Clipboard (Instant Ctrl+V into LINE)
   const handleCopyCardImage = async () => {
     if (!cardRef.current) return;
     setIsExporting(true);
@@ -239,7 +213,7 @@ ${shareUrl}`;
     }
   };
 
-  // 3. Download PNG
+  // 2. Download PNG
   const handleDownloadImage = async () => {
     if (!cardRef.current) return;
     setIsExporting(true);
@@ -262,7 +236,7 @@ ${shareUrl}`;
     }
   };
 
-  // 4. Open LINE App / Web Share
+  // 3. Open LINE App / Web Share (100% Free, Clickable Album Link)
   const handleOpenLineShare = () => {
     const isMobile =
       typeof navigator !== "undefined" &&
@@ -273,6 +247,18 @@ ${shareUrl}`;
     } else {
       const lineWebShareUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(summaryText)}`;
       window.open(lineWebShareUrl, "_blank");
+    }
+  };
+
+  // 4. Copy Only Album URL
+  const handleCopyLinkOnly = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setIsCopiedLinkOnly(true);
+      showAlert.toast("คัดลอกลิงก์อัลบั้มแล้ว! นำไปวางใต้รูปภาพใน LINE ได้ทันที 📋", "success");
+      setTimeout(() => setIsCopiedLinkOnly(false), 2500);
+    } catch {
+      showAlert.error("ไม่สามารถคัดลอกลิงก์ได้", "กรุณาลองใหม่อีกครั้ง");
     }
   };
 
@@ -428,8 +414,8 @@ ${shareUrl}`;
                 )}
               </div>
 
-              {/* Footer Button (Image 1 style) */}
-              <div className="p-3 bg-[#0F172A]">
+              {/* Footer Button (Image 1 style) & QR Code for Image Scans */}
+              <div className="p-3 bg-[#0F172A] space-y-2.5">
                 <a
                   href={shareUrl}
                   target="_blank"
@@ -438,6 +424,24 @@ ${shareUrl}`;
                 >
                   🌐 เปิดดูภาพและดาวน์โหลด
                 </a>
+
+                {/* QR Code inside card so recipients in LINE can tap & hold image to open album */}
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-white shrink-0 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(shareUrl)}`}
+                        alt="QR Code"
+                        className="w-9 h-9"
+                      />
+                    </div>
+                    <div className="text-[10px] text-slate-400 leading-tight">
+                      <div className="font-bold text-cyan-300">📱 สแกน QR หรือแตะค้างที่รูปภาพ</div>
+                      <div className="text-slate-400 text-[9px] mt-0.5">เพื่อเปิดดูอัลบั้มและดาวน์โหลดภาพ</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -448,68 +452,51 @@ ${shareUrl}`;
 
           {/* Right Column: Actions & Options */}
           <div className="md:col-span-6 flex flex-col gap-4">
-            {/* Action 1: Push directly into LINE group without opening LINE */}
-            <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/20 p-4 space-y-3">
+            {/* Primary Action: Open & Share via LINE App (100% FREE, Zero Message Cost, Clickable in LINE) */}
+            <div className="rounded-2xl border border-emerald-500/50 bg-[#06C755]/10 p-4 space-y-3">
               <div className="flex items-start gap-2.5">
-                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 mt-0.5">
-                  <Send className="h-4 w-4" />
+                <div className="p-2 rounded-xl bg-[#06C755]/20 text-[#06C755] mt-0.5 shrink-0">
+                  <ExternalLink className="h-4 w-4" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    ส่งเข้ากลุ่ม LINE ผ่านระบบ (ไม่ต้องสลับไป LINE)
-                    {autoSentSuccess && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-bold">
-                        ส่งแล้ว
-                      </span>
-                    )}
+                    แชร์เข้าแชท / กลุ่ม LINE โดยตรง
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                      ฟรี 100% ไม่มีค่าบริการ
+                    </span>
                   </h4>
-                  <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                    ระบบจะส่งการ์ด Flex Message (ตามภาพพรีวิว) เข้ากลุ่ม LINE ทางการของวิทยาลัยทันทีด้วยบอท NPC_PhotoSync
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                    ส่งเข้ากลุ่มหรือแชท LINE ผ่านแอปพลิเคชันโดยตรง <strong>ไม่มีการคิดค่าใช้จ่ายหรือหักโควตาใดๆ</strong> และเมื่อส่งแล้วคนในกลุ่มสามารถ <strong>แตะที่การ์ดเพื่อเปิดเข้าดูอัลบั้มได้ทันที</strong>
                   </p>
                 </div>
               </div>
 
               <button
-                onClick={handleAutoPushToLine}
-                disabled={isSendingLine}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] disabled:opacity-50"
+                onClick={handleOpenLineShare}
+                className="w-full py-3 px-4 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#06C755]/25 transition-all active:scale-[0.98]"
               >
-                {isSendingLine ? (
-                  <>
-                    <div className="h-4 w-4 rounded-full border-2 border-slate-950 border-t-transparent animate-spin" />
-                    <span>กำลังส่งข้อความเข้ากลุ่ม LINE...</span>
-                  </>
-                ) : autoSentSuccess ? (
-                  <>
-                    <Check className="h-4 w-4" />
-                    <span>ส่งเข้ากลุ่ม LINE อีกครั้ง</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    <span>🚀 คลิกส่งการ์ดเข้ากลุ่ม LINE ทันที</span>
-                  </>
-                )}
+                <ExternalLink className="h-4 w-4" />
+                <span>📲 คลิกส่งเข้าห้องแชท / กลุ่ม LINE (กดแล้วเปิดอัลบั้มได้ทันที)</span>
               </button>
             </div>
 
-            {/* Action 2: Copy Card as Image (For pasting into any chat) */}
+            {/* Action 2: Copy Card as Image (With QR Code and quick link) */}
             <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-4 space-y-3">
               <div className="flex items-start gap-2.5">
-                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300 mt-0.5">
+                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300 mt-0.5 shrink-0">
                   <Copy className="h-4 w-4" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">
-                    คัดลอกรูปภาพการ์ด (นำไปวาง Ctrl+V ในแชทได้ทันที)
+                    คัดลอกรูปภาพการ์ด (นำไปวาง Ctrl+V ในแชท)
                   </h4>
-                  <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                    เหมาะสำหรับส่งเข้าห้องแชทส่วนตัว หรือกลุ่ม LINE อื่นๆ โดยได้รูปการ์ดสวยงามเหมือนภาพพรีวิว 100%
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                    ได้ภาพการ์ดสวยงามคมชัด โดยในภาพมี <strong>QR Code</strong> ในตัว ทำให้เพื่อนใน LINE สามารถ <strong>แตะค้างที่ภาพแล้วกด &ldquo;สแกน QR ในภาพ&rdquo;</strong> เพื่อเข้าหน้าอัลบั้มได้ทันที!
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <button
                   onClick={handleCopyCardImage}
                   disabled={isExporting}
@@ -518,7 +505,7 @@ ${shareUrl}`;
                   {isCopiedImage ? (
                     <>
                       <Check className="h-4 w-4" />
-                      <span>คัดลอกแล้ว!</span>
+                      <span>คัดลอกรูปแล้ว!</span>
                     </>
                   ) : (
                     <>
@@ -529,61 +516,71 @@ ${shareUrl}`;
                 </button>
 
                 <button
-                  onClick={handleDownloadImage}
-                  disabled={isExporting}
-                  className="py-2.5 px-3 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200 font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+                  onClick={handleCopyLinkOnly}
+                  className="py-2.5 px-3 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200 font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                 >
-                  <Download className="h-4 w-4 text-cyan-400" />
-                  <span>บันทึกภาพ (PNG)</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Action 3: Open LINE App / Web Share */}
-            <div className="rounded-2xl border border-slate-800 bg-[#141C2E] p-4 space-y-3">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Share2 className="h-3.5 w-3.5 text-slate-400" />
-                <span>ช่องทางแชร์เพิ่มเติม</span>
-              </h4>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  onClick={handleOpenLineShare}
-                  className="py-2.5 px-3 rounded-xl border border-emerald-500/40 bg-[#06C755]/15 hover:bg-[#06C755]/30 text-emerald-300 font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-                >
-                  <ExternalLink className="h-4 w-4 text-[#06C755]" />
-                  <span>เปิดแชร์ผ่านแอป LINE</span>
-                </button>
-
-                <button
-                  onClick={handleCopyText}
-                  className="py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-                >
-                  {isCopiedText ? (
+                  {isCopiedLinkOnly ? (
                     <>
                       <Check className="h-4 w-4 text-emerald-400" />
-                      <span className="text-emerald-300">คัดลอกข้อความแล้ว</span>
+                      <span className="text-emerald-300">คัดลอกลิงก์แล้ว!</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="h-4 w-4 text-slate-400" />
-                      <span>คัดลอกข้อความสรุป</span>
+                      <Copy className="h-4 w-4 text-cyan-400" />
+                      <span>🔗 คัดลอกเฉพาะลิงก์ (วางใต้ภาพ)</span>
                     </>
                   )}
                 </button>
               </div>
 
-              {/* Text Preview collapse/box */}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleDownloadImage}
+                  disabled={isExporting}
+                  className="text-xs text-slate-400 hover:text-cyan-300 flex items-center gap-1.5 transition-colors py-1"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>บันทึกเป็นไฟล์ภาพ PNG ลงเครื่อง</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Action 3: Copy Full Text Summary */}
+            <div className="rounded-2xl border border-slate-800 bg-[#141C2E] p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Share2 className="h-3.5 w-3.5 text-slate-400" />
+                  <span>ข้อความสรุปสำหรับส่งในแชท</span>
+                </h4>
+                <button
+                  onClick={handleCopyText}
+                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                >
+                  {isCopiedText ? (
+                    <>
+                      <Check className="h-3.5 w-3.5" />
+                      <span>คัดลอกแล้ว</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      <span>คัดลอกทั้งหมด</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Text Preview box */}
               <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-[11px] text-slate-400 font-mono leading-relaxed max-h-24 overflow-y-auto whitespace-pre-wrap select-all">
                 {summaryText}
               </div>
             </div>
 
-            {/* Note */}
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs">
-              <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+            {/* Educational Tip */}
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-200 text-xs">
+              <Info className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
               <span>
-                เมื่อนำลิงก์อัลบั้มไปวางใน LINE ลิงก์จะดึงรูปปกและข้อความสรุป (OpenGraph Preview) แสดงเป็นการ์ดอัตโนมัติเช่นกัน
+                💡 <strong>คำแนะนำ:</strong> หากต้องการให้คนในกลุ่มกดเปิดดูอัลบั้มได้ทันที แนะนำให้ใช้ปุ่มสีเขียว <strong>&ldquo;ส่งเข้าห้องแชท / กลุ่ม LINE โดยตรง&rdquo;</strong> หรือหากส่งรูปภาพ ให้กดปุ่ม <strong>&ldquo;คัดลอกเฉพาะลิงก์&rdquo;</strong> ไปวางใต้ภาพอีก 1 บรรทัดครับ
               </span>
             </div>
           </div>
