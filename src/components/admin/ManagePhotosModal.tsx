@@ -16,8 +16,10 @@ import {
   Maximize2,
   RefreshCw,
   HardDrive,
+  FolderInput,
 } from "lucide-react";
 import { showAlert } from "@/lib/sweetalert";
+import { MovePhotoModal } from "@/components/admin/MovePhotoModal";
 
 interface MediaFileItem {
   id: string;
@@ -69,6 +71,17 @@ export function ManagePhotosModal({
 
   // Lightbox preview state
   const [previewMedia, setPreviewMedia] = useState<MediaFileItem | null>(null);
+
+  // Move photo state
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [photosToMove, setPhotosToMove] = useState<
+    Array<{
+      id: string;
+      fileName: string;
+      thumbnailUrl: string;
+      caption?: string | null;
+    }>
+  >([]);
 
   const getClientBasePath = () => {
     if (typeof window !== "undefined") {
@@ -421,6 +434,26 @@ export function ManagePhotosModal({
                           </button>
                         )}
 
+                        {/* Move Photo to Another Album */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhotosToMove([
+                              {
+                                id: media.id,
+                                fileName: media.fileName,
+                                thumbnailUrl: formatUrl(media.thumbnailWebpUrl, media.id),
+                                caption: media.aiCaption,
+                              },
+                            ]);
+                            setIsMoveModalOpen(true);
+                          }}
+                          title="ย้ายรูปภาพนี้ไปยังอีกอัลบั้ม"
+                          className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-900/80 text-cyan-300 hover:bg-cyan-500 hover:text-black transition-all shadow-lg active:scale-95"
+                        >
+                          <FolderInput className="h-4 w-4" />
+                        </button>
+
                         {/* Delete Photo */}
                         <button
                           type="button"
@@ -522,14 +555,36 @@ export function ManagePhotosModal({
                           </span>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteMedia(media)}
-                          className="text-rose-400 hover:text-rose-200 flex items-center gap-1 transition-colors"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          <span>ลบ</span>
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhotosToMove([
+                                {
+                                  id: media.id,
+                                  fileName: media.fileName,
+                                  thumbnailUrl: formatUrl(media.thumbnailWebpUrl, media.id),
+                                  caption: media.aiCaption,
+                                },
+                              ]);
+                              setIsMoveModalOpen(true);
+                            }}
+                            className="text-cyan-400 hover:text-cyan-200 flex items-center gap-1 transition-colors font-medium"
+                            title="ย้ายรูปภาพนี้ไปใส่อีกอัลบั้ม"
+                          >
+                            <FolderInput className="h-3 w-3" />
+                            <span>ย้าย</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMedia(media)}
+                            className="text-rose-400 hover:text-rose-200 flex items-center gap-1 transition-colors"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>ลบ</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -551,6 +606,24 @@ export function ManagePhotosModal({
             ปิดหน้าต่าง
           </button>
         </div>
+
+        {/* Move Photo to Another Album Modal */}
+        {isMoveModalOpen && album && (
+          <MovePhotoModal
+            isOpen={isMoveModalOpen}
+            onClose={() => setIsMoveModalOpen(false)}
+            sourceAlbum={{
+              id: album.id,
+              albumCode: album.albumCode,
+              title: album.title,
+            }}
+            photosToMove={photosToMove}
+            onMoveSuccess={() => {
+              loadAlbumData();
+              onAlbumUpdated?.();
+            }}
+          />
+        )}
 
         {/* Fullscreen Lightbox Preview Modal */}
         {previewMedia && (
