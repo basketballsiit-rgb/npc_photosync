@@ -171,7 +171,7 @@ export function MovePhotoModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl border border-cyan-500/40 bg-[#0F0826] shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-purple-800/40 px-6 py-4 bg-[#160B37]">

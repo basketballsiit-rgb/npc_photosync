@@ -35,11 +35,13 @@ import {
   ChevronRight,
   ZoomIn,
   Newspaper,
+  FolderInput,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 import { showAlert, npcSwal } from "@/lib/sweetalert";
 import { OnePageNewsModal } from "@/components/gallery/OnePageNewsModal";
 import LineShareModal from "@/components/gallery/LineShareModal";
+import { MovePhotoModal } from "@/components/admin/MovePhotoModal";
 import { parseNewsDescription, formatSocialShareText } from "@/lib/news-utils";
 
 interface MediaItem {
@@ -107,6 +109,45 @@ export default function AlbumDetailPage() {
   const [lineSharedSuccess, setLineSharedSuccess] = useState(false);
   const [downloadingMediaId, setDownloadingMediaId] = useState<string | null>(null);
   const [isLineBrowser, setIsLineBrowser] = useState(false);
+
+  // Move photo modal states
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [photosToMove, setPhotosToMove] = useState<
+    Array<{
+      id: string;
+      fileName: string;
+      thumbnailUrl: string;
+      caption?: string | null;
+    }>
+  >([]);
+
+  const openMoveModalForSingle = (media: MediaItem) => {
+    setPhotosToMove([
+      {
+        id: media.id,
+        fileName: media.fileName,
+        thumbnailUrl: formatMediaUrl(media.thumbnailWebpUrl, media.id, "thumb"),
+        caption: media.aiCaption,
+      },
+    ]);
+    setIsMoveModalOpen(true);
+  };
+
+  const openMoveModalForSelected = () => {
+    if (selectedMediaIds.length === 0 || !album) return;
+    const selectedItems = album.mediaFiles.filter((m) =>
+      selectedMediaIds.includes(m.id)
+    );
+    setPhotosToMove(
+      selectedItems.map((m) => ({
+        id: m.id,
+        fileName: m.fileName,
+        thumbnailUrl: formatMediaUrl(m.thumbnailWebpUrl, m.id, "thumb"),
+        caption: m.aiCaption,
+      }))
+    );
+    setIsMoveModalOpen(true);
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -836,18 +877,28 @@ ${shareUrl}`;
             </div>
           </div>
 
-          {/* Card Footer: Click to View & Download in Lightbox */}
-          <div
-            onClick={() => setActiveLightboxMedia(media)}
-            className="flex items-center justify-between pt-2 border-t border-purple-900/40 text-[11px] text-purple-300 hover:text-pink-300 transition-colors cursor-pointer group/zoom"
-          >
-            <span className="flex items-center gap-1 font-semibold group-hover/zoom:text-pink-300">
+          {/* Card Footer: Click to View & Download in Lightbox + Quick Move */}
+          <div className="flex items-center justify-between pt-2 border-t border-purple-900/40 text-[11px] text-purple-300">
+            <button
+              type="button"
+              onClick={() => setActiveLightboxMedia(media)}
+              className="flex items-center gap-1 font-semibold text-purple-200 hover:text-pink-300 transition-colors cursor-pointer"
+            >
               <ZoomIn className="h-3.5 w-3.5 text-pink-400" />
-              <span>คลิกดูภาพและดาวน์โหลด</span>
-            </span>
-            <span className="text-[10px] text-purple-400/70">
-              {media.fileName}
-            </span>
+              <span>ดูภาพ / โหลด</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openMoveModalForSingle(media);
+              }}
+              className="flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-950/40 px-2.5 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-900/60 hover:text-white transition-all active:scale-95 shadow-sm"
+              title="ย้ายรูปภาพนี้ไปยังอัลบั้มอื่น"
+            >
+              <FolderInput className="h-3 w-3 text-cyan-400" />
+              <span>ย้ายอัลบั้ม</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1403,34 +1454,44 @@ ${shareUrl}`;
 
             <div className="h-6 w-px bg-purple-800/80 hidden sm:block" />
 
-            {/* 3 Resolution Options */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:flex-1">
+            {/* 4 Action Options */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full sm:flex-1">
               {/* Option 1: Original Master */}
               <button
                 onClick={() => handleDownloadZip("original")}
                 disabled={isDownloadingZip}
-                className="flex items-center justify-center gap-1.5 rounded-full border border-pink-500/60 bg-[#1F0F4C] px-3.5 py-2 text-xs font-bold text-pink-200 hover:border-pink-400 hover:text-white transition-all disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 rounded-full border border-pink-500/60 bg-[#1F0F4C] px-3 py-2 text-xs font-bold text-pink-200 hover:border-pink-400 hover:text-white transition-all disabled:opacity-50"
               >
-                <span>💎 ต้นฉบับ (Original)</span>
+                <span>💎 ต้นฉบับ</span>
               </button>
 
               {/* Option 2: Report-Ready HD (Optimized for 5 Chapters) - Sunset Gradient */}
               <button
                 onClick={() => handleDownloadZip("report")}
                 disabled={isDownloadingZip}
-                className="flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-3 py-2 text-xs font-bold text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
               >
                 <FileText className="h-3.5 w-3.5" />
-                <span>📄 รายงาน 5 บท (1920px)</span>
+                <span>📄 รายงาน 5 บท</span>
               </button>
 
               {/* Option 3: Watermarked PR Ready */}
               <button
                 onClick={() => handleDownloadZip("watermark")}
                 disabled={isDownloadingZip}
-                className="flex items-center justify-center gap-1.5 rounded-full border border-cyan-500/40 bg-cyan-950/40 px-3.5 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/40 transition-all disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 rounded-full border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/40 transition-all disabled:opacity-50"
               >
-                <span>🏷️ พร้อม PR โซเชียล (ติดโลโก้)</span>
+                <span>🏷️ ติดโลโก้ PR</span>
+              </button>
+
+              {/* Option 4: Move Selected Photos */}
+              <button
+                onClick={openMoveModalForSelected}
+                className="flex items-center justify-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/20 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/35 hover:text-white transition-all active:scale-95 shadow-sm"
+                title="ย้ายรูปภาพที่เลือกไปยังอัลบั้มอื่น"
+              >
+                <FolderInput className="h-3.5 w-3.5 text-amber-300" />
+                <span>📦 ย้ายไปอัลบั้มอื่น</span>
               </button>
             </div>
 
@@ -1576,6 +1637,15 @@ ${shareUrl}`;
                     title="ดาวน์โหลดภาพพร้อมประทับลายน้ำโลโก้วิทยาลัย"
                   >
                     <span>🏷️ ติดโลโก้ PR</span>
+                  </button>
+
+                  <button
+                    onClick={() => openMoveModalForSingle(activeLightboxMedia)}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full border border-cyan-500/50 bg-gradient-to-r from-cyan-500/20 to-blue-500/25 px-3.5 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-500/40 hover:text-white active:scale-95 transition-all shadow-md shadow-cyan-500/15"
+                    title="ย้ายรูปภาพนี้ไปยังอัลบั้มอื่นที่ถูกต้อง"
+                  >
+                    <FolderInput className="h-3.5 w-3.5 text-cyan-300" />
+                    <span>📦 ย้ายไปอัลบั้มอื่น</span>
                   </button>
                 </div>
               </div>
@@ -1831,6 +1901,28 @@ ${shareUrl}`;
         album={album}
         onLinkSuccess={() => loadAlbum()}
       />
+
+      {/* Move Photo Modal */}
+      {isMoveModalOpen && photosToMove.length > 0 && album && (
+        <MovePhotoModal
+          isOpen={isMoveModalOpen}
+          onClose={() => {
+            setIsMoveModalOpen(false);
+            setPhotosToMove([]);
+          }}
+          sourceAlbum={{
+            id: album.id,
+            albumCode: album.albumCode,
+            title: album.title,
+          }}
+          photosToMove={photosToMove}
+          onMoveSuccess={() => {
+            setActiveLightboxMedia(null);
+            setSelectedMediaIds([]);
+            loadAlbum();
+          }}
+        />
+      )}
     </div>
   );
 }
