@@ -1066,8 +1066,20 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                     </span>
                   </div>
 
-                  {/* Quick Auto-Pick 4 Photos */}
-                  <div className="flex items-center gap-2">
+                  {/* Quick Auto-Pick Buttons */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const picks = (selectedDrilldownAlbum.mediaFiles || [])
+                          .slice(0, 2)
+                          .map((m) => m.reportReadyJpgUrl || m.thumbnailWebpUrl);
+                        setSelectedPhotosInModal(picks);
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-pink-500/30 to-purple-600/30 border border-pink-500/50 text-[11px] font-bold text-pink-200 hover:text-white hover:bg-pink-500 transition-all shadow-sm"
+                    >
+                      ⭐ เลือก 2 ภาพเด่น (แนะนำ)
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -1078,7 +1090,7 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                       }}
                       className="px-2.5 py-1 rounded-xl bg-purple-900/50 border border-purple-700/50 text-[11px] font-semibold text-purple-200 hover:text-white hover:bg-purple-800 transition-all"
                     >
-                      เลือก 4 รูปแรกทันที
+                      เลือก 4 รูป
                     </button>
                     {selectedPhotosInModal.length > 0 && (
                       <button
@@ -1230,15 +1242,17 @@ function NewsCardItem({
         </div>
       </div>
 
-      {/* 2. Photo Gallery Grid (Strictly bounded height) */}
+      {/* 2. Photo Gallery Grid (Dynamically adapted by layout width & photo count) */}
       <div
         className={`flex-1 flex flex-col justify-center my-1 overflow-hidden ${
           isFullPage
             ? "max-h-[520px]"
-            : isWide
-            ? "max-h-[235px]"
-            : isHero
-            ? "max-h-[235px]"
+            : isWide || isHero
+            ? images.length === 4
+              ? "max-h-[175px]"
+              : images.length === 3
+              ? "max-h-[190px]"
+              : "max-h-[220px]"
             : "max-h-[220px]"
         }`}
       >
@@ -1249,7 +1263,7 @@ function NewsCardItem({
         ) : images.length === 1 ? (
           <div
             className={`w-full h-full rounded-xl overflow-hidden border border-slate-200 ${
-              isFullPage ? "aspect-[16/9]" : isWide ? "aspect-[21/9]" : "aspect-[16/10]"
+              isFullPage ? "aspect-[16/9]" : isWide || isHero ? "aspect-[21/9]" : "aspect-[16/10]"
             }`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1260,9 +1274,10 @@ function NewsCardItem({
             />
           </div>
         ) : images.length === 2 ? (
-          <div className="grid grid-cols-2 gap-1.5 w-full h-full">
+          /* 2 Images: Wide side-by-side (16:9 ratio in wide mode, square-ish in narrow mode) */
+          <div className={`grid grid-cols-2 gap-2 w-full ${isWide || isHero ? "h-[210px]" : "h-[175px]"}`}>
             {images.slice(0, 2).map((img, i) => (
-              <div key={i} className="h-full rounded-lg overflow-hidden border border-slate-200">
+              <div key={i} className="h-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={resolveImageUrl(img)}
@@ -1273,42 +1288,73 @@ function NewsCardItem({
             ))}
           </div>
         ) : images.length === 3 ? (
-          <div className="flex flex-col gap-1 w-full h-full">
-            <div className="h-[58%] rounded-lg overflow-hidden border border-slate-200">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={resolveImageUrl(images[0])}
-                alt="ภาพหลัก"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-1 h-[40%]">
-              {images.slice(1, 3).map((img, i) => (
-                <div key={i} className="h-full rounded-lg overflow-hidden border border-slate-200">
+          /* 3 Images: In wide layout, 3 columns side-by-side (4:3 ratio). In narrow, 1 top + 2 bottom */
+          isWide || isHero ? (
+            <div className="grid grid-cols-3 gap-2 w-full h-[185px]">
+              {images.slice(0, 3).map((img, i) => (
+                <div key={i} className="h-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={resolveImageUrl(img)}
-                    alt={`ภาพ ${i + 2}`}
+                    alt={`ภาพ ${i + 1}`}
                     className="w-full h-full object-cover"
                   />
                 </div>
               ))}
             </div>
-          </div>
-        ) : (
-          /* 4 images - exact 2x2 grid */
-          <div className="grid grid-cols-2 grid-rows-2 gap-1.5 w-full h-full">
-            {images.slice(0, 4).map((img, i) => (
-              <div key={i} className="h-full rounded-lg overflow-hidden border border-slate-200">
+          ) : (
+            <div className="flex flex-col gap-1 w-full h-full">
+              <div className="h-[58%] rounded-lg overflow-hidden border border-slate-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={resolveImageUrl(img)}
-                  alt={`ภาพ ${i + 1}`}
+                  src={resolveImageUrl(images[0])}
+                  alt="ภาพหลัก"
                   className="w-full h-full object-cover"
                 />
               </div>
-            ))}
-          </div>
+              <div className="grid grid-cols-2 gap-1 h-[40%]">
+                {images.slice(1, 3).map((img, i) => (
+                  <div key={i} className="h-full rounded-lg overflow-hidden border border-slate-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={resolveImageUrl(img)}
+                      alt={`ภาพ ${i + 2}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        ) : (
+          /* 4 Images: In wide layout (2_split/hero), display as 4 columns in a row (natural 4:3 camera ratio, not squished!). In narrow (4_grid), display 2x2 grid */
+          isWide || isHero ? (
+            <div className="grid grid-cols-4 gap-1.5 w-full h-[165px]">
+              {images.slice(0, 4).map((img, i) => (
+                <div key={i} className="h-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={resolveImageUrl(img)}
+                    alt={`ภาพ ${i + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 grid-rows-2 gap-1.5 w-full h-full">
+              {images.slice(0, 4).map((img, i) => (
+                <div key={i} className="h-full rounded-lg overflow-hidden border border-slate-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={resolveImageUrl(img)}
+                    alt={`ภาพ ${i + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
 
@@ -1318,7 +1364,9 @@ function NewsCardItem({
           isFullPage
             ? "text-[11.5px] line-clamp-8"
             : isWide
-            ? "text-[10px] line-clamp-4"
+            ? images.length >= 4
+              ? "text-[10.5px] line-clamp-6"
+              : "text-[10.5px] line-clamp-5"
             : isHero
             ? "text-[10px] line-clamp-4"
             : "text-[9.5px] line-clamp-3"
