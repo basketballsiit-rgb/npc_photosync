@@ -39,6 +39,7 @@ import {
 import { AlbumType } from "@prisma/client";
 import { showAlert, npcSwal } from "@/lib/sweetalert";
 import { OnePageNewsModal } from "@/components/gallery/OnePageNewsModal";
+import LineShareModal from "@/components/gallery/LineShareModal";
 import { parseNewsDescription, formatSocialShareText } from "@/lib/news-utils";
 
 interface MediaItem {
@@ -94,6 +95,7 @@ export default function AlbumDetailPage() {
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<MediaItem | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isOnePageModalOpen, setIsOnePageModalOpen] = useState(false);
+  const [isLineModalOpen, setIsLineModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -1002,11 +1004,12 @@ https://service.npc.ac.th/`;
 
               {/* Share to LINE Button */}
               <button
-                onClick={handleShareToLine}
+                onClick={() => setIsLineModalOpen(true)}
                 className="flex items-center justify-center gap-2 rounded-full border border-emerald-500/40 bg-gradient-to-r from-emerald-500/20 to-teal-500/25 px-4 py-2.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/35 transition-all shadow-md shadow-emerald-500/10 active:scale-95"
+                title="พรีวิวการ์ด LINE Flex และเลือกช่องทางแชร์สรุปเข้ากลุ่ม"
               >
                 <MessageSquare className="h-4 w-4 text-emerald-400" />
-                <span>{lineSharedSuccess ? "คัดลอกและเปิด LINE แล้ว!" : "แชร์สรุปเข้ากลุ่ม LINE"}</span>
+                <span>แชร์สรุปเข้ากลุ่ม LINE</span>
               </button>
 
               {/* QR Code Button for 5-Chapter Report */}
@@ -1027,19 +1030,6 @@ https://service.npc.ac.th/`;
                 <Newspaper className="h-4 w-4 text-cyan-400" />
                 <span>📰 ข่าวแผ่นเดียว (One-Page PR)</span>
               </button>
-
-              {/* Open Google Shared Drive */}
-              {album.driveFolderUrl && (
-                <a
-                  href={album.driveFolderUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-full border border-purple-800/50 bg-[#1A0E44]/80 px-4 py-2.5 text-xs font-semibold text-purple-200 hover:bg-[#25135A] hover:text-white transition-all"
-                >
-                  <ExternalLink className="h-4 w-4 text-purple-400" />
-                  <span>เปิด Google Shared Drive</span>
-                </a>
-              )}
 
               {/* Retroactive Link Button */}
               {isUnlinked && (
@@ -1675,6 +1665,24 @@ https://service.npc.ac.th/`;
           album={album}
           news={news5w1h}
           fullNewsText={newsFullText}
+        />
+      )}
+
+      {/* LINE SHARE FLEX CARD MODAL */}
+      {isLineModalOpen && album && (
+        <LineShareModal
+          isOpen={isLineModalOpen}
+          onClose={() => setIsLineModalOpen(false)}
+          album={{
+            ...album,
+            mediaFiles: album.mediaFiles.map((m) => ({
+              id: m.id,
+              thumbnailUrl: m.thumbnailWebpUrl,
+              mediumUrl: m.reportReadyJpgUrl,
+              originalUrl: m.reportReadyJpgUrl,
+              isFeatured: m.isFeatured,
+            })),
+          }}
         />
       )}
 
