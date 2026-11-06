@@ -141,6 +141,34 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
   const [selectedPhotosInModal, setSelectedPhotosInModal] = useState<string[]>([]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [zoomMode, setZoomMode] = useState<"fit" | "100" | "75">("fit");
+  const [fitScale, setFitScale] = useState<number>(0.68);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (previewContainerRef.current) {
+        const width = previewContainerRef.current.clientWidth;
+        // 794px base A4 width. Deduct padding ~32px
+        const availableWidth = Math.max(260, width - 32);
+        const nextScale = Math.min(1, availableWidth / 794);
+        setFitScale(nextScale);
+      }
+    };
+
+    handleResize();
+    const observer = new ResizeObserver(() => handleResize());
+    if (previewContainerRef.current) {
+      observer.observe(previewContainerRef.current);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  const activeScale = zoomMode === "fit" ? fitScale : zoomMode === "75" ? 0.75 : 1;
 
   useEffect(() => {
     if (currentTermName) {
@@ -317,6 +345,8 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
         quality: 0.95,
         pixelRatio: 2.5, // 2.5x scale generates super-crisp HD image
         cacheBust: true,
+        width: 794,
+        height: 1123,
       });
 
       const link = document.createElement("a");
@@ -730,129 +760,196 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
 
         {/* RIGHT COLUMN: Live Canvas Preview (7 cols) */}
         <div className="lg:col-span-7 space-y-3 sticky top-24">
-          <div className="flex items-center justify-between text-xs font-bold text-purple-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-bold text-purple-200">
             <span className="flex items-center gap-2">
               <Eye className="h-4 w-4 text-pink-400" />
               <span>ภาพตัวอย่างจดหมายข่าวจริง (Live A4 Preview)</span>
             </span>
-            <span className="text-[11px] text-pink-300 font-medium bg-pink-500/10 px-2.5 py-0.5 rounded-full border border-pink-500/25">
-              📄 A4 แนวตั้ง (210 × 297 มม.) ล็อกขนาดพอดี 100%
-            </span>
+
+            {/* Zoom Controls & Page indicator */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-[#1A0C42] p-1 rounded-2xl border border-purple-800/40">
+                <button
+                  type="button"
+                  onClick={() => setZoomMode("fit")}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+                    zoomMode === "fit"
+                      ? "bg-pink-500 text-white shadow-sm"
+                      : "text-purple-300 hover:text-white"
+                  }`}
+                  title="ย่อขนาดให้พอดีกับความกว้างหน้าจออัตโนมัติ เพื่อให้มองเห็นภาพรวมทั้งแผ่น A4"
+                >
+                  พอดีจอ ({Math.round(fitScale * 100)}%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomMode("75")}
+                  className={`px-2 py-1 rounded-xl text-[11px] font-semibold transition-all ${
+                    zoomMode === "75"
+                      ? "bg-pink-500 text-white shadow-sm"
+                      : "text-purple-300 hover:text-white"
+                  }`}
+                >
+                  75%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomMode("100")}
+                  className={`px-2 py-1 rounded-xl text-[11px] font-semibold transition-all ${
+                    zoomMode === "100"
+                      ? "bg-pink-500 text-white shadow-sm"
+                      : "text-purple-300 hover:text-white"
+                  }`}
+                  title="แสดงขนาดจริง 100% ตามความละเอียดต้นฉบับ"
+                >
+                  100%
+                </button>
+              </div>
+
+              <span className="hidden sm:inline-block text-[10px] text-pink-300 font-medium bg-pink-500/10 px-2.5 py-1 rounded-full border border-pink-500/25">
+                📄 A4 แนวตั้ง
+              </span>
+            </div>
           </div>
 
-          {/* Canvas Wrapper - Fixed 794px width for exact 1:1.414 A4 Portrait standard */}
-          <div className="rounded-3xl border border-purple-800/50 bg-[#0A0418] p-3 sm:p-5 shadow-2xl overflow-x-auto flex justify-center">
-            {/* THE PRINT/EXPORT CANVAS (Width: 794px, Height: 1123px = Exact A4 Portrait 96DPI) */}
+          {/* Canvas Wrapper - Auto-scaling to fit right column perfectly */}
+          <div
+            ref={previewContainerRef}
+            className="rounded-3xl border border-purple-800/50 bg-[#0A0418] p-3 sm:p-4 shadow-2xl overflow-x-auto flex justify-center items-start min-h-[500px]"
+          >
+            {/* Scaled viewport container matching exact scaled A4 aspect ratio */}
             <div
-              ref={canvasRef}
-              id="newsletter-canvas-container"
               style={{
-                width: "794px",
-                minWidth: "794px",
-                maxWidth: "794px",
-                height: "1123px",
-                minHeight: "1123px",
-                maxHeight: "1123px",
-                backgroundColor: "#ffffff",
-                boxSizing: "border-box",
-                overflow: "hidden",
+                width: `${Math.round(794 * activeScale)}px`,
+                height: `${Math.round(1123 * activeScale)}px`,
+                transition: "width 0.2s ease, height 0.2s ease",
               }}
-              className="text-slate-900 shadow-2xl relative font-sans select-none flex flex-col justify-between"
+              className="relative shrink-0 shadow-2xl rounded-2xl overflow-hidden"
             >
-              {/* TOP HEADER: Exact 175px height */}
-              <div className="relative w-full overflow-hidden shrink-0" style={{ height: "175px" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`${basePath}/assets/newsletter/newsletter_header_banner.png`}
-                  alt="วิทยาลัยสารพัดช่างน่าน จดหมายข่าว ประชาสัมพันธ์"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* SUBHEADER PILLS STRIP: Dynamic Term, Issue, Month (Exact 44px height) */}
               <div
-                className="w-full flex items-center gap-3 px-6 py-2 relative shrink-0"
                 style={{
-                  backgroundImage: `url(${basePath}/assets/newsletter/newsletter_substrip_clean.png)`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  height: "44px",
+                  width: "794px",
+                  height: "1123px",
+                  transform: `scale(${activeScale})`,
+                  transformOrigin: "top left",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
                 }}
               >
-                {/* Term Pill (White) */}
-                <div className="rounded-full bg-white px-3.5 py-1 text-[11px] font-bold text-[#002f6c] shadow-sm border border-slate-200 shrink-0">
-                  {termText}
-                </div>
-
-                {/* Issue Pill (Dark Blue) */}
-                <div className="rounded-full bg-[#002868] px-3.5 py-1 text-[11px] font-bold text-white shadow-sm shrink-0 border border-blue-400/30">
-                  {issueText}
-                </div>
-
-                {/* Month Pill (Cyan Blue) */}
-                <div className="rounded-full bg-[#0098d8] px-3.5 py-1 text-[11px] font-bold text-white shadow-sm shrink-0 border border-cyan-300/40">
-                  {monthText}
-                </div>
-              </div>
-
-              {/* NEWS CONTENT AREA: Exact 844px height (Net card area = 816px) */}
-              <div
-                className="bg-white overflow-hidden shrink-0"
-                style={{
-                  height: "844px",
-                  maxHeight: "844px",
-                  padding: "14px",
-                  boxSizing: "border-box",
-                }}
-              >
-                {/* Layout Mode 1: 4 Cards (Grid 2x2, exactly 402px per row) */}
-                {layout === "4_grid" && (
-                  <div className="grid grid-cols-2 grid-rows-2 gap-3 h-full">
-                    {news.slice(0, 4).map((item, idx) => (
-                      <NewsCardItem key={item.id} item={item} index={idx} layout={layout} />
-                    ))}
+                {/* THE PRINT/EXPORT CANVAS (Width: 794px, Height: 1123px = Exact A4 Portrait 96DPI) */}
+                <div
+                  ref={canvasRef}
+                  id="newsletter-canvas-container"
+                  style={{
+                    width: "794px",
+                    minWidth: "794px",
+                    maxWidth: "794px",
+                    height: "1123px",
+                    minHeight: "1123px",
+                    maxHeight: "1123px",
+                    backgroundColor: "#ffffff",
+                    boxSizing: "border-box",
+                    overflow: "hidden",
+                  }}
+                  className="text-slate-900 shadow-2xl relative font-sans select-none flex flex-col justify-between"
+                >
+                  {/* TOP HEADER: Exact 175px height */}
+                  <div className="relative w-full overflow-hidden shrink-0" style={{ height: "175px" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`${basePath}/assets/newsletter/newsletter_header_banner.png`}
+                      alt="วิทยาลัยสารพัดช่างน่าน จดหมายข่าว ประชาสัมพันธ์"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                )}
 
-                {/* Layout Mode 2: 3 Cards (1 Top Hero + 2 Bottom, exactly 402px per row) */}
-                {layout === "3_digest" && (
-                  <div className="grid grid-rows-2 gap-3 h-full">
-                    {news[0] && (
-                      <NewsCardItem item={news[0]} index={0} layout={layout} isHero />
-                    )}
-                    <div className="grid grid-cols-2 gap-3 h-full">
-                      {news.slice(1, 3).map((item, idx) => (
-                        <NewsCardItem key={item.id} item={item} index={idx + 1} layout={layout} />
-                      ))}
+                  {/* SUBHEADER PILLS STRIP: Dynamic Term, Issue, Month (Exact 44px height) */}
+                  <div
+                    className="w-full flex items-center gap-3 px-6 py-2 relative shrink-0"
+                    style={{
+                      backgroundImage: `url(${basePath}/assets/newsletter/newsletter_substrip_clean.png)`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      height: "44px",
+                    }}
+                  >
+                    {/* Term Pill (White) */}
+                    <div className="rounded-full bg-white px-3.5 py-1 text-[11px] font-bold text-[#002f6c] shadow-sm border border-slate-200 shrink-0">
+                      {termText}
+                    </div>
+
+                    {/* Issue Pill (Dark Blue) */}
+                    <div className="rounded-full bg-[#002868] px-3.5 py-1 text-[11px] font-bold text-white shadow-sm shrink-0 border border-blue-400/30">
+                      {issueText}
+                    </div>
+
+                    {/* Month Pill (Cyan Blue) */}
+                    <div className="rounded-full bg-[#0098d8] px-3.5 py-1 text-[11px] font-bold text-white shadow-sm shrink-0 border border-cyan-300/40">
+                      {monthText}
                     </div>
                   </div>
-                )}
 
-                {/* Layout Mode 3: 2 Cards (Split 50:50, exactly 402px per row) */}
-                {layout === "2_split" && (
-                  <div className="grid grid-rows-2 gap-3 h-full">
-                    {news.slice(0, 2).map((item, idx) => (
-                      <NewsCardItem key={item.id} item={item} index={idx} layout={layout} isWide />
-                    ))}
+                  {/* NEWS CONTENT AREA: Exact 844px height (Net card area = 816px) */}
+                  <div
+                    className="bg-white overflow-hidden shrink-0"
+                    style={{
+                      height: "844px",
+                      maxHeight: "844px",
+                      padding: "14px",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    {/* Layout Mode 1: 4 Cards (Grid 2x2, exactly 402px per row) */}
+                    {layout === "4_grid" && (
+                      <div className="grid grid-cols-2 grid-rows-2 gap-3 h-full">
+                        {news.slice(0, 4).map((item, idx) => (
+                          <NewsCardItem key={item.id} item={item} index={idx} layout={layout} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Layout Mode 2: 3 Cards (1 Top Hero + 2 Bottom, exactly 402px per row) */}
+                    {layout === "3_digest" && (
+                      <div className="grid grid-rows-2 gap-3 h-full">
+                        {news[0] && (
+                          <NewsCardItem item={news[0]} index={0} layout={layout} isHero />
+                        )}
+                        <div className="grid grid-cols-2 gap-3 h-full">
+                          {news.slice(1, 3).map((item, idx) => (
+                            <NewsCardItem key={item.id} item={item} index={idx + 1} layout={layout} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Layout Mode 3: 2 Cards (Split 50:50, exactly 402px per row) */}
+                    {layout === "2_split" && (
+                      <div className="grid grid-rows-2 gap-3 h-full">
+                        {news.slice(0, 2).map((item, idx) => (
+                          <NewsCardItem key={item.id} item={item} index={idx} layout={layout} isWide />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Layout Mode 4: 1 Mega Hero Story (Full 816px) */}
+                    {layout === "1_hero" && news[0] && (
+                      <div className="h-full">
+                        <NewsCardItem item={news[0]} index={0} layout={layout} isFullPage />
+                      </div>
+                    )}
                   </div>
-                )}
 
-                {/* Layout Mode 4: 1 Mega Hero Story (Full 816px) */}
-                {layout === "1_hero" && news[0] && (
-                  <div className="h-full">
-                    <NewsCardItem item={news[0]} index={0} layout={layout} isFullPage />
+                  {/* BOTTOM FOOTER: Exact 60px height */}
+                  <div className="relative w-full overflow-hidden shrink-0" style={{ height: "60px" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`${basePath}/assets/newsletter/newsletter_footer_banner.png`}
+                      alt="ติดต่อสอบถามเพิ่มเติมได้ที่ วิทยาลัยสารพัดช่างน่าน"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                )}
-              </div>
-
-              {/* BOTTOM FOOTER: Exact 60px height */}
-              <div className="relative w-full overflow-hidden shrink-0" style={{ height: "60px" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`${basePath}/assets/newsletter/newsletter_footer_banner.png`}
-                  alt="ติดต่อสอบถามเพิ่มเติมได้ที่ วิทยาลัยสารพัดช่างน่าน"
-                  className="w-full h-full object-cover"
-                />
+                </div>
               </div>
             </div>
           </div>
