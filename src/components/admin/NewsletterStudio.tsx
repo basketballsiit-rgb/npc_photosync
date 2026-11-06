@@ -735,22 +735,32 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
               <Eye className="h-4 w-4 text-pink-400" />
               <span>ภาพตัวอย่างจดหมายข่าวจริง (Live A4 Preview)</span>
             </span>
-            <span className="text-[11px] text-slate-400 font-mono">
-              สัดส่วนมาตรฐาน A4 / โพสต์เฟซบุ๊กคมชัด 100%
+            <span className="text-[11px] text-pink-300 font-medium bg-pink-500/10 px-2.5 py-0.5 rounded-full border border-pink-500/25">
+              📄 A4 แนวตั้ง (210 × 297 มม.) ล็อกขนาดพอดี 100%
             </span>
           </div>
 
-          {/* Canvas Wrapper - Fixed 723px width for exact high-res export */}
+          {/* Canvas Wrapper - Fixed 794px width for exact 1:1.414 A4 Portrait standard */}
           <div className="rounded-3xl border border-purple-800/50 bg-[#0A0418] p-3 sm:p-5 shadow-2xl overflow-x-auto flex justify-center">
-            {/* THE PRINT/EXPORT CANVAS (Width: 723px matching college template) */}
+            {/* THE PRINT/EXPORT CANVAS (Width: 794px, Height: 1123px = Exact A4 Portrait 96DPI) */}
             <div
               ref={canvasRef}
               id="newsletter-canvas-container"
-              style={{ width: "723px", minWidth: "723px", backgroundColor: "#ffffff" }}
+              style={{
+                width: "794px",
+                minWidth: "794px",
+                maxWidth: "794px",
+                height: "1123px",
+                minHeight: "1123px",
+                maxHeight: "1123px",
+                backgroundColor: "#ffffff",
+                boxSizing: "border-box",
+                overflow: "hidden",
+              }}
               className="text-slate-900 shadow-2xl relative font-sans select-none flex flex-col justify-between"
             >
-              {/* TOP HEADER: 100% Exact from College Template */}
-              <div className="relative w-full overflow-hidden" style={{ height: "180px" }}>
+              {/* TOP HEADER: Exact 175px height */}
+              <div className="relative w-full overflow-hidden shrink-0" style={{ height: "175px" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`${basePath}/assets/newsletter/newsletter_header_banner.png`}
@@ -759,14 +769,14 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                 />
               </div>
 
-              {/* SUBHEADER PILLS STRIP: Dynamic Term, Issue, Month */}
+              {/* SUBHEADER PILLS STRIP: Dynamic Term, Issue, Month (Exact 44px height) */}
               <div
-                className="w-full flex items-center gap-3 px-6 py-2 relative"
+                className="w-full flex items-center gap-3 px-6 py-2 relative shrink-0"
                 style={{
                   backgroundImage: `url(${basePath}/assets/newsletter/newsletter_substrip_clean.png)`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
-                  minHeight: "46px",
+                  height: "44px",
                 }}
               >
                 {/* Term Pill (White) */}
@@ -785,26 +795,32 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                 </div>
               </div>
 
-              {/* NEWS CONTENT AREA: White background with dynamic layout */}
-              <div className="p-4 bg-white flex-1" style={{ minHeight: "680px" }}>
-                {/* Layout Mode 1: 4 Cards (Grid 2x2) */}
+              {/* NEWS CONTENT AREA: Exact 844px height (Net card area = 816px) */}
+              <div
+                className="bg-white overflow-hidden shrink-0"
+                style={{
+                  height: "844px",
+                  maxHeight: "844px",
+                  padding: "14px",
+                  boxSizing: "border-box",
+                }}
+              >
+                {/* Layout Mode 1: 4 Cards (Grid 2x2, exactly 402px per row) */}
                 {layout === "4_grid" && (
-                  <div className="grid grid-cols-2 gap-3.5 h-full">
+                  <div className="grid grid-cols-2 grid-rows-2 gap-3 h-full">
                     {news.slice(0, 4).map((item, idx) => (
                       <NewsCardItem key={item.id} item={item} index={idx} layout={layout} />
                     ))}
                   </div>
                 )}
 
-                {/* Layout Mode 2: 3 Cards (1 Top Hero + 2 Bottom) */}
+                {/* Layout Mode 2: 3 Cards (1 Top Hero + 2 Bottom, exactly 402px per row) */}
                 {layout === "3_digest" && (
-                  <div className="space-y-3.5 h-full flex flex-col">
+                  <div className="grid grid-rows-2 gap-3 h-full">
                     {news[0] && (
-                      <div className="flex-1">
-                        <NewsCardItem item={news[0]} index={0} layout={layout} isHero />
-                      </div>
+                      <NewsCardItem item={news[0]} index={0} layout={layout} isHero />
                     )}
-                    <div className="grid grid-cols-2 gap-3.5 flex-1">
+                    <div className="grid grid-cols-2 gap-3 h-full">
                       {news.slice(1, 3).map((item, idx) => (
                         <NewsCardItem key={item.id} item={item} index={idx + 1} layout={layout} />
                       ))}
@@ -812,18 +828,16 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                   </div>
                 )}
 
-                {/* Layout Mode 3: 2 Cards (Split 50:50) */}
+                {/* Layout Mode 3: 2 Cards (Split 50:50, exactly 402px per row) */}
                 {layout === "2_split" && (
-                  <div className="space-y-3.5 h-full flex flex-col">
+                  <div className="grid grid-rows-2 gap-3 h-full">
                     {news.slice(0, 2).map((item, idx) => (
-                      <div key={item.id} className="flex-1">
-                        <NewsCardItem item={item} index={idx} layout={layout} isWide />
-                      </div>
+                      <NewsCardItem key={item.id} item={item} index={idx} layout={layout} isWide />
                     ))}
                   </div>
                 )}
 
-                {/* Layout Mode 4: 1 Mega Hero Story */}
+                {/* Layout Mode 4: 1 Mega Hero Story (Full 816px) */}
                 {layout === "1_hero" && news[0] && (
                   <div className="h-full">
                     <NewsCardItem item={news[0]} index={0} layout={layout} isFullPage />
@@ -831,8 +845,8 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                 )}
               </div>
 
-              {/* BOTTOM FOOTER: 100% Exact from College Template */}
-              <div className="relative w-full overflow-hidden" style={{ height: "64px" }}>
+              {/* BOTTOM FOOTER: Exact 60px height */}
+              <div className="relative w-full overflow-hidden shrink-0" style={{ height: "60px" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`${basePath}/assets/newsletter/newsletter_footer_banner.png`}
@@ -844,6 +858,53 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
           </div>
         </div>
       </div>
+
+      {/* Strict CSS for A4 Portrait Print Preview & Zero Overflow */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @media print {
+              @page {
+                size: 210mm 297mm;
+                margin: 0mm;
+              }
+              html, body {
+                width: 210mm !important;
+                height: 297mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                overflow: hidden !important;
+              }
+              body * {
+                visibility: hidden !important;
+              }
+              #newsletter-canvas-container,
+              #newsletter-canvas-container * {
+                visibility: visible !important;
+              }
+              #newsletter-canvas-container {
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                max-width: 210mm !important;
+                max-height: 297mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                transform: none !important;
+                page-break-after: avoid !important;
+                page-break-inside: avoid !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+            }
+          `,
+        }}
+      />
 
       {/* PHOTO PICKER MODAL (Album Selection + Photo Drilldown) */}
       {isPhotoPickerOpen && (
@@ -1157,27 +1218,37 @@ function NewsCardItem({
 
   return (
     <div
-      className="border-2 border-[#0088cc] rounded-2xl bg-white shadow-sm p-3 flex flex-col justify-between h-full overflow-hidden"
+      className="border-2 border-[#0088cc] rounded-2xl bg-white shadow-sm p-2.5 flex flex-col justify-between h-full overflow-hidden"
       style={{
-        boxShadow: "0 2px 8px rgba(0, 136, 204, 0.08)",
+        boxShadow: "0 2px 6px rgba(0, 136, 204, 0.08)",
       }}
     >
       {/* 1. Header Capsule Title Badge (matching college template) */}
-      <div className="w-full mb-1.5 shrink-0">
-        <div className="w-full bg-gradient-to-r from-[#003380] via-[#004ca8] to-[#003380] text-white text-center font-bold py-1 px-3 rounded-full text-[10.5px] shadow-sm leading-tight line-clamp-2">
+      <div className="w-full mb-1 shrink-0">
+        <div className="w-full bg-gradient-to-r from-[#003380] via-[#004ca8] to-[#003380] text-white text-center font-bold py-1 px-2.5 rounded-full text-[10px] sm:text-[10.5px] shadow-sm leading-tight line-clamp-2">
           {item.title || `หัวข้อข่าวกิจกรรมที่ ${index + 1}`}
         </div>
       </div>
 
-      {/* 2. Photo Gallery Grid */}
-      <div className="flex-1 flex flex-col justify-center my-1 overflow-hidden">
+      {/* 2. Photo Gallery Grid (Strictly bounded height) */}
+      <div
+        className={`flex-1 flex flex-col justify-center my-1 overflow-hidden ${
+          isFullPage
+            ? "max-h-[520px]"
+            : isWide
+            ? "max-h-[235px]"
+            : isHero
+            ? "max-h-[235px]"
+            : "max-h-[220px]"
+        }`}
+      >
         {images.length === 0 ? (
-          <div className="w-full aspect-[16/9] rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-slate-400 text-[10px]">
+          <div className="w-full h-full min-h-[140px] rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-slate-400 text-[10px]">
             <span>(ยังไม่ได้ใส่รูปภาพประกอบข่าวนี้)</span>
           </div>
         ) : images.length === 1 ? (
           <div
-            className={`w-full rounded-xl overflow-hidden border border-slate-200 ${
+            className={`w-full h-full rounded-xl overflow-hidden border border-slate-200 ${
               isFullPage ? "aspect-[16/9]" : isWide ? "aspect-[21/9]" : "aspect-[16/10]"
             }`}
           >
@@ -1189,9 +1260,9 @@ function NewsCardItem({
             />
           </div>
         ) : images.length === 2 ? (
-          <div className="grid grid-cols-2 gap-1.5 w-full">
+          <div className="grid grid-cols-2 gap-1.5 w-full h-full">
             {images.slice(0, 2).map((img, i) => (
-              <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden border border-slate-200">
+              <div key={i} className="h-full rounded-lg overflow-hidden border border-slate-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={resolveImageUrl(img)}
@@ -1202,8 +1273,8 @@ function NewsCardItem({
             ))}
           </div>
         ) : images.length === 3 ? (
-          <div className="space-y-1.5 w-full">
-            <div className="aspect-[21/9] rounded-lg overflow-hidden border border-slate-200">
+          <div className="flex flex-col gap-1 w-full h-full">
+            <div className="h-[58%] rounded-lg overflow-hidden border border-slate-200">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={resolveImageUrl(images[0])}
@@ -1211,9 +1282,9 @@ function NewsCardItem({
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1 h-[40%]">
               {images.slice(1, 3).map((img, i) => (
-                <div key={i} className="aspect-[16/9] rounded-lg overflow-hidden border border-slate-200">
+                <div key={i} className="h-full rounded-lg overflow-hidden border border-slate-200">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={resolveImageUrl(img)}
@@ -1226,9 +1297,9 @@ function NewsCardItem({
           </div>
         ) : (
           /* 4 images - exact 2x2 grid */
-          <div className="grid grid-cols-2 gap-1.5 w-full">
+          <div className="grid grid-cols-2 grid-rows-2 gap-1.5 w-full h-full">
             {images.slice(0, 4).map((img, i) => (
-              <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden border border-slate-200">
+              <div key={i} className="h-full rounded-lg overflow-hidden border border-slate-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={resolveImageUrl(img)}
@@ -1241,16 +1312,16 @@ function NewsCardItem({
         )}
       </div>
 
-      {/* 3. News Description Text */}
+      {/* 3. News Description Text (Strict line-clamp preventing page overflow) */}
       <div
-        className={`mt-1.5 text-slate-800 text-justify overflow-hidden leading-relaxed ${
+        className={`mt-1 text-slate-800 text-justify overflow-hidden leading-relaxed shrink-0 ${
           isFullPage
-            ? "text-[12px] line-clamp-8"
+            ? "text-[11.5px] line-clamp-8"
             : isWide
-            ? "text-[11px] line-clamp-6"
+            ? "text-[10px] line-clamp-4"
             : isHero
-            ? "text-[11px] line-clamp-5"
-            : "text-[10px] line-clamp-4"
+            ? "text-[10px] line-clamp-4"
+            : "text-[9.5px] line-clamp-3"
         }`}
       >
         {item.content || "กรุณาระบุรายละเอียดข่าว วันที่จัดกิจกรรม สถานที่ และผู้เข้าร่วมโครงการ..."}
