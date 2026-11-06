@@ -115,6 +115,12 @@ export default function LineShareModal({
 
   if (!isOpen) return null;
 
+  const basePath =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/npc_photosync")
+      ? "/npc_photosync"
+      : "";
+
   const currentUrl = typeof window !== "undefined" ? window.location.href : "";
   const shareUrl = currentUrl.includes("openExternalBrowser=1")
     ? currentUrl
@@ -132,11 +138,23 @@ export default function LineShareModal({
   // Cover image URL
   const featuredMedia = album.mediaFiles?.find((m) => m.isFeatured);
   const coverMedia = featuredMedia || album.mediaFiles?.[0];
-  const coverUrl =
-    coverMedia?.thumbnailUrl ||
-    coverMedia?.mediumUrl ||
-    coverMedia?.originalUrl ||
-    "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
+  let coverUrl = "";
+  if (coverMedia?.id) {
+    // Prefer image-proxy API which includes Access-Control-Allow-Origin: * for clean canvas capture & avoids CORS taint
+    coverUrl = `${basePath}/api/v1/image-proxy/${coverMedia.id}?type=report`;
+  } else if (coverMedia?.thumbnailUrl) {
+    const raw = coverMedia.thumbnailUrl;
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      coverUrl = raw;
+    } else if (raw.startsWith("/npc_photosync/")) {
+      coverUrl = raw;
+    } else {
+      coverUrl = `${basePath}${raw.startsWith("/") ? raw : `/${raw}`}`;
+    }
+  } else {
+    coverUrl =
+      "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
+  }
 
   // Summary Text
   const summaryText = `📢 [คลังภาพกิจกรรม วช.น่าน]
@@ -151,7 +169,7 @@ ${shareUrl}`;
   const handleAutoPushToLine = async () => {
     setIsSendingLine(true);
     try {
-      const res = await fetch(`/api/albums/${album.id}/share-line`, {
+      const res = await fetch(`${basePath}/api/albums/${album.id}/share-line`, {
         method: "POST",
       });
       const data = await res.json();
@@ -348,8 +366,19 @@ ${shareUrl}`;
                 <img
                   src={coverUrl}
                   alt={album.title}
-                  crossOrigin="anonymous"
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (coverMedia?.thumbnailUrl && !target.src.includes("thumbs")) {
+                      const thumb = coverMedia.thumbnailUrl;
+                      target.src = thumb.startsWith("http")
+                        ? thumb
+                        : `${basePath}${thumb.startsWith("/") ? thumb : `/${thumb}`}`;
+                    } else if (!target.src.includes("unsplash")) {
+                      target.src =
+                        "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
+                    }
+                  }}
                 />
               </div>
 

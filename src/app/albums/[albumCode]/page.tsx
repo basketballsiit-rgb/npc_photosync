@@ -1677,9 +1677,9 @@ https://service.npc.ac.th/`;
             ...album,
             mediaFiles: album.mediaFiles.map((m) => ({
               id: m.id,
-              thumbnailUrl: m.thumbnailWebpUrl,
-              mediumUrl: m.reportReadyJpgUrl,
-              originalUrl: m.reportReadyJpgUrl,
+              thumbnailUrl: formatMediaUrl(m.thumbnailWebpUrl, m.id, "thumb"),
+              mediumUrl: formatMediaUrl(m.reportReadyJpgUrl, m.id, "report"),
+              originalUrl: formatMediaUrl(m.reportReadyJpgUrl, m.id, "report"),
               isFeatured: m.isFeatured,
             })),
           }}
