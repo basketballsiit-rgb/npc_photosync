@@ -12,6 +12,8 @@ import {
   Loader2,
   SearchX,
   ExternalLink,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { getAcademicTermInfo } from "@/lib/academic-utils";
@@ -31,12 +33,14 @@ export default function HomePage() {
 
   const [albums, setAlbums] = useState<AlbumCardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedAlbumToLink, setSelectedAlbumToLink] = useState<AlbumCardData | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  const fetchAlbums = useCallback(async () => {
+  const fetchAlbums = useCallback(async (isRetry = false) => {
     setIsLoading(true);
+    if (!isRetry) setFetchError(null);
     try {
       const params = new URLSearchParams();
       if (filters.search) params.set("q", filters.search);
@@ -57,15 +61,33 @@ export default function HomePage() {
       }
       params.set("sortBy", "latest");
 
-      const res = await fetch(apiUrl(`/api/albums?${params.toString()}`));
+      const res = await fetch(apiUrl(`/api/albums?${params.toString()}`), {
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
       const data = await res.json();
 
-      if (data.success) {
+      if (data.success && Array.isArray(data.data)) {
         setAlbums(data.data);
-        setTotalCount(data.pagination?.total || data.data.length);
+        setTotalCount(data.pagination?.total ?? data.data.length);
+        setFetchError(null);
+      } else {
+        throw new Error(data.error || "รูปแบบข้อมูลจากระบบไม่ถูกต้อง");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch albums:", err);
+      // If first attempt failed, auto-retry once after 1.5s (helps during PM2 reload)
+      if (!isRetry) {
+        setTimeout(() => {
+          fetchAlbums(true);
+        }, 1500);
+      } else {
+        setFetchError(err?.message || "ไม่สามารถเชื่อมต่อกับฐานข้อมูลคลังภาพได้");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -165,6 +187,23 @@ export default function HomePage() {
             <div className="flex flex-col items-center justify-center py-20 text-purple-300">
               <Loader2 className="h-8 w-8 animate-spin text-pink-400 mb-3" />
               <p className="text-sm font-medium">กำลังโหลดคลังภาพกิจกรรม...</p>
+            </div>
+          ) : fetchError ? (
+            <div className="flex flex-col items-center justify-center rounded-3xl border border-red-500/30 bg-red-950/20 py-16 px-4 text-center backdrop-blur-md">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-900/60 to-pink-900/40 border border-rose-700/50 text-rose-400 mb-4 shadow-lg shadow-rose-900/40">
+                <AlertCircle className="h-8 w-8 text-rose-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white">กำลังเชื่อมต่อกับเซิร์ฟเวอร์</h3>
+              <p className="text-xs sm:text-sm text-rose-200/80 max-w-md mt-1 mb-5">
+                ระบบอาจอยู่ระหว่างการรีสตาร์ตหรืออัปเดตเวอร์ชัน กรุณากดปุ่มเพื่อลองใหม่อีกครั้ง
+              </p>
+              <button
+                onClick={() => fetchAlbums()}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-rose-600 px-6 py-2.5 text-xs font-bold text-white hover:opacity-90 shadow-lg shadow-pink-500/30 transition-all"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>ลองโหลดใหม่อีกครั้ง</span>
+              </button>
             </div>
           ) : albums.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-purple-800/40 bg-[#12082B]/60 py-20 px-4 text-center backdrop-blur-md">
