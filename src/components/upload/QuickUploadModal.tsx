@@ -421,6 +421,25 @@ export function QuickUploadModal({
           })
         : "";
 
+      const autoProse = (description && description.trim())
+        ? description.trim()
+        : (newsWho || newsWhat || newsWhy)
+        ? generateDraftNewsArticle(
+            {
+              who: newsWho,
+              what: newsWhat,
+              where: newsWhere,
+              when: newsWhen || (formattedDate ? `วันที่ ${formattedDate}` : ""),
+              why: newsWhy,
+              how: newsHow,
+            },
+            title,
+            eventDate,
+            divisionName,
+            departmentName
+          )
+        : "";
+
       const finalDescription = serializeNewsDescription(
         {
           who: newsWho,
@@ -430,7 +449,7 @@ export function QuickUploadModal({
           why: newsWhy,
           how: newsHow,
         },
-        description
+        autoProse
       );
 
       // 2. Create Album with safe JSON parsing

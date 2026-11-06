@@ -1005,12 +1005,18 @@ ${shareUrl}`;
                 {album.title}
               </h1>
 
-              {/* Description */}
-              {album.description && (
+              {/* Synthesized PR News Story Prose (ความเรียงข่าวประชาสัมพันธ์) */}
+              {newsFullText ? (
+                <div className="rounded-2xl border border-purple-800/40 bg-[#140A32]/80 p-4 text-xs sm:text-sm text-purple-100/90 leading-relaxed font-light space-y-2 backdrop-blur-md shadow-inner text-justify">
+                  {newsFullText.split("\n\n").map((para, i) => (
+                    <p key={i}>{para}</p>
+                  ))}
+                </div>
+              ) : album.description && !album.description.includes("<!--5W1H_NEWS_JSON:") ? (
                 <p className="text-xs sm:text-sm text-purple-200/80 leading-relaxed font-light">
                   {album.description}
                 </p>
-              )}
+              ) : null}
 
               {/* Meta details */}
               <div className="flex flex-wrap items-center gap-4 text-xs text-purple-300/80 pt-1">

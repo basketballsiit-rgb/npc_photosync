@@ -69,7 +69,7 @@ export function parseNewsDescription(
     try {
       const jsonContent = raw.slice(startIdx + TAG_START.length, endIdx);
       const parsed = JSON.parse(jsonContent);
-      const cleanText = (raw.slice(0, startIdx) + raw.slice(endIdx + TAG_END.length)).trim();
+      let cleanText = (raw.slice(0, startIdx) + raw.slice(endIdx + TAG_END.length)).trim();
 
       const news: News5W1H = {
         who: parsed.who || "",
@@ -80,6 +80,19 @@ export function parseNewsDescription(
         how: parsed.how || "",
         fullNews: cleanText,
       };
+
+      // If cleanText was empty (user only filled 5W1H fields without manual prose),
+      // synthesize a formal, continuous PR news article prose automatically
+      if (!cleanText && (news.who || news.what || news.why)) {
+        cleanText = generateDraftNewsArticle(
+          news,
+          fallbackMeta?.title || "",
+          fallbackMeta?.eventDate,
+          fallbackMeta?.divisionName,
+          fallbackMeta?.departmentName
+        );
+        news.fullNews = cleanText;
+      }
 
       return {
         news,
@@ -151,7 +164,7 @@ export function generateDraftNewsArticle(
   divisionName?: string,
   departmentName?: string
 ): string {
-  let dateText = news.when.trim();
+  let dateText = (news.when || "").trim();
   if (!dateText && eventDate) {
     const d = new Date(eventDate);
     if (!isNaN(d.getTime())) {
@@ -163,23 +176,35 @@ export function generateDraftNewsArticle(
     }
   }
 
-  const locationText = news.where.trim() || "ณ วิทยาลัยสารพัดช่างน่าน";
-  const whoText = news.who.trim() || "คณะผู้บริหาร คณะครู และนักเรียนนักศึกษา วิทยาลัยสารพัดช่างน่าน";
-  const whatText = news.what.trim() || `ได้ร่วมดำเนินกิจกรรม "${albumTitle}"`;
-  const whyText = news.why.trim() || "เพื่อส่งเสริมและพัฒนาทักษะวิชาชีพสู่ความเป็นเลิศ";
-  const howText = news.how.trim() || "บรรยากาศในการจัดกิจกรรมเป็นไปด้วยความเรียบร้อยและได้รับความสนใจจากผู้เข้าร่วมเป็นอย่างดียิ่ง";
+  const locationText = (news.where || "").trim() || "ณ วิทยาลัยสารพัดช่างน่าน";
+  const whoText = (news.who || "").trim() || "คณะผู้บริหาร คณะครู บุคลากรทางการศึกษา และนักเรียนนักศึกษา วิทยาลัยสารพัดช่างน่าน";
+  const whatText = (news.what || "").trim() || `ได้ร่วมดำเนินกิจกรรม "${albumTitle}"`;
 
+  let whyText = (news.why || "").trim();
+  if (whyText) {
+    if (!whyText.startsWith("เพื่อ") && !whyText.startsWith("โดยมีวัตถุประสงค์")) {
+      whyText = `เพื่อ${whyText}`;
+    }
+  } else {
+    whyText = "เพื่อส่งเสริมและพัฒนาคุณภาพการจัดการศึกษา ตลอดจนทักษะวิชาชีพสู่มาตรฐานสากล";
+  }
+
+  const howText = (news.how || "").trim() || "บรรยากาศการดำเนินงานเป็นไปด้วยความเรียบร้อย ผู้เข้าร่วมให้ความร่วมมือและได้รับองค์ความรู้อย่างครบถ้วน";
   const orgUnit = divisionName ? `สังกัด${divisionName}${departmentName ? ` (${departmentName})` : ""}` : "";
 
-  return `วช.น่าน จัดกิจกรรม "${albumTitle}" ขับเคลื่อนคุณภาพการศึกษาและทักษะวิชาชีพ
+  // Paragraph 1: Headline Lead & Main Details
+  const dateLead = dateText
+    ? dateText.startsWith("วัน") || dateText.startsWith("เมื่อ")
+      ? dateText
+      : `เมื่อวันที่ ${dateText}`
+    : "เมื่อเร็ว ๆ นี้";
 
-เมื่อ${dateText} ${locationText} ${whoText} ได้ร่วมดำเนินงาน ${whatText} ${orgUnit} โดยมีวัตถุประสงค์${whyText}
+  const p1 = `${dateLead} ${locationText} ${whoText} ได้ร่วมดำเนินงาน ${whatText} ${orgUnit} โดยมีวัตถุประสงค์ ${whyText}`;
 
-ทั้งนี้ ${howText} ซึ่งนับเป็นอีกหนึ่งกิจกรรมสำคัญที่สะท้อนถึงความมุ่งมั่นของวิทยาลัยสารพัดช่างน่าน ในการมุ่งเน้นผลิตและพัฒนากำลังคนอาชีวศึกษาที่มีสมรรถนะสูงตอบโจทย์การพัฒนาประเทศอย่างยั่งยืน
+  // Paragraph 2: Results & Educational Impact
+  const p2 = `ทั้งนี้ ${howText} ซึ่งนับเป็นอีกหนึ่งกิจกรรมสำคัญที่สะท้อนถึงความมุ่งมั่นของวิทยาลัยสารพัดช่างน่าน ในการมุ่งเน้นผลิตและพัฒนากำลังคนอาชีวศึกษาที่มีสมรรถนะสูงตอบโจทย์การพัฒนาประเทศอย่างยั่งยืน`;
 
----
-ภาพ/ข่าว: งานศูนย์ดิจิทัลและสื่อสารองค์กร วิทยาลัยสารพัดช่างน่าน
-ระบบคลังภาพอัจฉริยะ NPC_PhotoSync`;
+  return `${p1.trim()}\n\n${p2.trim()}`;
 }
 
 /**
