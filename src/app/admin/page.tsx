@@ -43,6 +43,7 @@ import {
   HelpCircle,
   Info,
   Image as ImageIcon,
+  Camera,
   Newspaper,
 } from "lucide-react";
 import { NPC_DIVISIONS } from "@/lib/academic-utils";
@@ -1291,55 +1292,83 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* SECTION 1: Metrics Overview Cards */}
-        <section className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-          <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 shadow-xl backdrop-blur-md hover:border-pink-500/40 transition-all">
-            <div className="text-[11px] font-medium text-purple-300/70">อัลบั้มทั้งหมด</div>
-            <div className="mt-1 text-2xl font-black text-white">
+        {/* SECTION 1: Metrics Overview Cards (แดชบอร์ดสถิติระบบ) */}
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+          {/* Card 1: อัลบั้มทั้งหมด */}
+          <div className="group rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 sm:p-5 shadow-xl backdrop-blur-md hover:border-pink-500/50 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-300">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white shadow-lg shadow-pink-500/30 transition-transform duration-300 group-hover:scale-110">
+                <Layers className="h-5 w-5" />
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-pink-500/15 text-pink-300 border border-pink-500/30">
+                All Albums
+              </span>
+            </div>
+            <div className="text-xs font-semibold text-purple-300/80">อัลบั้มทั้งหมด</div>
+            <div className="mt-1 text-2xl sm:text-3xl font-black text-white tracking-tight">
               {stats?.totalAlbums || 0}
             </div>
-            <div className="mt-1 text-[10px] text-pink-400">
-              ผูกโครงการแล้ว {stats?.projectLinkedAlbums || 0} / ยังไม่ผูก {stats?.unlinkedAlbums || 0}
+            <div className="mt-2 text-[11px] text-pink-300/90 flex flex-wrap items-center gap-1.5 font-medium">
+              <span>ผูกโครงการแล้ว {stats?.projectLinkedAlbums || 0}</span>
+              <span>•</span>
+              <span className="text-amber-300">รอผูก {stats?.unlinkedAlbums || 0}</span>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 shadow-xl backdrop-blur-md hover:border-pink-500/40 transition-all">
-            <div className="text-[11px] font-medium text-purple-300/70">รูปภาพทั้งหมด</div>
-            <div className="mt-1 text-2xl font-black text-pink-300">
+          {/* Card 2: รูปภาพในคลัง */}
+          <div className="group rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 sm:p-5 shadow-xl backdrop-blur-md hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/20 transition-all duration-300">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30 transition-transform duration-300 group-hover:scale-110">
+                <Camera className="h-5 w-5" />
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                Total Photos
+              </span>
+            </div>
+            <div className="text-xs font-semibold text-purple-300/80">รูปภาพในคลัง</div>
+            <div className="mt-1 text-2xl sm:text-3xl font-black text-cyan-300 tracking-tight">
               {stats?.totalPhotos || 0}
             </div>
-            <div className="mt-1 text-[10px] text-purple-400/80">
-              ประมวลผล WebP + HD แล้ว
+            <div className="mt-2 text-[11px] text-cyan-300/90 font-medium">
+              ประมวลผล WebP 600px + HD 1920px แล้ว
             </div>
           </div>
 
-          <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 shadow-xl backdrop-blur-md hover:border-cyan-500/40 transition-all">
-            <div className="text-[11px] font-medium text-purple-300/70">Google Shared Drive</div>
-            <div className="mt-1 text-2xl font-black text-cyan-300">
+          {/* Card 3: ผูกโครงการ 5 บท */}
+          <div className="group rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 sm:p-5 shadow-xl backdrop-blur-md hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-300">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-purple-500 to-fuchsia-500 text-white shadow-lg shadow-purple-500/30 transition-transform duration-300 group-hover:scale-110">
+                <FolderSync className="h-5 w-5" />
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                5-Chapters
+              </span>
+            </div>
+            <div className="text-xs font-semibold text-purple-300/80">ผูกโครงการ 5 บท</div>
+            <div className="mt-1 text-2xl sm:text-3xl font-black text-emerald-300 tracking-tight">
+              {stats?.projectLinkedAlbums || 0}
+            </div>
+            <div className="mt-2 text-[11px] text-emerald-300/90 font-medium">
+              ดึงภาพไปทำรายงาน 5 บท {stats?.reportFetches || 0} ครั้ง
+            </div>
+          </div>
+
+          {/* Card 4: พื้นที่จัดเก็บ */}
+          <div className="group rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 sm:p-5 shadow-xl backdrop-blur-md hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/20 transition-all duration-300">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30 transition-transform duration-300 group-hover:scale-110">
+                <HardDrive className="h-5 w-5" />
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                Storage Cloud
+              </span>
+            </div>
+            <div className="text-xs font-semibold text-purple-300/80">พื้นที่จัดเก็บ</div>
+            <div className="mt-1 text-2xl sm:text-3xl font-black text-amber-300 tracking-tight">
               {formatFileSize(stats?.totalDriveSizeBytes)}
             </div>
-            <div className="mt-1 text-[10px] text-purple-400/80">
-              ความจุต้นฉบับ 100%
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 shadow-xl backdrop-blur-md hover:border-purple-500/40 transition-all">
-            <div className="text-[11px] font-medium text-purple-300/70">Local Cache (NAS)</div>
-            <div className="mt-1 text-2xl font-black text-purple-300">
-              {formatFileSize(stats?.approximateLocalCacheBytes)}
-            </div>
-            <div className="mt-1 text-[10px] text-purple-400/80">
-              WebP 600px + HD 1920px
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-purple-800/40 bg-[#140A32]/85 p-4 shadow-xl backdrop-blur-md col-span-2 md:col-span-1 hover:border-amber-500/40 transition-all">
-            <div className="text-[11px] font-medium text-purple-300/70">ดึงไปทำรายงาน 5 บท</div>
-            <div className="mt-1 text-2xl font-black text-amber-300">
-              {stats?.reportFetches || 0} <span className="text-xs font-normal text-purple-400">ครั้ง</span>
-            </div>
-            <div className="mt-1 text-[10px] text-purple-400/80">
-              ผ่าน SmartFlow Proxy API
+            <div className="mt-2 text-[11px] text-amber-300/90 font-medium truncate" title={`Google Drive: ${formatFileSize(stats?.totalDriveSizeBytes)} | Cache: ${formatFileSize(stats?.approximateLocalCacheBytes)}`}>
+              Shared Drive 100% • Cache {formatFileSize(stats?.approximateLocalCacheBytes)}
             </div>
           </div>
         </section>

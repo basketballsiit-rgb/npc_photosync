@@ -8,12 +8,8 @@ import { RetroactiveLinkModal } from "@/components/gallery/RetroactiveLinkModal"
 import { QuickUploadModal } from "@/components/upload/QuickUploadModal";
 import {
   Sparkles,
-  Layers,
-  FolderSync,
   FileCheck2,
-  HardDrive,
   Loader2,
-  Camera,
   SearchX,
   ExternalLink,
 } from "lucide-react";
@@ -38,12 +34,6 @@ export default function HomePage() {
   const [totalCount, setTotalCount] = useState(0);
   const [selectedAlbumToLink, setSelectedAlbumToLink] = useState<AlbumCardData | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [stats, setStats] = useState({
-    totalAlbums: 0,
-    totalPhotos: 0,
-    linkedProjects: 0,
-    totalSizeBytes: 0,
-  });
 
   const fetchAlbums = useCallback(async () => {
     setIsLoading(true);
@@ -73,26 +63,6 @@ export default function HomePage() {
       if (data.success) {
         setAlbums(data.data);
         setTotalCount(data.pagination?.total || data.data.length);
-
-        // Calculate overview stats
-        const allPhotos = data.data.reduce(
-          (sum: number, a: AlbumCardData) => sum + (a.photoCount || 0),
-          0
-        );
-        const allSize = data.data.reduce(
-          (sum: number, a: AlbumCardData) => sum + Number(a.totalSizeBytes || 0),
-          0
-        );
-        const linkedCount = data.data.filter(
-          (a: AlbumCardData) => a.albumType === "PROJECT" || a.projectId
-        ).length;
-
-        setStats({
-          totalAlbums: data.pagination?.total || data.data.length,
-          totalPhotos: allPhotos,
-          linkedProjects: linkedCount,
-          totalSizeBytes: allSize,
-        });
       }
     } catch (err) {
       console.error("Failed to fetch albums:", err);
@@ -146,12 +116,6 @@ export default function HomePage() {
     fetchAlbums();
   };
 
-  const formatTotalSize = (bytes: number) => {
-    const mb = bytes / (1024 * 1024);
-    if (mb >= 1000) return `${(mb / 1024).toFixed(2)} GB`;
-    return `${mb.toFixed(1)} MB`;
-  };
-
   return (
     <div className="min-h-screen bg-transparent flex flex-col">
       {/* Global Navigation */}
@@ -159,14 +123,14 @@ export default function HomePage() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Hero Banner with Cosmic Ambient Glow & Bento Stats */}
+        {/* Hero Banner with Cosmic Ambient Glow */}
         <section className="relative overflow-hidden rounded-3xl border border-purple-800/40 bg-gradient-to-br from-[#160B3A]/90 via-[#1C0D4A]/80 to-[#0F0728]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
           {/* Ambient Cosmic Orbs */}
           <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-gradient-to-tr from-pink-500/25 to-purple-600/20 blur-3xl pointer-events-none" />
           <div className="absolute -left-20 -bottom-20 h-80 w-80 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-600/20 blur-3xl pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-3 max-w-2xl">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500/15 via-purple-500/15 to-cyan-500/15 px-3.5 py-1 text-xs font-semibold text-pink-300 border border-pink-500/30 shadow-sm backdrop-blur-md">
                 <Sparkles className="h-3.5 w-3.5 text-pink-400" />
                 <span>วิทยาลัยสารพัดช่างน่าน • Nan Polytechnic College</span>
@@ -184,53 +148,6 @@ export default function HomePage() {
                 </span>{" "}
                 และจัดเก็บต้นฉบับคมชัดสูงบน Google Shared Drive
               </p>
-            </div>
-
-            {/* Quick Metrics Bento */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {/* Card 1: Albums */}
-              <div className="group rounded-2xl border border-purple-800/40 bg-[#140A32]/90 p-3.5 text-center transition-all duration-300 hover:border-pink-500/50 hover:shadow-lg hover:shadow-purple-500/20 backdrop-blur-md">
-                <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white shadow-md shadow-pink-500/30 mb-2 transition-transform duration-300 group-hover:scale-110">
-                  <Layers className="h-4 w-4" />
-                </div>
-                <div className="text-[11px] text-purple-300/80 font-medium">อัลบั้มทั้งหมด</div>
-                <div className="text-xl sm:text-2xl font-black text-white mt-0.5">
-                  {stats.totalAlbums}
-                </div>
-              </div>
-
-              {/* Card 2: Photos */}
-              <div className="group rounded-2xl border border-purple-800/40 bg-[#140A32]/90 p-3.5 text-center transition-all duration-300 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/20 backdrop-blur-md">
-                <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-500 text-white shadow-md shadow-cyan-500/30 mb-2 transition-transform duration-300 group-hover:scale-110">
-                  <Camera className="h-4 w-4" />
-                </div>
-                <div className="text-[11px] text-purple-300/80 font-medium">รูปภาพในคลัง</div>
-                <div className="text-xl sm:text-2xl font-black text-cyan-300 mt-0.5">
-                  {stats.totalPhotos}
-                </div>
-              </div>
-
-              {/* Card 3: 5-Chapter Projects */}
-              <div className="group rounded-2xl border border-purple-800/40 bg-[#140A32]/90 p-3.5 text-center transition-all duration-300 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 backdrop-blur-md">
-                <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-500 to-fuchsia-500 text-white shadow-md shadow-purple-500/30 mb-2 transition-transform duration-300 group-hover:scale-110">
-                  <FolderSync className="h-4 w-4" />
-                </div>
-                <div className="text-[11px] text-purple-300/80 font-medium">ผูกโครงการ 5 บท</div>
-                <div className="text-xl sm:text-2xl font-black text-emerald-300 mt-0.5">
-                  {stats.linkedProjects}
-                </div>
-              </div>
-
-              {/* Card 4: Cloud Storage */}
-              <div className="group rounded-2xl border border-purple-800/40 bg-[#140A32]/90 p-3.5 text-center transition-all duration-300 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/20 backdrop-blur-md">
-                <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/30 mb-2 transition-transform duration-300 group-hover:scale-110">
-                  <HardDrive className="h-4 w-4" />
-                </div>
-                <div className="text-[11px] text-purple-300/80 font-medium">พื้นที่จัดเก็บ</div>
-                <div className="text-xl sm:text-2xl font-black text-amber-300 mt-0.5">
-                  {formatTotalSize(stats.totalSizeBytes)}
-                </div>
-              </div>
             </div>
           </div>
         </section>
