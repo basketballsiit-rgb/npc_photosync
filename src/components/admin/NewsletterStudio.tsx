@@ -12,40 +12,73 @@ import {
   RefreshCw,
   Check,
   ChevronRight,
-  Layers,
+  ArrowLeft,
   Calendar,
   Building,
   CheckCircle2,
   FileText,
-  Upload,
-  AlertCircle,
   Eye,
   Sliders,
-  ExternalLink,
+  CheckSquare,
+  Square,
+  Search,
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { showAlert } from "@/lib/sweetalert";
 import { getClientBasePath, apiUrl } from "@/lib/basepath";
+import { formatNewsletterProse } from "@/lib/news-utils";
 
 interface NewsItem {
   id: string;
   title: string;
   content: string;
   images: string[];
+  albumCode?: string;
+  rawDescription?: string;
+  albumMeta?: {
+    title: string;
+    eventDate?: string | Date;
+    divisionName?: string;
+    departmentName?: string;
+  };
 }
 
-interface AlbumOption {
+interface AlbumSummary {
   id: string;
   albumCode: string;
   title: string;
+  description?: string | null;
   eventDate?: string;
   departmentName?: string;
-  coverImage?: string;
-  photos?: { id: string; url: string; originalName?: string }[];
+  divisionName?: string;
+  coverThumbnailUrl?: string | null;
+  photoCount?: number;
+}
+
+interface MediaPhoto {
+  id: string;
+  fileName: string;
+  thumbnailWebpUrl: string;
+  reportReadyJpgUrl: string;
+  isFeatured?: boolean;
+}
+
+interface DetailedAlbum extends AlbumSummary {
+  mediaFiles: MediaPhoto[];
 }
 
 interface NewsletterStudioProps {
   currentTermName?: string;
+}
+
+function resolveImageUrl(url?: string | null): string {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const base = getClientBasePath();
+  const clean = url.startsWith("/") ? url : `/${url}`;
+  return `${base}${clean}`;
 }
 
 export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
@@ -53,7 +86,9 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
   const [layout, setLayout] = useState<"4_grid" | "3_digest" | "2_split" | "1_hero">("4_grid");
 
   // Subheader pills
-  const [termText, setTermText] = useState(currentTermName ? `ประจำ${currentTermName}` : "ประจำภาคเรียนที่ 2 ปีการศึกษา 2569");
+  const [termText, setTermText] = useState(
+    currentTermName ? `ประจำ${currentTermName}` : "ประจำภาคเรียนที่ 2 ปีการศึกษา 2569"
+  );
   const [issueText, setIssueText] = useState("ฉบับที่ 24");
   const [monthText, setMonthText] = useState("เดือนกันยายน 2569");
 
@@ -63,30 +98,28 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
       id: "news_1",
       title: "โครงการรณรงค์ป้องกันและแก้ไขปัญหายาเสพติดในสถานศึกษา ประจำปีงบประมาณ 2569",
       content:
-        "ในวันที่ 22 กันยายน 2569 นายอรรณพ ทาการ พร้อมด้วย นางสาวชัญญา ภูมิปัญญา ครูที่ปรึกษางาน TO BE NUMBER ONE วิทยาลัยสารพัดช่างน่าน ได้เข้าร่วม รายงานผลการดำเนินโครงการรณรงค์ป้องกันและแก้ไขปัญหายาเสพติดในสถานศึกษา ประจำปีงบประมาณ 2569 ในรูปแบบออนไลน์",
-      images: [
-        "/npc_photosync/assets/npc-watermark.png",
-      ],
+        "ในวันที่ 22 กันยายน 2569 ณ วิทยาลัยสารพัดช่างน่าน นายอรรณพ ทาการ และนางสาวชัญญา ภูมิปัญญา ได้เข้าร่วมรายงานผลการดำเนินงานโครงการรณรงค์ป้องกันและแก้ไขปัญหายาเสพติดในสถานศึกษา",
+      images: [],
     },
     {
       id: "news_2",
       title: "ประชุมคณะกรรมการพิจารณาเพื่ออนุมัติผลการเรียน ภาคเรียนที่ 1 ปีการศึกษา 2569",
       content:
-        "ในวันที่ 22 กันยายน 2569 นายกชเชษฐ์ ก๋งชนะ ผู้ช่วยผู้อำนวยการวิทยาลัยสารพัดช่างน่าน พร้อมด้วย นายนิพนธ์ ร่องพืช ฝ่ายวิชาการ และงานวัดผลประเมินผล ฝ่ายวิชาการ ประชุมคณะกรรมการพิจารณาเพื่ออนุมัติผลการเรียน ภาคเรียนที่ 1 ปีการศึกษา 2569 ณ ห้องประชุมเกียรติยศ อาคารวิทยบริการ วิทยาลัยสารพัดช่างน่าน",
+        "เมื่อวันที่ 22 กันยายน 2569 นายกชเชษฐ์ ก๋งชนะ ผู้ช่วยผู้อำนวยการฯ พร้อมด้วยคณะกรรมการฝ่ายวิชาการ ได้ร่วมประชุมพิจารณาอนุมัติผลการเรียน ณ ห้องประชุมเกียรติยศ อาคารวิทยบริการ",
       images: [],
     },
     {
       id: "news_3",
       title: "การใช้งานระบบบริหารจัดการองค์การนักวิชาชีพในอนาคตแห่งประเทศไทย (OVEC-AFT)",
       content:
-        "ในระหว่างวันที่ 23-25 กันยายน 2569 นางสาวชัญญา ภูมิปัญญา ครูที่ปรึกษาองค์การนักวิชาชีพในอนาคตแห่งประเทศไทย วิทยาลัยสารพัดช่างน่าน เข้าร่วมโครงการอบรมเชิงปฏิบัติการ \"การใช้งานระบบบริหารจัดการองค์การนักวิชาชีพในอนาคตแห่งประเทศไทย (OVEC-AFT)\" นำร่องสถานศึกษาในพื้นที่ภาคเหนือ ณ โรงแรมเชียงใหม่ภูคำ อำเภอเมือง จังหวัดเชียงใหม่",
+        "ระหว่างวันที่ 23-25 กันยายน 2569 ครูผู้แทนวิทยาลัยสารพัดช่างน่าน เข้าร่วมโครงการอบรมเชิงปฏิบัติการ OVEC-AFT นำร่องสถานศึกษาในพื้นที่ภาคเหนือ ณ จังหวัดเชียงใหม่",
       images: [],
     },
     {
       id: "news_4",
       title: "งานประเพณีทำบุญถวายทานสลากภัต ประจำปีพุทธศักราช 2569",
       content:
-        "ในวันที่ 26 กันยายน พ.ศ.2569 นายกชเชษฐ์ ก๋งชนะ ผู้ช่วยผู้อำนวยการวิทยาลัยสารพัดช่างน่าน พร้อมด้วยผู้บริหาร คณะครู และบุคลากรทางการศึกษาเข้าร่วมงานประเพณีทำบุญถวายทานสลากภัตประจำปีพุทธศักราช 2569 ณ บริเวณรอบวัดพระธาตุช้างค้ำวรวิหาร",
+        "เมื่อวันที่ 26 กันยายน 2569 ผู้บริหาร คณะครู และบุคลากรทางการศึกษา วิทยาลัยสารพัดช่างน่าน เข้าร่วมงานประเพณีทำบุญถวายทานสลากภัต ณ วัดพระธาตุช้างค้ำวรวิหาร",
       images: [],
     },
   ]);
@@ -98,10 +131,14 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
   // Photo Picker Modal state
   const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
   const [targetNewsIndex, setTargetNewsIndex] = useState(0);
-  const [albums, setAlbums] = useState<AlbumOption[]>([]);
-  const [selectedAlbum, setSelectedAlbum] = useState<AlbumOption | null>(null);
+  const [albums, setAlbums] = useState<AlbumSummary[]>([]);
   const [isAlbumsLoading, setIsAlbumsLoading] = useState(false);
   const [albumSearch, setAlbumSearch] = useState("");
+
+  // Modal Drilldown State (View photos inside an album)
+  const [selectedDrilldownAlbum, setSelectedDrilldownAlbum] = useState<DetailedAlbum | null>(null);
+  const [isDrilldownLoading, setIsDrilldownLoading] = useState(false);
+  const [selectedPhotosInModal, setSelectedPhotosInModal] = useState<string[]>([]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -111,11 +148,11 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
     }
   }, [currentTermName]);
 
-  // Load albums from system for photo picker
+  // Load album summaries for picker
   const loadAlbums = async () => {
     setIsAlbumsLoading(true);
     try {
-      const res = await fetch(apiUrl(`/api/admin/albums?t=${Date.now()}`));
+      const res = await fetch(apiUrl(`/api/admin/albums?limit=100&t=${Date.now()}`));
       const data = await res.json();
       if (data.success && Array.isArray(data.albums)) {
         setAlbums(data.albums);
@@ -129,27 +166,111 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
 
   const openPhotoPicker = (newsIndex: number) => {
     setTargetNewsIndex(newsIndex);
+    setSelectedDrilldownAlbum(null);
+    setSelectedPhotosInModal([...(news[newsIndex]?.images || [])]);
     setIsPhotoPickerOpen(true);
     if (albums.length === 0) {
       loadAlbums();
     }
   };
 
-  const handleSelectPhoto = (url: string) => {
-    setNews((prev) => {
-      const next = [...prev];
-      const target = { ...next[targetNewsIndex] };
-      if (!target.images) target.images = [];
-      if (target.images.length >= 4) {
-        showAlert.info("จำกัดรูปภาพ", "สามารถใส่ภาพประกอบได้สูงสุด 4 ภาพต่อ 1 ข่าว");
+  // Drilldown to view all photos inside an album
+  const handleSelectAlbumToDrilldown = async (album: AlbumSummary) => {
+    setIsDrilldownLoading(true);
+    try {
+      const res = await fetch(apiUrl(`/api/albums/${album.albumCode}?t=${Date.now()}`));
+      const data = await res.json();
+      if (data.success && data.album) {
+        setSelectedDrilldownAlbum(data.album);
+
+        // Pre-select photos if current card already has images, otherwise pick up to 4
+        const currentImgs = news[targetNewsIndex]?.images || [];
+        if (currentImgs.length > 0) {
+          setSelectedPhotosInModal(currentImgs);
+        } else if (data.album.mediaFiles && data.album.mediaFiles.length > 0) {
+          const defaultPics = data.album.mediaFiles
+            .slice(0, 4)
+            .map((m: MediaPhoto) => m.reportReadyJpgUrl || m.thumbnailWebpUrl);
+          setSelectedPhotosInModal(defaultPics);
+        } else if (data.album.coverThumbnailUrl) {
+          setSelectedPhotosInModal([data.album.coverThumbnailUrl]);
+        } else {
+          setSelectedPhotosInModal([]);
+        }
+      } else {
+        showAlert.error("ไม่สามารถโหลดภาพได้", data.error || "เกิดข้อผิดพลาดในการโหลดรูปภาพ");
+      }
+    } catch (err) {
+      console.error("Failed to load album media files:", err);
+      showAlert.error("ข้อผิดพลาด", "ไม่สามารถดึงข้อมูลรูปภาพของอัลบั้มได้");
+    } finally {
+      setIsDrilldownLoading(false);
+    }
+  };
+
+  // Toggle photo select / deselect
+  const togglePhotoSelection = (photoUrl: string) => {
+    setSelectedPhotosInModal((prev) => {
+      if (prev.includes(photoUrl)) {
+        return prev.filter((u) => u !== photoUrl);
+      }
+      if (prev.length >= 4) {
+        showAlert.info("จำกัดรูปภาพ", "สามารถเลือกรูปภาพประกอบได้สูงสุด 4 ภาพต่อ 1 ข่าว เพื่อให้สัดส่วนภาพคมชัดและสวยงาม");
         return prev;
       }
-      target.images = [...target.images, url];
-      next[targetNewsIndex] = target;
-      return next;
+      return [...prev, photoUrl];
     });
   };
 
+  // Apply selected photos and optionally synthesize AI news prose tailored to layout
+  const handleApplyAlbumAndPhotos = (applyNewsText: boolean) => {
+    if (!selectedDrilldownAlbum) return;
+
+    let chosenPhotos = [...selectedPhotosInModal];
+    if (chosenPhotos.length === 0 && selectedDrilldownAlbum.coverThumbnailUrl) {
+      chosenPhotos = [selectedDrilldownAlbum.coverThumbnailUrl];
+    }
+
+    const isHero = (layout === "3_digest" && targetNewsIndex === 0) || layout === "1_hero";
+
+    setNews((prev) => {
+      const next = [...prev];
+      const target = { ...next[targetNewsIndex] };
+      target.images = chosenPhotos;
+
+      if (applyNewsText) {
+        target.title = selectedDrilldownAlbum.title;
+        target.albumCode = selectedDrilldownAlbum.albumCode;
+        target.rawDescription = selectedDrilldownAlbum.description || "";
+        target.albumMeta = {
+          title: selectedDrilldownAlbum.title,
+          eventDate: selectedDrilldownAlbum.eventDate,
+          divisionName: selectedDrilldownAlbum.divisionName,
+          departmentName: selectedDrilldownAlbum.departmentName,
+        };
+
+        target.content = formatNewsletterProse(
+          selectedDrilldownAlbum.description,
+          target.albumMeta,
+          layout,
+          isHero
+        );
+      }
+
+      next[targetNewsIndex] = target;
+      return next;
+    });
+
+    showAlert.success(
+      "บันทึกข้อมูลสำเร็จ",
+      `นำภาพ ${chosenPhotos.length} ภาพ ${applyNewsText ? "พร้อมเนื้อหาข่าว AI" : ""} ใส่ในข่าวที่ ${targetNewsIndex + 1} เรียบร้อยแล้ว`
+    );
+
+    setIsPhotoPickerOpen(false);
+    setSelectedDrilldownAlbum(null);
+  };
+
+  // Remove photo from active news
   const handleRemovePhoto = (newsIndex: number, imgIndex: number) => {
     setNews((prev) => {
       const next = [...prev];
@@ -160,31 +281,31 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
     });
   };
 
-  const handleAutofillFromAlbum = (album: AlbumOption, newsIndex: number) => {
+  // AI Auto-Fit text specifically to layout card boundaries
+  const handleAutoFitText = (newsIndex: number) => {
+    const item = news[newsIndex];
+    if (!item) return;
+
+    const isHero = (layout === "3_digest" && newsIndex === 0) || layout === "1_hero";
+    const meta = item.albumMeta || {
+      title: item.title,
+      eventDate: new Date(),
+    };
+
+    const fitted = formatNewsletterProse(
+      item.rawDescription || item.content,
+      meta,
+      layout,
+      isHero
+    );
+
     setNews((prev) => {
       const next = [...prev];
-      const target = { ...next[newsIndex] };
-      target.title = album.title;
-      let dateStr = "";
-      if (album.eventDate) {
-        try {
-          const d = new Date(album.eventDate);
-          dateStr = `เมื่อวันที่ ${d.toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}`;
-        } catch {}
-      }
-      target.content = `${dateStr} ${album.departmentName ? `ฝ่าย/แผนก ${album.departmentName}` : "วิทยาลัยสารพัดช่างน่าน"} ได้จัดกิจกรรม ${album.title} เพื่อส่งเสริมและพัฒนาศักยภาพผู้เรียนและการจัดการศึกษา ณ วิทยาลัยสารพัดช่างน่าน`;
-      
-      // Auto-attach up to 4 photos
-      if (album.photos && album.photos.length > 0) {
-        target.images = album.photos.slice(0, 4).map((p) => p.url);
-      } else if (album.coverImage) {
-        target.images = [album.coverImage];
-      }
-      next[newsIndex] = target;
+      next[newsIndex] = { ...next[newsIndex], content: fitted };
       return next;
     });
-    showAlert.success("ดึงข้อมูลสำเร็จ", `นำข้อมูลจากอัลบั้ม "${album.title}" ใส่ในข่าวที่ ${newsIndex + 1} แล้ว`);
-    setIsPhotoPickerOpen(false);
+
+    showAlert.success("จัดข้อความพอดีแล้ว", "ระบบสรุปและปรับความยาวข้อความข่าวให้เหมาะสมกับพื้นที่ของการ์ดแล้ว");
   };
 
   // Download high-res PNG image
@@ -194,7 +315,7 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
     try {
       const dataUrl = await toPng(canvasRef.current, {
         quality: 0.95,
-        pixelRatio: 2.5, // 2.5x scale generates super-crisp HD 1800x2560px image
+        pixelRatio: 2.5, // 2.5x scale generates super-crisp HD image
         cacheBust: true,
       });
 
@@ -234,12 +355,7 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
     navigator.clipboard.writeText(caption);
     setCopiedCaption(true);
     setTimeout(() => setCopiedCaption(false), 3000);
-    showAlert.success("คัดลอกแคปชั่นสำเร็จ", "คัดลอกเนื้อหาข่าวพร้อมแฮชแท็กสำหรับโพสต์ Facebook แล้ว สามารถนำไปวาง (Paste) ได้ทันที");
-  };
-
-  // Print A4
-  const handlePrint = () => {
-    window.print();
+    showAlert.success("คัดลอกแคปชั่นสำเร็จ", "คัดลอกเนื้อหาข่าวพร้อมแฮชแท็กสำหรับโพสต์ Facebook แล้ว สามารถนำไปวางได้ทันที");
   };
 
   const getNewsLimit = () => {
@@ -251,6 +367,7 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
 
   const filteredAlbums = albums.filter((a) =>
     a.title.toLowerCase().includes(albumSearch.toLowerCase()) ||
+    (a.albumCode && a.albumCode.toLowerCase().includes(albumSearch.toLowerCase())) ||
     (a.departmentName && a.departmentName.toLowerCase().includes(albumSearch.toLowerCase()))
   );
 
@@ -304,7 +421,7 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
             </button>
 
             <button
-              onClick={handlePrint}
+              onClick={() => window.print()}
               className="flex items-center gap-2 rounded-2xl border border-purple-700/40 bg-purple-900/30 px-3.5 py-2.5 text-xs font-semibold text-purple-300 hover:bg-purple-800/40 transition-all shadow-sm"
             >
               <Printer className="h-4 w-4" />
@@ -480,8 +597,8 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
 
             {/* Active News Form */}
             {news[activeNewsIndex] && (
-              <div className="space-y-3 text-xs bg-[#1A0C42]/60 p-4 rounded-2xl border border-purple-800/30">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3.5 text-xs bg-[#1A0C42]/60 p-4 rounded-2xl border border-purple-800/30">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-purple-800/30">
                   <span className="font-bold text-pink-300 flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-pink-400" />
                     กำลังแก้ไข ข่าวที่ {activeNewsIndex + 1}
@@ -491,10 +608,10 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                   <button
                     type="button"
                     onClick={() => openPhotoPicker(activeNewsIndex)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-pink-500/40 bg-pink-500/20 text-xs font-bold text-pink-200 hover:bg-pink-500 hover:text-white transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-pink-500/50 bg-gradient-to-r from-pink-500/25 to-purple-600/30 text-xs font-bold text-pink-200 hover:border-pink-400 hover:bg-pink-500 hover:text-white transition-all shadow-sm"
                   >
-                    <ImageIcon className="h-3.5 w-3.5" />
-                    <span>เลือกรูปจากคลังภาพ / ดึงข้อมูล</span>
+                    <ImageIcon className="h-3.5 w-3.5 text-pink-400" />
+                    <span>เลือกอัลบั้ม & คัดเลือกรูปภาพ</span>
                   </button>
                 </div>
 
@@ -517,7 +634,18 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                 </div>
 
                 <div>
-                  <label className="text-purple-200 font-semibold mb-1 block">เนื้อหาข่าวบรรยาย</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-purple-200 font-semibold">เนื้อหาข่าวบรรยาย</label>
+                    <button
+                      type="button"
+                      onClick={() => handleAutoFitText(activeNewsIndex)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-pink-400 hover:text-pink-300 transition-colors"
+                      title="ให้ AI ปรับความยาวข้อความให้พอดีกับพื้นที่การ์ดข่าวในแบบที่เลือก"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      <span>AI สรุปพอดีการ์ด</span>
+                    </button>
+                  </div>
                   <textarea
                     rows={4}
                     value={news[activeNewsIndex].content}
@@ -532,6 +660,18 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                     placeholder="เมื่อวันที่... นาย/นาง... ได้จัดกิจกรรม..."
                     className="w-full rounded-xl border border-purple-800/50 bg-[#140A32] px-3.5 py-2 text-white focus:border-pink-500 focus:outline-none text-[11px] leading-relaxed"
                   />
+                  <div className="flex items-center justify-between text-[10px] text-purple-400/80 mt-1">
+                    <span>
+                      ความยาว: {news[activeNewsIndex].content.length} ตัวอักษร
+                    </span>
+                    <span>
+                      {layout === "4_grid"
+                        ? "แนะนํา ~140–190 ตัวอักษรสำหรับ Grid 2x2"
+                        : layout === "2_split"
+                        ? "แนะนํา ~280–350 ตัวอักษร"
+                        : "แนะนํา ~200–350 ตัวอักษร"}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Selected Images for this news */}
@@ -553,14 +693,17 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={imgUrl}
+                          src={resolveImageUrl(imgUrl)}
                           alt={`รูปประกอบ ${imgIdx + 1}`}
                           className="w-full h-full object-cover"
                         />
+                        <div className="absolute top-1 left-1 bg-pink-600/90 text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full">
+                          #{imgIdx + 1}
+                        </div>
                         <button
                           type="button"
                           onClick={() => handleRemovePhoto(activeNewsIndex, imgIdx)}
-                          className="absolute top-1 right-1 p-1 rounded-full bg-red-600/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1 right-1 p-1 rounded-full bg-red-600/90 text-white opacity-0 group-hover:opacity-100 transition-opacity"
                           title="ลบรูปนี้"
                         >
                           <Trash2 className="h-3 w-3" />
@@ -597,9 +740,9 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
             </span>
           </div>
 
-          {/* Canvas Wrapper - Fixed 723px width or scalable container */}
+          {/* Canvas Wrapper - Fixed 723px width for exact high-res export */}
           <div className="rounded-3xl border border-purple-800/50 bg-[#0A0418] p-3 sm:p-5 shadow-2xl overflow-x-auto flex justify-center">
-            {/* THE PRINT/EXPORT CANVAS (Width: 723px matching exact source) */}
+            {/* THE PRINT/EXPORT CANVAS (Width: 723px matching college template) */}
             <div
               ref={canvasRef}
               id="newsletter-canvas-container"
@@ -644,7 +787,7 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
 
               {/* NEWS CONTENT AREA: White background with dynamic layout */}
               <div className="p-4 bg-white flex-1" style={{ minHeight: "680px" }}>
-                {/* Layout Mode 1: 4 Cards (Grid 2x2) - Default like user sample */}
+                {/* Layout Mode 1: 4 Cards (Grid 2x2) */}
                 {layout === "4_grid" && (
                   <div className="grid grid-cols-2 gap-3.5 h-full">
                     {news.slice(0, 4).map((item, idx) => (
@@ -656,13 +799,11 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                 {/* Layout Mode 2: 3 Cards (1 Top Hero + 2 Bottom) */}
                 {layout === "3_digest" && (
                   <div className="space-y-3.5 h-full flex flex-col">
-                    {/* Hero News (Top) */}
                     {news[0] && (
                       <div className="flex-1">
                         <NewsCardItem item={news[0]} index={0} layout={layout} isHero />
                       </div>
                     )}
-                    {/* Bottom 2 News */}
                     <div className="grid grid-cols-2 gap-3.5 flex-1">
                       {news.slice(1, 3).map((item, idx) => (
                         <NewsCardItem key={item.id} item={item} index={idx + 1} layout={layout} />
@@ -704,143 +845,289 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
         </div>
       </div>
 
-      {/* PHOTO PICKER MODAL */}
+      {/* PHOTO PICKER MODAL (Album Selection + Photo Drilldown) */}
       {isPhotoPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-3xl border border-purple-700/50 bg-[#12082b] shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-5xl max-h-[92vh] flex flex-col rounded-3xl border border-purple-700/60 bg-[#12082b] shadow-2xl overflow-hidden">
             {/* Modal Header */}
-            <div className="p-5 border-b border-purple-800/40 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <ImageIcon className="h-5 w-5 text-pink-400" />
-                  <span>เลือกรูปภาพจากคลังภาพสำหรับ ข่าวที่ {targetNewsIndex + 1}</span>
-                </h3>
-                <p className="text-xs text-purple-300/80">
-                  เลือกรูปกิจกรรมที่อัปโหลดไว้ในระบบ หรือคลิกเพื่อดึงข้อมูลชื่อกิจกรรมและวันที่มาใส่ในข่าวทันที
-                </p>
+            <div className="p-4 sm:p-5 border-b border-purple-800/40 flex items-center justify-between bg-[#170B38]">
+              <div className="flex items-center gap-3">
+                {selectedDrilldownAlbum && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDrilldownAlbum(null)}
+                    className="p-1.5 rounded-xl border border-purple-700/50 bg-[#1F0F4B] text-purple-200 hover:text-white hover:bg-purple-700 transition-colors"
+                    title="กลับไปเลือกอัลบั้มอื่น"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                )}
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5 text-pink-400" />
+                    <span>
+                      {selectedDrilldownAlbum
+                        ? `เลือกรูปภาพจาก: ${selectedDrilldownAlbum.title}`
+                        : `เลือกอัลบั้มกิจกรรมสำหรับ ข่าวที่ ${targetNewsIndex + 1}`}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-purple-300/80">
+                    {selectedDrilldownAlbum
+                      ? `คลิกเลือกภาพที่ต้องการ (เลือกแล้ว ${selectedPhotosInModal.length}/4 ภาพ) แล้วกดปุ่มนำไปใช้`
+                      : "คลิกที่อัลบั้มเพื่อเปิดดูรูปภาพทั้งหมดและเลือกรูปประกอบข่าวตามจำนวนที่ต้องการ"}
+                  </p>
+                </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setIsPhotoPickerOpen(false)}
+                onClick={() => {
+                  setIsPhotoPickerOpen(false);
+                  setSelectedDrilldownAlbum(null);
+                }}
                 className="p-2 rounded-full text-purple-400 hover:text-white hover:bg-purple-800/40"
               >
                 ✕
               </button>
             </div>
 
-            {/* Search Bar */}
-            <div className="p-4 border-b border-purple-800/30 bg-[#160A38]/50 flex items-center gap-3">
-              <input
-                type="text"
-                value={albumSearch}
-                onChange={(e) => setAlbumSearch(e.target.value)}
-                placeholder="🔍 ค้นหาชื่อกิจกรรม หรือ แผนกวิชา..."
-                className="flex-1 rounded-2xl border border-purple-800/50 bg-[#1C0E46] px-4 py-2 text-xs text-white placeholder-purple-400/60 focus:border-pink-500 focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={loadAlbums}
-                className="p-2 rounded-2xl border border-purple-700/40 bg-purple-900/30 text-purple-300 hover:text-white"
-                title="รีเฟรชรายการอัลบั้ม"
-              >
-                <RefreshCw className={`h-4 w-4 ${isAlbumsLoading ? "animate-spin" : ""}`} />
-              </button>
-            </div>
-
-            {/* Modal Body: Album List & Photos */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {isAlbumsLoading ? (
-                <div className="text-center py-12 text-purple-300 text-xs flex flex-col items-center gap-2">
-                  <RefreshCw className="h-6 w-6 animate-spin text-pink-400" />
-                  <span>กำลังโหลดรายการอัลบั้มจากระบบ...</span>
+            {/* VIEW A: Album Selection List */}
+            {!selectedDrilldownAlbum && (
+              <>
+                {/* Search Bar */}
+                <div className="p-3.5 border-b border-purple-800/30 bg-[#160A38]/60 flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-pink-400" />
+                    <input
+                      type="text"
+                      value={albumSearch}
+                      onChange={(e) => setAlbumSearch(e.target.value)}
+                      placeholder="ค้นหาชื่อกิจกรรม, รหัสอัลบั้ม หรือฝ่าย/แผนกวิชา..."
+                      className="w-full rounded-2xl border border-purple-800/50 bg-[#1C0E46] pl-10 pr-4 py-2 text-xs text-white placeholder-purple-400/60 focus:border-pink-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadAlbums}
+                    className="p-2 rounded-2xl border border-purple-700/40 bg-purple-900/30 text-purple-300 hover:text-white"
+                    title="รีเฟรชรายการอัลบั้ม"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isAlbumsLoading ? "animate-spin" : ""}`} />
+                  </button>
                 </div>
-              ) : filteredAlbums.length === 0 ? (
-                <div className="text-center py-12 text-purple-400 text-xs">
-                  ไม่พบอัลบั้มภาพกิจกรรม กรุณาลองค้นหาคำอื่น
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredAlbums.map((album) => (
-                    <div
-                      key={album.id}
-                      className="rounded-2xl border border-purple-800/40 bg-[#190C3E]/70 p-4 space-y-3 hover:border-pink-500/50 transition-all flex flex-col justify-between"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-bold text-white text-xs line-clamp-2">
-                            {album.title}
-                          </h4>
-                          <span className="text-[10px] bg-purple-500/20 text-pink-300 px-2 py-0.5 rounded-full font-mono shrink-0">
-                            {album.photos?.length || 0} ภาพ
-                          </span>
-                        </div>
-                        {album.departmentName && (
-                          <p className="text-[10px] text-cyan-300">
-                            🏛️ {album.departmentName}
-                          </p>
-                        )}
-                        {album.eventDate && (
-                          <p className="text-[10px] text-purple-400">
-                            📅 {new Date(album.eventDate).toLocaleDateString("th-TH")}
-                          </p>
-                        )}
-                      </div>
 
-                      {/* Photo Thumbnail previews */}
-                      {album.photos && album.photos.length > 0 && (
-                        <div className="grid grid-cols-4 gap-1.5 pt-1">
-                          {album.photos.slice(0, 4).map((p) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => handleSelectPhoto(p.url)}
-                              className="group relative aspect-square rounded-lg overflow-hidden border border-purple-800/40 bg-black/40 hover:border-pink-500 transition-all"
-                              title="คลิกเพื่อเลือกภาพนี้ใส่ในข่าว"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={p.url} alt="รูปกิจกรรม" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                              <div className="absolute inset-0 bg-pink-600/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold">
-                                + ใส่
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Action Button: Autofill everything from this album */}
-                      <div className="pt-2 border-t border-purple-800/30 flex items-center justify-between">
-                        <span className="text-[10px] text-purple-400">
-                          {album.albumCode}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleAutofillFromAlbum(album, targetNewsIndex)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-[10px] hover:opacity-95 shadow-sm"
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          <span>ดึงชื่อ & รูปทั้งหมดใส่อัตโนมัติ</span>
-                        </button>
-                      </div>
+                {/* Modal Body: Album List */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                  {isAlbumsLoading ? (
+                    <div className="text-center py-16 text-purple-300 text-xs flex flex-col items-center gap-2">
+                      <RefreshCw className="h-6 w-6 animate-spin text-pink-400" />
+                      <span>กำลังโหลดรายการอัลบั้มจากระบบ...</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  ) : filteredAlbums.length === 0 ? (
+                    <div className="text-center py-16 text-purple-400 text-xs">
+                      ไม่พบอัลบั้มภาพกิจกรรม กรุณาลองค้นหาคำอื่น
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {filteredAlbums.map((album) => {
+                        const coverUrl = album.coverThumbnailUrl
+                          ? resolveImageUrl(album.coverThumbnailUrl)
+                          : "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=500&auto=format&fit=crop";
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-purple-800/40 bg-[#12082b] flex items-center justify-between">
-              <span className="text-[11px] text-purple-400">
-                💡 สามารถคลิกเลือกภาพทีละภาพ หรือกดปุ่ม "ดึงชื่อ & รูปทั้งหมด" เพื่อความสะดวกรวดเร็ว
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsPhotoPickerOpen(false)}
-                className="px-4 py-2 rounded-2xl bg-purple-900/40 border border-purple-700/40 text-xs font-semibold text-purple-200 hover:text-white"
-              >
-                เสร็จสิ้น
-              </button>
-            </div>
+                        return (
+                          <div
+                            key={album.id}
+                            onClick={() => handleSelectAlbumToDrilldown(album)}
+                            className="group rounded-2xl border border-purple-800/40 bg-[#190C3E]/70 p-3.5 space-y-2.5 hover:border-pink-500/60 hover:bg-[#20104e] transition-all cursor-pointer flex flex-col justify-between shadow-md"
+                          >
+                            <div className="space-y-2">
+                              {/* Album Thumbnail */}
+                              <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/40 border border-purple-800/30">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={coverUrl}
+                                  alt={album.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                <div className="absolute top-2 left-2 rounded-full bg-[#140A32]/85 px-2 py-0.5 text-[10px] font-mono font-bold text-pink-300 border border-pink-500/30">
+                                  {album.albumCode}
+                                </div>
+                                <div className="absolute top-2 right-2 rounded-full bg-black/75 px-2 py-0.5 text-[10px] font-bold text-purple-200 border border-purple-700/40">
+                                  {album.photoCount || 0} รูป
+                                </div>
+                              </div>
+
+                              <h4 className="font-bold text-white text-xs line-clamp-2 leading-snug group-hover:text-pink-300 transition-colors">
+                                {album.title}
+                              </h4>
+
+                              <div className="text-[10px] text-purple-300/80 space-y-0.5">
+                                {album.departmentName && (
+                                  <div className="truncate text-cyan-300">
+                                    🏛️ {album.departmentName}
+                                  </div>
+                                )}
+                                {album.eventDate && (
+                                  <div>
+                                    📅 {new Date(album.eventDate).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              className="w-full py-1.5 rounded-xl border border-pink-500/30 bg-pink-500/10 text-[11px] font-bold text-pink-300 group-hover:bg-pink-500 group-hover:text-white transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <span>เลือกอัลบั้มนี้เพื่อคัดรูป</span>
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* VIEW B: Album Photos Drilldown */}
+            {selectedDrilldownAlbum && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Album Drilldown Header Strip */}
+                <div className="px-5 py-3 border-b border-purple-800/30 bg-[#160A38]/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="text-xs">
+                    <span className="font-bold text-pink-300">
+                      {selectedDrilldownAlbum.title}
+                    </span>
+                    <span className="text-purple-400 ml-2">
+                      ({selectedDrilldownAlbum.mediaFiles?.length || 0} รูปภาพในอัลบั้ม)
+                    </span>
+                  </div>
+
+                  {/* Quick Auto-Pick 4 Photos */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const picks = (selectedDrilldownAlbum.mediaFiles || [])
+                          .slice(0, 4)
+                          .map((m) => m.reportReadyJpgUrl || m.thumbnailWebpUrl);
+                        setSelectedPhotosInModal(picks);
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-purple-900/50 border border-purple-700/50 text-[11px] font-semibold text-purple-200 hover:text-white hover:bg-purple-800 transition-all"
+                    >
+                      เลือก 4 รูปแรกทันที
+                    </button>
+                    {selectedPhotosInModal.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPhotosInModal([])}
+                        className="px-2.5 py-1 rounded-xl bg-purple-900/30 text-[11px] text-purple-400 hover:text-red-300 transition-all"
+                      >
+                        ล้างที่เลือก
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Photo Grid */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                  {isDrilldownLoading ? (
+                    <div className="text-center py-20 text-purple-300 text-xs flex flex-col items-center gap-2">
+                      <RefreshCw className="h-6 w-6 animate-spin text-pink-400" />
+                      <span>กำลังโหลดรูปภาพทั้งหมดในอัลบั้ม...</span>
+                    </div>
+                  ) : !selectedDrilldownAlbum.mediaFiles || selectedDrilldownAlbum.mediaFiles.length === 0 ? (
+                    <div className="text-center py-20 text-purple-400 text-xs">
+                      อัลบั้มนี้ยังไม่มีรูปภาพที่อัปโหลดไว้ในระบบ
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {selectedDrilldownAlbum.mediaFiles.map((photo) => {
+                        const photoUrl = photo.reportReadyJpgUrl || photo.thumbnailWebpUrl;
+                        const isSelected = selectedPhotosInModal.includes(photoUrl);
+                        const selectionIndex = selectedPhotosInModal.indexOf(photoUrl) + 1;
+
+                        return (
+                          <div
+                            key={photo.id}
+                            onClick={() => togglePhotoSelection(photoUrl)}
+                            className={`group relative aspect-square rounded-2xl overflow-hidden border-2 cursor-pointer transition-all ${
+                              isSelected
+                                ? "border-pink-500 shadow-lg shadow-pink-500/30 scale-[0.98]"
+                                : "border-purple-800/40 hover:border-pink-400/60 bg-black/40"
+                            }`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={resolveImageUrl(photo.thumbnailWebpUrl || photo.reportReadyJpgUrl)}
+                              alt={photo.fileName}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+
+                            {/* Selection Overlay & Badge */}
+                            <div
+                              className={`absolute inset-0 transition-opacity ${
+                                isSelected ? "bg-pink-600/25 opacity-100" : "bg-black/20 opacity-0 group-hover:opacity-100"
+                              }`}
+                            />
+
+                            {isSelected ? (
+                              <div className="absolute top-2 right-2 flex items-center justify-center h-6 w-6 rounded-full bg-pink-500 text-white font-mono text-xs font-black shadow-md border-2 border-white">
+                                {selectionIndex}
+                              </div>
+                            ) : (
+                              <div className="absolute top-2 right-2 flex items-center justify-center h-6 w-6 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity border border-white/40">
+                                <Plus className="h-3.5 w-3.5" />
+                              </div>
+                            )}
+
+                            {photo.isFeatured && (
+                              <div className="absolute bottom-2 left-2 rounded-md bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                                รูปปก
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Drilldown Action Footer */}
+                <div className="p-4 border-t border-purple-800/40 bg-[#140A34] flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-xs text-purple-200">
+                    <span>เลือกแล้ว: </span>
+                    <strong className="text-pink-400 font-bold text-sm">
+                      {selectedPhotosInModal.length} / 4
+                    </strong>
+                    <span> ภาพ (จะถูกนำไปจัดวางในการ์ดข่าวที่ {targetNewsIndex + 1})</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyAlbumAndPhotos(false)}
+                      disabled={selectedPhotosInModal.length === 0}
+                      className="px-4 py-2 rounded-2xl border border-purple-700/60 bg-[#1D0E46] text-xs font-semibold text-purple-200 hover:text-white transition-all disabled:opacity-40"
+                    >
+                      นำเฉพาะรูปภาพที่เลือกไปใช้
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleApplyAlbumAndPhotos(true)}
+                      disabled={selectedPhotosInModal.length === 0}
+                      className="flex items-center gap-1.5 px-5 py-2 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:opacity-95 transition-all disabled:opacity-40"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>นำรูปที่เลือก + เนื้อหาข่าว AI ใส่ในการ์ด</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -870,35 +1157,47 @@ function NewsCardItem({
 
   return (
     <div
-      className="border-2 border-[#0088cc] rounded-2xl bg-white shadow-sm p-3 flex flex-col justify-between h-full"
+      className="border-2 border-[#0088cc] rounded-2xl bg-white shadow-sm p-3 flex flex-col justify-between h-full overflow-hidden"
       style={{
         boxShadow: "0 2px 8px rgba(0, 136, 204, 0.08)",
       }}
     >
-      {/* 1. Header Capsule Title Badge (matching exact original sample!) */}
-      <div className="w-full mb-2">
-        <div className="w-full bg-gradient-to-r from-[#003380] via-[#004ca8] to-[#003380] text-white text-center font-bold py-1 px-3 rounded-full text-[11px] shadow-sm leading-tight line-clamp-2">
+      {/* 1. Header Capsule Title Badge (matching college template) */}
+      <div className="w-full mb-1.5 shrink-0">
+        <div className="w-full bg-gradient-to-r from-[#003380] via-[#004ca8] to-[#003380] text-white text-center font-bold py-1 px-3 rounded-full text-[10.5px] shadow-sm leading-tight line-clamp-2">
           {item.title || `หัวข้อข่าวกิจกรรมที่ ${index + 1}`}
         </div>
       </div>
 
       {/* 2. Photo Gallery Grid */}
-      <div className="flex-1 flex flex-col justify-center my-1">
+      <div className="flex-1 flex flex-col justify-center my-1 overflow-hidden">
         {images.length === 0 ? (
           <div className="w-full aspect-[16/9] rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-slate-400 text-[10px]">
             <span>(ยังไม่ได้ใส่รูปภาพประกอบข่าวนี้)</span>
           </div>
         ) : images.length === 1 ? (
-          <div className={`w-full rounded-xl overflow-hidden border border-slate-200 ${isFullPage ? "aspect-[16/9]" : isWide ? "aspect-[21/9]" : "aspect-[16/10]"}`}>
+          <div
+            className={`w-full rounded-xl overflow-hidden border border-slate-200 ${
+              isFullPage ? "aspect-[16/9]" : isWide ? "aspect-[21/9]" : "aspect-[16/10]"
+            }`}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={images[0]} alt={item.title} className="w-full h-full object-cover" />
+            <img
+              src={resolveImageUrl(images[0])}
+              alt={item.title}
+              className="w-full h-full object-cover"
+            />
           </div>
         ) : images.length === 2 ? (
           <div className="grid grid-cols-2 gap-1.5 w-full">
             {images.slice(0, 2).map((img, i) => (
               <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden border border-slate-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img} alt={`ภาพ ${i + 1}`} className="w-full h-full object-cover" />
+                <img
+                  src={resolveImageUrl(img)}
+                  alt={`ภาพ ${i + 1}`}
+                  className="w-full h-full object-cover"
+                />
               </div>
             ))}
           </div>
@@ -906,13 +1205,21 @@ function NewsCardItem({
           <div className="space-y-1.5 w-full">
             <div className="aspect-[21/9] rounded-lg overflow-hidden border border-slate-200">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={images[0]} alt="ภาพหลัก" className="w-full h-full object-cover" />
+              <img
+                src={resolveImageUrl(images[0])}
+                alt="ภาพหลัก"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {images.slice(1, 3).map((img, i) => (
                 <div key={i} className="aspect-[16/9] rounded-lg overflow-hidden border border-slate-200">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img} alt={`ภาพ ${i + 2}`} className="w-full h-full object-cover" />
+                  <img
+                    src={resolveImageUrl(img)}
+                    alt={`ภาพ ${i + 2}`}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               ))}
             </div>
@@ -923,7 +1230,11 @@ function NewsCardItem({
             {images.slice(0, 4).map((img, i) => (
               <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden border border-slate-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img} alt={`ภาพ ${i + 1}`} className="w-full h-full object-cover" />
+                <img
+                  src={resolveImageUrl(img)}
+                  alt={`ภาพ ${i + 1}`}
+                  className="w-full h-full object-cover"
+                />
               </div>
             ))}
           </div>
@@ -931,7 +1242,17 @@ function NewsCardItem({
       </div>
 
       {/* 3. News Description Text */}
-      <div className="mt-2 text-slate-800 text-[10.5px] leading-relaxed text-justify line-clamp-5">
+      <div
+        className={`mt-1.5 text-slate-800 text-justify overflow-hidden leading-relaxed ${
+          isFullPage
+            ? "text-[12px] line-clamp-8"
+            : isWide
+            ? "text-[11px] line-clamp-6"
+            : isHero
+            ? "text-[11px] line-clamp-5"
+            : "text-[10px] line-clamp-4"
+        }`}
+      >
         {item.content || "กรุณาระบุรายละเอียดข่าว วันที่จัดกิจกรรม สถานที่ และผู้เข้าร่วมโครงการ..."}
       </div>
     </div>

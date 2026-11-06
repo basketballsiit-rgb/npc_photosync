@@ -208,6 +208,89 @@ export function generateDraftNewsArticle(
 }
 
 /**
+ * Tailors PR news prose specifically to fit the physical card area in the A4 newsletter layout
+ * Prevents text overflow while preserving official journalism structure.
+ */
+export function formatNewsletterProse(
+  rawDescription: string | null | undefined,
+  meta: {
+    title: string;
+    eventDate?: string | Date;
+    divisionName?: string;
+    departmentName?: string;
+  },
+  layout: "4_grid" | "3_digest" | "2_split" | "1_hero" = "4_grid",
+  isHero: boolean = false
+): string {
+  const { news, fullText } = parseNewsDescription(rawDescription, meta);
+
+  let dateStr = (news.when || "").trim();
+  if (!dateStr && meta.eventDate) {
+    const d = new Date(meta.eventDate);
+    if (!isNaN(d.getTime())) {
+      dateStr = d.toLocaleDateString("th-TH", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    }
+  }
+
+  const cleanDate = dateStr
+    ? dateStr.startsWith("วัน") || dateStr.startsWith("เมื่อ")
+      ? dateStr
+      : `เมื่อวันที่ ${dateStr}`
+    : "เมื่อเร็ว ๆ นี้";
+
+  const who = (news.who || "").trim() || "คณะผู้บริหาร คณะครู และบุคลากรทางการศึกษา วิทยาลัยสารพัดช่างน่าน";
+  const what = (news.what || "").trim() || `ได้ร่วมดำเนินกิจกรรม "${meta.title}"`;
+  const where = (news.where || "").trim() || "ณ วิทยาลัยสารพัดช่างน่าน";
+  
+  let why = (news.why || "").trim();
+  if (why) {
+    if (!why.startsWith("เพื่อ") && !why.startsWith("โดยมีวัตถุประสงค์")) {
+      why = `เพื่อ${why}`;
+    }
+  } else {
+    why = "เพื่อส่งเสริมและพัฒนาศักยภาพผู้เรียนและการจัดการศึกษา";
+  }
+
+  const how = (news.how || "").trim() || "การดำเนินกิจกรรมเป็นไปด้วยความเรียบร้อย";
+  const orgUnit = meta.divisionName
+    ? `สังกัด${meta.divisionName}${meta.departmentName ? ` (${meta.departmentName})` : ""}`
+    : "";
+
+  // 1. Compact mode for 4_grid (and non-hero 3_digest cards) - max ~180 chars
+  if (layout === "4_grid" || (layout === "3_digest" && !isHero)) {
+    if (fullText && fullText.length <= 190 && !fullText.includes("5W1H")) {
+      return fullText;
+    }
+    // Punchy, concise single-paragraph lead
+    return `${cleanDate} ${where} ${who} ได้ร่วมดำเนินงาน ${what} ${orgUnit} ${why}`.replace(/\s+/g, " ").trim();
+  }
+
+  // 2. Medium mode for 3_digest Hero and 2_split - max ~320 chars
+  if (layout === "2_split" || (layout === "3_digest" && isHero)) {
+    if (fullText && fullText.length <= 340 && !fullText.includes("5W1H")) {
+      return fullText;
+    }
+    return `${cleanDate} ${where} ${who} ได้ร่วมดำเนินงาน ${what} ${orgUnit} โดยมีวัตถุประสงค์ ${why} ทั้งนี้ ${how} เพื่อขับเคลื่อนการพัฒนาคุณภาพการศึกษาอย่างมีประสิทธิภาพ`.replace(/\s+/g, " ").trim();
+  }
+
+  // 3. Full page mode (1_hero) - full comprehensive PR news
+  if (fullText && fullText.length > 50 && !fullText.includes("5W1H")) {
+    return fullText;
+  }
+  return generateDraftNewsArticle(
+    news,
+    meta.title,
+    meta.eventDate,
+    meta.divisionName,
+    meta.departmentName
+  );
+}
+
+/**
  * Generates ready-to-copy social media text (Facebook / LINE)
  */
 export function formatSocialShareText(
