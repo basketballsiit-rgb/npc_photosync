@@ -33,6 +33,7 @@ interface NewsItem {
   title: string;
   content: string;
   images: string[];
+  allAlbumPhotos?: string[];
   albumCode?: string;
   rawDescription?: string;
   albumMeta?: {
@@ -211,13 +212,19 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
       if (data.success && data.album) {
         setSelectedDrilldownAlbum(data.album);
 
-        // Pre-select photos if current card already has images, otherwise pick up to 4
+        // Pre-select photos: if current card already has images, use them.
+        // Otherwise, smart auto-select recommended photo count based on layout:
+        // In 2_split: 2 photos is golden ratio (16:9 widescreen, fits card + text 100%)
+        // In 4_grid: 2 photos (or 1 photo)
+        // In 1_hero: 4 photos
         const currentImgs = news[targetNewsIndex]?.images || [];
+        const recommendedCount = layout === "2_split" ? 2 : layout === "4_grid" ? 2 : 4;
+
         if (currentImgs.length > 0) {
           setSelectedPhotosInModal(currentImgs);
         } else if (data.album.mediaFiles && data.album.mediaFiles.length > 0) {
           const defaultPics = data.album.mediaFiles
-            .slice(0, 4)
+            .slice(0, recommendedCount)
             .map((m: MediaPhoto) => m.reportReadyJpgUrl || m.thumbnailWebpUrl);
           setSelectedPhotosInModal(defaultPics);
         } else if (data.album.coverThumbnailUrl) {
@@ -259,12 +266,17 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
       chosenPhotos = [selectedDrilldownAlbum.coverThumbnailUrl];
     }
 
+    const allAlbumPhotos = (selectedDrilldownAlbum.mediaFiles || []).map(
+      (m: MediaPhoto) => m.reportReadyJpgUrl || m.thumbnailWebpUrl
+    );
+
     const isHero = (layout === "3_digest" && targetNewsIndex === 0) || layout === "1_hero";
 
     setNews((prev) => {
       const next = [...prev];
       const target = { ...next[targetNewsIndex] };
       target.images = chosenPhotos;
+      target.allAlbumPhotos = allAlbumPhotos.length > 0 ? allAlbumPhotos : chosenPhotos;
 
       if (applyNewsText) {
         target.title = selectedDrilldownAlbum.title;
@@ -296,6 +308,34 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
 
     setIsPhotoPickerOpen(false);
     setSelectedDrilldownAlbum(null);
+  };
+
+  // 1-Click Fast Photo Count Switcher (2 photos, 4 photos, 1 photo) without reopening modal
+  const handleQuickSetPhotoCount = (newsIndex: number, count: number) => {
+    const item = news[newsIndex];
+    if (!item) return;
+
+    const sourcePool =
+      item.allAlbumPhotos && item.allAlbumPhotos.length > 0
+        ? item.allAlbumPhotos
+        : item.images;
+
+    if (!sourcePool || sourcePool.length === 0) {
+      openPhotoPicker(newsIndex);
+      return;
+    }
+
+    const newPics = sourcePool.slice(0, count);
+    setNews((prev) => {
+      const next = [...prev];
+      next[newsIndex] = { ...next[newsIndex], images: newPics };
+      return next;
+    });
+
+    showAlert.success(
+      "ปรับจำนวนภาพอัตโนมัติ",
+      `ปรับเป็น ${newPics.length} ภาพ ให้เหมาะสมกับขนาดการ์ดข่าวเรียบร้อยแล้ว`
+    );
   };
 
   // Remove photo from active news
@@ -713,6 +753,47 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                     <span className="text-[10px] text-purple-400">
                       ใส่ได้ 1 - 4 ภาพ
                     </span>
+                  </div>
+
+                  {/* Smart 1-Click Photo Layout Presets */}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSetPhotoCount(activeNewsIndex, 2)}
+                      className={`px-2.5 py-1 rounded-xl text-[10.5px] font-bold transition-all flex items-center gap-1 ${
+                        news[activeNewsIndex].images.length === 2
+                          ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md border border-pink-400"
+                          : "bg-purple-900/50 text-purple-200 border border-purple-700/50 hover:bg-purple-800"
+                      }`}
+                      title="ปรับอัตโนมัติเป็น 2 ภาพพอดีการ์ด สัดส่วน 16:9 เหมาะสมกับพื้นที่"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      <span>⭐ 2 ภาพ (แนะนำพอดีการ์ด)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSetPhotoCount(activeNewsIndex, 4)}
+                      className={`px-2 py-1 rounded-xl text-[10.5px] font-semibold transition-all ${
+                        news[activeNewsIndex].images.length === 4
+                          ? "bg-pink-500 text-white shadow-sm"
+                          : "bg-purple-900/40 text-purple-200 border border-purple-700/40 hover:bg-purple-800"
+                      }`}
+                      title="แสดง 4 ภาพ"
+                    >
+                      4 ภาพ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSetPhotoCount(activeNewsIndex, 1)}
+                      className={`px-2 py-1 rounded-xl text-[10.5px] font-semibold transition-all ${
+                        news[activeNewsIndex].images.length === 1
+                          ? "bg-pink-500 text-white shadow-sm"
+                          : "bg-purple-900/40 text-purple-200 border border-purple-700/40 hover:bg-purple-800"
+                      }`}
+                      title="แสดง 1 ภาพเด่น"
+                    >
+                      1 ภาพเด่น
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-4 gap-2">
@@ -1168,14 +1249,28 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                     <button
                       type="button"
                       onClick={() => {
+                        const count = layout === "2_split" ? 2 : layout === "4_grid" ? 2 : 4;
+                        const picks = (selectedDrilldownAlbum.mediaFiles || [])
+                          .slice(0, count)
+                          .map((m) => m.reportReadyJpgUrl || m.thumbnailWebpUrl);
+                        setSelectedPhotosInModal(picks);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 border border-pink-400 text-[11px] font-bold text-white shadow-md hover:brightness-110 transition-all flex items-center gap-1.5"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>✨ ปรับอัตโนมัติ ({layout === "2_split" ? "แนะนำ 2 ภาพพอดีการ์ด" : "แนะนำพอดีเลย์เอาต์"})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         const picks = (selectedDrilldownAlbum.mediaFiles || [])
                           .slice(0, 2)
                           .map((m) => m.reportReadyJpgUrl || m.thumbnailWebpUrl);
                         setSelectedPhotosInModal(picks);
                       }}
-                      className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-pink-500/30 to-purple-600/30 border border-pink-500/50 text-[11px] font-bold text-pink-200 hover:text-white hover:bg-pink-500 transition-all shadow-sm"
+                      className="px-2.5 py-1 rounded-xl bg-purple-900/50 border border-purple-700/50 text-[11px] font-semibold text-purple-200 hover:text-white hover:bg-purple-800 transition-all"
                     >
-                      ⭐ เลือก 2 ภาพเด่น (แนะนำ)
+                      2 ภาพ (16:9)
                     </button>
                     <button
                       type="button"
@@ -1187,7 +1282,19 @@ export function NewsletterStudio({ currentTermName }: NewsletterStudioProps) {
                       }}
                       className="px-2.5 py-1 rounded-xl bg-purple-900/50 border border-purple-700/50 text-[11px] font-semibold text-purple-200 hover:text-white hover:bg-purple-800 transition-all"
                     >
-                      เลือก 4 รูป
+                      4 ภาพ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const picks = (selectedDrilldownAlbum.mediaFiles || [])
+                          .slice(0, 1)
+                          .map((m) => m.reportReadyJpgUrl || m.thumbnailWebpUrl);
+                        setSelectedPhotosInModal(picks);
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-purple-900/50 border border-purple-700/50 text-[11px] font-semibold text-purple-200 hover:text-white hover:bg-purple-800 transition-all"
+                    >
+                      1 ภาพเด่น
                     </button>
                     {selectedPhotosInModal.length > 0 && (
                       <button
@@ -1355,7 +1462,7 @@ function NewsCardItem({
               isFullPage
                 ? "h-[400px]"
                 : isWide || isHero
-                ? "h-[215px]"
+                ? "h-[225px]"
                 : "h-[195px]"
             }`}
           >
@@ -1367,13 +1474,13 @@ function NewsCardItem({
             />
           </div>
         ) : images.length === 2 ? (
-          /* 2 Images: Side-by-side */
+          /* 2 Images: Side-by-side (16:9 Widescreen, fills 50:50 card height & width gracefully) */
           <div
             className={`grid grid-cols-2 gap-2 sm:gap-2.5 w-full ${
               isFullPage
                 ? "h-[380px]"
                 : isWide || isHero
-                ? "h-[210px]"
+                ? "h-[225px]"
                 : "h-[195px]"
             }`}
           >
@@ -1391,7 +1498,7 @@ function NewsCardItem({
         ) : images.length === 3 ? (
           /* 3 Images */
           isWide || isHero ? (
-            <div className="grid grid-cols-3 gap-2 w-full h-[195px]">
+            <div className="grid grid-cols-3 gap-2 w-full h-[205px]">
               {images.slice(0, 3).map((img, i) => (
                 <div key={i} className="h-full rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1443,7 +1550,7 @@ function NewsCardItem({
         ) : (
           /* 4 Images: In wide layout (2_split/hero), display as 4 columns in a row. In narrow (4_grid), display 2x2 grid */
           isWide || isHero ? (
-            <div className="grid grid-cols-4 gap-1.5 w-full h-[180px]">
+            <div className="grid grid-cols-4 gap-1.5 w-full h-[205px]">
               {images.slice(0, 4).map((img, i) => (
                 <div key={i} className="h-full rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1491,13 +1598,19 @@ function NewsCardItem({
           isFullPage
             ? "text-[11.5px] line-clamp-10"
             : isWide
-            ? "text-[10.5px] line-clamp-6"
+            ? "text-[11px] leading-relaxed line-clamp-6"
             : isHero
             ? "text-[10px] line-clamp-5"
             : "text-[9.5px] line-clamp-4"
         }`}
       >
         {item.content || "กรุณาระบุรายละเอียดข่าว วันที่จัดกิจกรรม สถานที่ และผู้เข้าร่วมโครงการ..."}
+      </div>
+
+      {/* 4. Official Card Footer Baseline (Nan Polytechnic College Identity) */}
+      <div className="mt-auto pt-1.5 flex items-center justify-between text-[9px] text-slate-400 border-t border-slate-100 shrink-0">
+        <span className="font-medium text-slate-500">วิทยาลัยสารพัดช่างน่าน</span>
+        <span>{item.albumCode ? `รหัสกิจกรรม: ${item.albumCode}` : "จดหมายข่าวประชาสัมพันธ์"}</span>
       </div>
     </div>
   );
