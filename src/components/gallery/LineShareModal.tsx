@@ -155,7 +155,7 @@ export default function LineShareModal({
       "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
   }
 
-  // Summary Text
+  // Summary Text with URL (For clipboard copy & direct mobile app share)
   const summaryText = `📢 [คลังภาพกิจกรรม วช.น่าน]
 📌 ${album.title}
 📅 วันที่: ${thaiDateStr}
@@ -163,6 +163,14 @@ export default function LineShareModal({
 🏛️ หน่วยงาน: ${album.divisionName}${album.departmentName ? ` (${album.departmentName})` : ""}
 ${album.project ? `🔗 โครงการ: ${album.project.projectCode} ${album.project.projectName}\n` : ""}🌐 เปิดดูภาพและดาวน์โหลด:
 ${shareUrl}`;
+
+  // Summary Text without URL (For LINE Web Share plugin, because LINE auto-appends the `url` parameter to the end)
+  const summaryTextForWebShare = `📢 [คลังภาพกิจกรรม วช.น่าน]
+📌 ${album.title}
+📅 วันที่: ${thaiDateStr}
+📸 จำนวน: ${album.photoCount} ภาพ (${sizeStr})
+🏛️ หน่วยงาน: ${album.divisionName}${album.departmentName ? ` (${album.departmentName})` : ""}
+${album.project ? `🔗 โครงการ: ${album.project.projectCode} ${album.project.projectName}\n` : ""}🌐 เปิดดูภาพและดาวน์โหลด:`;
 
   // 1. Copy Card as Image to Clipboard (Instant Ctrl+V into LINE)
   const handleCopyCardImage = async () => {
@@ -245,7 +253,7 @@ ${shareUrl}`;
     if (isMobile) {
       window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(summaryText)}`;
     } else {
-      const lineWebShareUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(summaryText)}`;
+      const lineWebShareUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(summaryTextForWebShare)}`;
       window.open(lineWebShareUrl, "_blank");
     }
   };

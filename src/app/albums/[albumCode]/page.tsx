@@ -577,8 +577,7 @@ export default function AlbumDetailPage() {
 📅 วันที่: ${eventDateStr}
 📸 จำนวน: ${album.photoCount} ภาพ
 🌐 เปิดดูภาพและดาวน์โหลด:
-${shareUrl}
-https://service.npc.ac.th/`;
+${shareUrl}`;
 
     const textForWebShare = `📢 [คลังภาพกิจกรรม วช.น่าน]
 📌 ${album.title}
