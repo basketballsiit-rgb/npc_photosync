@@ -39,7 +39,6 @@ import {
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 import { showAlert, npcSwal } from "@/lib/sweetalert";
-import { OnePageNewsModal } from "@/components/gallery/OnePageNewsModal";
 import LineShareModal from "@/components/gallery/LineShareModal";
 import { MovePhotoModal } from "@/components/admin/MovePhotoModal";
 import { parseNewsDescription, formatSocialShareText } from "@/lib/news-utils";
@@ -96,7 +95,6 @@ export default function AlbumDetailPage() {
   const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>([]);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<MediaItem | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [isOnePageModalOpen, setIsOnePageModalOpen] = useState(false);
   const [isLineModalOpen, setIsLineModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
@@ -1077,16 +1075,6 @@ ${shareUrl}`;
                 <span>QR Code แนบรายงาน 5 บท</span>
               </button>
 
-              {/* One-Page PR Bulletin Button */}
-              <button
-                onClick={() => setIsOnePageModalOpen(true)}
-                className="flex items-center justify-center gap-2 rounded-full border border-cyan-500/50 bg-gradient-to-r from-cyan-500/20 to-blue-500/25 px-4 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-500/35 transition-all shadow-md shadow-cyan-500/15 active:scale-95"
-                title="สร้างและพิมพ์ข่าวประชาสัมพันธ์แผ่นเดียว (One-Page PR Bulletin / Flyer)"
-              >
-                <Newspaper className="h-4 w-4 text-cyan-400" />
-                <span>📰 ข่าวแผ่นเดียว (One-Page PR)</span>
-              </button>
-
               {/* Retroactive Link Button */}
               {isUnlinked && (
                 <button
@@ -1147,15 +1135,6 @@ ${shareUrl}`;
               >
                 <Copy className="h-3.5 w-3.5 text-pink-400" />
                 <span>คัดลอกข่าว (Facebook/LINE)</span>
-              </button>
-
-              <button
-                onClick={() => setIsOnePageModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all"
-                title="เปิดดูและพิมพ์หรือดาวน์โหลดข่าวแผ่นเดียว (One-Page PR Flyer)"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                <span>📰 สร้างข่าวแผ่นเดียว (A4)</span>
               </button>
             </div>
           </div>
@@ -1730,17 +1709,6 @@ ${shareUrl}`;
             </div>
           </div>
         </div>
-      )}
-
-      {/* ONE-PAGE PR BULLETIN FLYER MODAL */}
-      {isOnePageModalOpen && album && (
-        <OnePageNewsModal
-          isOpen={isOnePageModalOpen}
-          onClose={() => setIsOnePageModalOpen(false)}
-          album={album}
-          news={news5w1h}
-          fullNewsText={newsFullText}
-        />
       )}
 
       {/* LINE SHARE FLEX CARD MODAL */}
