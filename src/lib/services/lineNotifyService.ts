@@ -74,26 +74,22 @@ const ALBUM_TYPE_BADGES: Record<
 };
 
 /**
- * Sends a modern LINE Flex Message notification to the specified group or channel
+ * Builds the standard Flex Message payload for an album (used by both Bot Push and LIFF 1-click sharing)
  */
-export async function sendNewAlbumFlexMessage(
+export function buildAlbumFlexMessage(
   album: LineAlbumNotificationPayload,
-  overrideConfig?: { token?: string; targetId?: string; bypassEnabledCheck?: boolean }
-): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const config = await getLineMessagingConfig();
-
-  if (!overrideConfig?.bypassEnabledCheck && !config.isEnabled) {
-    console.log("[LINE Service] LINE notification is disabled in settings");
-    return { success: true, messageId: "skipped_disabled" };
-  }
-
-  const token = (overrideConfig?.token || config.channelAccessToken).trim();
-  const targetId = (overrideConfig?.targetId || config.targetGroupId).trim();
+  options?: { baseUrl?: string; liffId?: string }
+): {
+  type: "flex";
+  altText: string;
+  contents: any;
+} {
   // Determine public base URL for LINE Flex Message actions
   // Never use raw internal IPs (e.g. 202.29.243.82:3005) or localhost
-  let baseUrl = "https://service.npc.ac.th/npc_photosync";
+  let baseUrl = (options?.baseUrl || "https://service.npc.ac.th/npc_photosync").trim();
   const customUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "").trim();
   if (
+    !options?.baseUrl &&
     customUrl &&
     !customUrl.includes("localhost") &&
     !customUrl.includes("202.29.243.82") &&
@@ -109,20 +105,12 @@ export async function sendNewAlbumFlexMessage(
   }
   baseUrl = baseUrl.replace(/\/+$/, "");
 
-  // Graceful fallback for development / test mode without active LINE tokens
-  if (
-    !token ||
-    !targetId ||
-    token.includes("mock-") ||
-    token.includes("your-line") ||
-    targetId.includes("mock-") ||
-    targetId.includes("C1234567890")
-  ) {
-    console.log(
-      `[LINE Service Mock] Skipped real push notification for album: ${album.albumCode} ("${album.title}")`
-    );
-    return { success: true, messageId: `mock_line_msg_${Date.now()}` };
-  }
+  const liffId = (
+    options?.liffId ||
+    process.env.NEXT_PUBLIC_LINE_LIFF_ID ||
+    process.env.LINE_LIFF_ID ||
+    "2012443779-ygwuql9o"
+  ).trim();
 
   const badge = ALBUM_TYPE_BADGES[album.albumType] || {
     label: "กิจกรรมวิทยาลัย",
@@ -159,20 +147,11 @@ export async function sendNewAlbumFlexMessage(
   const thaiDateStr = formatThaiDate(album.eventDate);
   const sizeStr = formatFileSize(album.totalSizeBytes);
 
-  // Ready-to-share message for LINE In-App Share Target Picker (Allows forwarding to any LINE group/friend)
-  const shareText = [
-    `📢 [คลังภาพกิจกรรม วช.น่าน]`,
-    `📌 ${album.title}`,
-    `📅 วันที่: ${thaiDateStr}`,
-    `📸 จำนวน: ${album.photoCount} ภาพ (${sizeStr})`,
-    `🏛️ หน่วยงาน: ${album.divisionName}${album.departmentName ? ` (${album.departmentName})` : ""}`,
-    album.projectCode ? `🔗 โครงการ: ${album.projectCode} ${album.projectName || ""}`.trim() : "",
-    `\n🌐 เปิดดูภาพและดาวน์โหลด:\n${albumPageUrl}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const lineShareUrl = `https://line.me/R/share?text=${encodeURIComponent(shareText)}`;
+  // LIFF Share Target Picker URL:
+  // Direct link to LINE LIFF app, which prompts user to select groups/friends to send this exact Flex Message
+  const liffShareUrl = album.albumCode.startsWith("TEST-")
+    ? `https://liff.line.me/${liffId}?test=1`
+    : `https://liff.line.me/${liffId}?albumCode=${encodeURIComponent(album.albumCode)}`;
 
   // Flex Message Container with Deep Navy & Electric Cyan palette
   const flexContainer = {
@@ -270,93 +249,112 @@ export async function sendNewAlbumFlexMessage(
       contents: [
         {
           type: "box",
-          layout: "baseline",
+          layout: "horizontal",
           spacing: "sm",
           contents: [
             {
               type: "text",
               text: "📅 วันที่จัดกิจกรรม",
-              color: "#94A3B8",
               size: "xs",
-              flex: 2,
+              color: "#94A3B8",
+              flex: 4,
             },
             {
               type: "text",
               text: thaiDateStr,
-              wrap: true,
-              color: "#F1F5F9",
               size: "xs",
-              flex: 3,
+              color: "#E2E8F0",
+              weight: "bold",
+              align: "end",
+              flex: 6,
             },
           ],
         },
         {
           type: "box",
-          layout: "baseline",
+          layout: "horizontal",
           spacing: "sm",
           contents: [
             {
               type: "text",
               text: "📸 จำนวนภาพ / ขนาด",
-              color: "#94A3B8",
               size: "xs",
-              flex: 2,
+              color: "#94A3B8",
+              flex: 4,
             },
             {
               type: "text",
-              text: `${album.photoCount} รูป (${sizeStr})`,
-              wrap: true,
-              color: "#F1F5F9",
+              text: `${album.photoCount} รูป${album.totalSizeBytes ? ` (${sizeStr})` : ""}`,
               size: "xs",
-              flex: 3,
+              color: "#E2E8F0",
+              align: "end",
+              flex: 6,
             },
           ],
         },
         {
           type: "box",
-          layout: "baseline",
+          layout: "horizontal",
           spacing: "sm",
           contents: [
             {
               type: "text",
               text: "🏛️ หน่วยงาน",
-              color: "#94A3B8",
               size: "xs",
-              flex: 2,
+              color: "#94A3B8",
+              flex: 3,
             },
             {
-              type: "text",
-              text: `${album.divisionName || "วิทยาลัยสารพัดช่างน่าน"}${
-                album.departmentName ? ` (${album.departmentName})` : ""
-              }`,
-              wrap: true,
-              color: "#F1F5F9",
-              size: "xs",
-              flex: 3,
+              type: "box",
+              layout: "vertical",
+              flex: 7,
+              contents: [
+                {
+                  type: "text",
+                  text: album.divisionName || "วิทยาลัยสารพัดช่างน่าน",
+                  size: "xs",
+                  color: "#E2E8F0",
+                  align: "end",
+                  wrap: true,
+                },
+                ...(album.departmentName
+                  ? [
+                      {
+                        type: "text" as const,
+                        text: `(${album.departmentName})`,
+                        size: "xxs" as const,
+                        color: "#94A3B8" as const,
+                        align: "end" as const,
+                        wrap: true,
+                      },
+                    ]
+                  : []),
+              ],
             },
           ],
         },
         ...(album.projectCode
           ? [
               {
-                type: "box",
-                layout: "baseline",
-                spacing: "sm",
+                type: "box" as const,
+                layout: "horizontal" as const,
+                spacing: "sm" as const,
                 contents: [
                   {
-                    type: "text",
-                    text: "🔗 ผูกโครงการ",
-                    color: "#06B6D4",
-                    size: "xs",
-                    flex: 2,
+                    type: "text" as const,
+                    text: "🔗 โครงการ",
+                    size: "xs" as const,
+                    color: "#94A3B8" as const,
+                    flex: 3,
                   },
                   {
-                    type: "text",
+                    type: "text" as const,
                     text: `${album.projectCode} ${album.projectName || ""}`.trim(),
+                    size: "xs" as const,
+                    color: "#38BDF8" as const,
+                    align: "end" as const,
                     wrap: true,
-                    color: "#38BDF8",
-                    size: "xs",
-                    flex: 3,
+                    flex: 7,
                   },
                 ],
               },
@@ -390,12 +388,75 @@ export async function sendNewAlbumFlexMessage(
           action: {
             type: "uri",
             label: "↗️ แชร์ต่อลงกลุ่ม LINE อื่น",
-            uri: lineShareUrl,
+            uri: liffShareUrl,
           },
         },
       ],
     },
   };
+
+  return {
+    type: "flex",
+    altText: `📢 ภาพกิจกรรมใหม่: ${album.title} (${album.photoCount} รูป)`,
+    contents: flexContainer,
+  };
+}
+
+/**
+ * Sends a modern LINE Flex Message notification to the specified group or channel
+ */
+export async function sendNewAlbumFlexMessage(
+  album: LineAlbumNotificationPayload,
+  overrideConfig?: { token?: string; targetId?: string; bypassEnabledCheck?: boolean }
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const config = await getLineMessagingConfig();
+
+  if (!overrideConfig?.bypassEnabledCheck && !config.isEnabled) {
+    console.log("[LINE Service] LINE notification is disabled in settings");
+    return { success: true, messageId: "skipped_disabled" };
+  }
+
+  const token = (overrideConfig?.token || config.channelAccessToken).trim();
+  const targetId = (overrideConfig?.targetId || config.targetGroupId).trim();
+
+  // Determine public base URL for LINE Flex Message actions
+  let baseUrl = "https://service.npc.ac.th/npc_photosync";
+  const customUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "").trim();
+  if (
+    customUrl &&
+    !customUrl.includes("localhost") &&
+    !customUrl.includes("202.29.243.82") &&
+    !customUrl.includes(":3005") &&
+    !customUrl.includes(":3006") &&
+    !customUrl.includes(":3000") &&
+    customUrl.startsWith("http")
+  ) {
+    baseUrl = customUrl.replace(/^http:\/\//i, "https://");
+    if (!baseUrl.includes("/npc_photosync")) {
+      baseUrl = `${baseUrl}/npc_photosync`;
+    }
+  }
+  baseUrl = baseUrl.replace(/\/+$/, "");
+
+  // Graceful fallback for development / test mode without active LINE tokens
+  if (
+    !token ||
+    !targetId ||
+    token.includes("mock-") ||
+    token.includes("your-line") ||
+    targetId.includes("mock-") ||
+    targetId.includes("C1234567890")
+  ) {
+    console.log(
+      `[LINE Service Mock] Skipped real push notification for album: ${album.albumCode} ("${album.title}")`
+    );
+    return { success: true, messageId: `mock_line_msg_${Date.now()}` };
+  }
+
+  const flexMessage = buildAlbumFlexMessage(album, {
+    baseUrl,
+    liffId: config.liffId,
+  });
 
   try {
     const res = await fetch("https://api.line.me/v2/bot/message/push", {
@@ -406,13 +467,7 @@ export async function sendNewAlbumFlexMessage(
       },
       body: JSON.stringify({
         to: targetId,
-        messages: [
-          {
-            type: "flex",
-            altText: `📢 ภาพกิจกรรมใหม่: ${album.title} (${album.photoCount} รูป)`,
-            contents: flexContainer,
-          },
-        ],
+        messages: [flexMessage],
       }),
     });
 
@@ -468,4 +523,3 @@ export async function sendLineTestMessage(params?: {
     bypassEnabledCheck: true,
   });
 }
-

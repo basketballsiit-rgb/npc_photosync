@@ -140,6 +140,7 @@ export interface LineMessagingConfig {
   channelAccessToken: string;
   channelSecret: string;
   targetGroupId: string;
+  liffId?: string;
   isEnabled: boolean;
   isConfigured: boolean;
   lastDetectedGroupId?: string;
@@ -170,6 +171,13 @@ export async function getLineMessagingConfig(): Promise<LineMessagingConfig> {
     ""
   ).trim();
 
+  const liffId = (
+    all["LINE_LIFF_ID"] ||
+    process.env.NEXT_PUBLIC_LINE_LIFF_ID ||
+    process.env.LINE_LIFF_ID ||
+    "2012443779-ygwuql9o"
+  ).trim();
+
   const isEnabledStr = (
     all["LINE_NOTIFY_ENABLED"] ??
     process.env.LINE_NOTIFY_ENABLED ??
@@ -194,6 +202,7 @@ export async function getLineMessagingConfig(): Promise<LineMessagingConfig> {
     channelAccessToken,
     channelSecret,
     targetGroupId,
+    liffId,
     isEnabled,
     isConfigured: Boolean(channelAccessToken && targetGroupId && !isMock),
     lastDetectedGroupId,

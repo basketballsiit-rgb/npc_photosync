@@ -33,6 +33,7 @@ export async function GET() {
         channelSecret: config.channelSecret ? "••••••••••••••••" : "",
         hasChannelSecret: Boolean(config.channelSecret),
         targetGroupId: config.targetGroupId,
+        liffId: config.liffId || "2012443779-ygwuql9o",
         isEnabled: config.isEnabled,
         isConfigured: config.isConfigured,
         lastDetectedGroupId: config.lastDetectedGroupId || "",
@@ -55,7 +56,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, channelAccessToken, channelSecret, targetGroupId, isEnabled } = body;
+    const { action, channelAccessToken, channelSecret, targetGroupId, liffId, isEnabled } = body;
 
     // 1. Action: Test notification
     if (action === "test") {
@@ -111,6 +112,14 @@ export async function POST(req: NextRequest) {
         "LINE_TARGET_GROUP_ID",
         targetGroupId.trim(),
         "LINE Target Group ID or Chat ID"
+      );
+    }
+
+    if (liffId !== undefined && liffId.trim() !== "") {
+      await saveSystemSetting(
+        "LINE_LIFF_ID",
+        liffId.trim(),
+        "LINE LIFF ID for 100% Flex Message native sharing"
       );
     }
 

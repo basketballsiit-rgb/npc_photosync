@@ -45,6 +45,7 @@ import {
   Image as ImageIcon,
   Camera,
   Newspaper,
+  Share2,
 } from "lucide-react";
 import { NPC_DIVISIONS } from "@/lib/academic-utils";
 import { DepartmentItem } from "@/lib/services/departmentService";
@@ -169,6 +170,7 @@ export default function AdminPage() {
     channelSecret: string;
     hasChannelSecret: boolean;
     targetGroupId: string;
+    liffId?: string;
     isEnabled: boolean;
     isConfigured: boolean;
     lastDetectedGroupId?: string;
@@ -178,6 +180,7 @@ export default function AdminPage() {
     channelAccessToken: "",
     channelSecret: "",
     targetGroupId: "",
+    liffId: "2012443779-ygwuql9o",
     isEnabled: true,
   });
   const [isSavingLine, setIsSavingLine] = useState(false);
@@ -1029,6 +1032,7 @@ export default function AdminPage() {
         setLineForm((prev) => ({
           ...prev,
           targetGroupId: data.settings.targetGroupId || "",
+          liffId: data.settings.liffId || "2012443779-ygwuql9o",
           isEnabled: data.settings.isEnabled !== false,
         }));
       }
@@ -1051,6 +1055,7 @@ export default function AdminPage() {
           channelAccessToken: lineForm.channelAccessToken,
           channelSecret: lineForm.channelSecret,
           targetGroupId: lineForm.targetGroupId,
+          liffId: lineForm.liffId,
           isEnabled: lineForm.isEnabled,
         }),
       });
@@ -3578,6 +3583,31 @@ export default function AdminPage() {
                       {showLineSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                </div>
+
+                {/* Field 4: LINE LIFF ID (For Flex Message 1-Click Sharing) */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Share2 className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>4. LINE LIFF ID (สำหรับการแชร์ต่อ Flex Message เข้ากลุ่มอื่น 100% ต้นฉบับ)</span>
+                    </label>
+                    {lineSettings?.liffId && (
+                      <span className="text-[11px] font-mono text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                        ✓ พร้อมใช้งาน ({lineSettings.liffId})
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={lineForm.liffId}
+                    onChange={(e) => setLineForm({ ...lineForm, liffId: e.target.value })}
+                    placeholder="เช่น 2012443779-ygwuql9o"
+                    className="w-full rounded-2xl border border-purple-800/40 bg-[#0A051E] px-4 py-3 text-xs text-white placeholder-purple-500/50 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-mono"
+                  />
+                  <p className="text-[11px] text-purple-400">
+                    LIFF ID จาก LINE Login channel (Share Target Picker = On) ช่วยให้ผู้ใช้สามารถกดปุ่มแชร์ส่งต่อ Flex Message เข้ากลุ่มอื่นได้เหมือนเดิมทุกประการโดยไม่เปลืองโควต้าบอท
+                  </p>
                 </div>
 
                 {/* Submit & Action Buttons */}
