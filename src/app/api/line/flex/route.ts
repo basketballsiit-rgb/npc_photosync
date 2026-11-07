@@ -6,6 +6,23 @@ import { AlbumType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
+function toAbsoluteHttpsUrl(rawUrl?: string | null): string {
+  if (!rawUrl) return "";
+  if (rawUrl.startsWith("https://")) return rawUrl;
+  if (rawUrl.startsWith("http://")) return rawUrl.replace(/^http:\/\//i, "https://");
+
+  let clean = rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`;
+  // Prefer JPG for universal LINE Flex Message compatibility
+  if (clean.endsWith(".webp")) {
+    clean = clean.replace("/thumbs/", "/report/").replace(/\.webp$/i, ".jpg");
+  }
+
+  if (clean.startsWith("/npc_photosync/")) {
+    return `https://service.npc.ac.th${clean}`;
+  }
+  return `https://service.npc.ac.th/npc_photosync${clean}`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -39,11 +56,13 @@ export async function GET(req: NextRequest) {
       }
 
       if (realAlbum) {
-        const coverUrl =
+        const rawCover =
+          realAlbum.mediaFiles[0]?.reportReadyJpgUrl ||
           realAlbum.coverThumbnailUrl ||
           realAlbum.mediaFiles[0]?.thumbnailWebpUrl ||
-          realAlbum.mediaFiles[0]?.reportReadyJpgUrl ||
           null;
+
+        const absoluteCover = toAbsoluteHttpsUrl(rawCover);
 
         const payload: LineAlbumNotificationPayload = {
           albumCode: realAlbum.albumCode,
@@ -53,7 +72,7 @@ export async function GET(req: NextRequest) {
           photoCount: realAlbum.photoCount,
           totalSizeBytes: realAlbum.totalSizeBytes,
           eventDate: realAlbum.eventDate,
-          coverThumbnailUrl: coverUrl,
+          coverThumbnailUrl: absoluteCover,
           divisionName: realAlbum.divisionName,
           departmentName: realAlbum.departmentName,
           projectCode: realAlbum.project?.projectCode || null,
@@ -67,7 +86,7 @@ export async function GET(req: NextRequest) {
           album: {
             title: payload.title,
             albumCode: payload.albumCode,
-            coverThumbnailUrl: payload.coverThumbnailUrl,
+            coverThumbnailUrl: absoluteCover,
             photoCount: payload.photoCount,
           },
           flexMessage,
@@ -125,11 +144,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const coverUrl =
+    const rawCover =
+      album.mediaFiles[0]?.reportReadyJpgUrl ||
       album.coverThumbnailUrl ||
       album.mediaFiles[0]?.thumbnailWebpUrl ||
-      album.mediaFiles[0]?.reportReadyJpgUrl ||
       null;
+
+    const absoluteCover = toAbsoluteHttpsUrl(rawCover);
 
     const payload: LineAlbumNotificationPayload = {
       albumCode: album.albumCode,
@@ -139,7 +160,7 @@ export async function GET(req: NextRequest) {
       photoCount: album.photoCount,
       totalSizeBytes: album.totalSizeBytes,
       eventDate: album.eventDate,
-      coverThumbnailUrl: coverUrl,
+      coverThumbnailUrl: absoluteCover,
       divisionName: album.divisionName,
       departmentName: album.departmentName,
       projectCode: album.project?.projectCode || null,
@@ -154,7 +175,7 @@ export async function GET(req: NextRequest) {
       album: {
         title: album.title,
         albumCode: album.albumCode,
-        coverThumbnailUrl: coverUrl,
+        coverThumbnailUrl: absoluteCover,
         photoCount: album.photoCount,
       },
       flexMessage,

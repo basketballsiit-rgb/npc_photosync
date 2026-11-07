@@ -144,6 +144,18 @@ function ShareContent() {
       : `${basePath}/albums/${albumData.albumCode}?openExternalBrowser=1`
     : `${basePath}/?openExternalBrowser=1`;
 
+  const resolveImageUrl = (raw?: string | null) => {
+    if (!raw) return "";
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      return raw;
+    }
+    const clean = raw.startsWith("/") ? raw : `/${raw}`;
+    if (clean.startsWith("/npc_photosync/")) {
+      return clean;
+    }
+    return `${basePath}${clean}`;
+  };
+
   return (
     <>
       <Script
@@ -170,19 +182,27 @@ function ShareContent() {
           {/* Album summary preview card */}
           {albumData && (
             <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/60 text-left flex items-center space-x-3">
-              {albumData.coverThumbnailUrl && (
+              {albumData.coverThumbnailUrl ? (
                 <img
-                  src={albumData.coverThumbnailUrl}
+                  src={resolveImageUrl(albumData.coverThumbnailUrl)}
                   alt={albumData.title}
-                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0 bg-slate-700"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src =
+                      "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=300&auto=format&fit=crop&q=80";
+                  }}
+                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0 bg-slate-700 border border-slate-600/50"
                 />
+              ) : (
+                <div className="w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center text-slate-400 text-lg flex-shrink-0">
+                  📸
+                </div>
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-white line-clamp-2">
                   {albumData.title}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  รหัส: <span className="font-mono text-cyan-400">{albumData.albumCode}</span> • {albumData.photoCount || 1} รูป
+                  รหัส: <span className="font-mono text-cyan-400 font-bold">{albumData.albumCode}</span> • {albumData.photoCount || 1} รูป
                 </p>
               </div>
             </div>

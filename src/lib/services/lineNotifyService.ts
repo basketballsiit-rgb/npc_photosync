@@ -123,9 +123,14 @@ export function buildAlbumFlexMessage(
   if (album.coverThumbnailUrl && (album.coverThumbnailUrl.startsWith("https://") || album.coverThumbnailUrl.startsWith("http://"))) {
     coverUrl = album.coverThumbnailUrl.replace(/^http:\/\//i, "https://");
   } else if (album.coverThumbnailUrl) {
-    const cleanPath = album.coverThumbnailUrl.startsWith("/")
+    let cleanPath = album.coverThumbnailUrl.startsWith("/")
       ? album.coverThumbnailUrl
       : `/${album.coverThumbnailUrl}`;
+
+    // Prefer JPG over WEBP for LINE Flex Message hero image
+    if (cleanPath.endsWith(".webp")) {
+      cleanPath = cleanPath.replace("/thumbs/", "/report/").replace(/\.webp$/i, ".jpg");
+    }
 
     if (cleanPath.startsWith("/npc_photosync/")) {
       coverUrl = `https://service.npc.ac.th${cleanPath}`;
@@ -135,6 +140,10 @@ export function buildAlbumFlexMessage(
   } else {
     // High-quality fallback HTTPS cover image
     coverUrl = "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
+  }
+
+  if (coverUrl.endsWith(".webp")) {
+    coverUrl = coverUrl.replace("/thumbs/", "/report/").replace(/\.webp$/i, ".jpg");
   }
 
   // Ensure coverUrl is strictly https://
