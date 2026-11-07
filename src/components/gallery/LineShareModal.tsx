@@ -460,31 +460,58 @@ ${album.project ? `🔗 โครงการ: ${album.project.projectCode} ${al
 
           {/* Right Column: Actions & Options */}
           <div className="md:col-span-6 flex flex-col gap-4">
-            {/* Primary Action: Open & Share via LINE App (100% FREE, Zero Message Cost, Clickable in LINE) */}
-            <div className="rounded-2xl border border-emerald-500/50 bg-[#06C755]/10 p-4 space-y-3">
+            {/* Primary Action 1: Send 100% Native Flex Message via LIFF Share Target Picker */}
+            <div className="rounded-2xl border border-emerald-500/60 bg-[#06C755]/15 p-4 space-y-3 shadow-lg shadow-emerald-950/30">
               <div className="flex items-start gap-2.5">
                 <div className="p-2 rounded-xl bg-[#06C755]/20 text-[#06C755] mt-0.5 shrink-0">
-                  <ExternalLink className="h-4 w-4" />
+                  <Send className="h-4 w-4" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    แชร์เข้าแชท / กลุ่ม LINE โดยตรง
+                    ส่งต่อการ์ด Flex Message เข้าแชท / กลุ่ม LINE
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-                      ฟรี 100% ไม่มีค่าบริการ
+                      ต้นฉบับ 100%
                     </span>
                   </h4>
                   <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                    ส่งเข้ากลุ่มหรือแชท LINE ผ่านแอปพลิเคชันโดยตรง <strong>ไม่มีการคิดค่าใช้จ่ายหรือหักโควตาใดๆ</strong> และเมื่อส่งแล้วคนในกลุ่มสามารถ <strong>แตะที่การ์ดเพื่อเปิดเข้าดูอัลบั้มได้ทันที</strong>
+                    ส่งการ์ด Flex Message สวยงามคมชัดเหมือนบอทส่ง มีปุ่มกดดูภาพ มีรูปปกจริง และระบุรหัส <strong>{album.albumCode}</strong> ส่งเข้ากลุ่มใดก็ได้ทันที ฟรี ไม่จำกัดโควตา
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href={`https://liff.line.me/2012443779-ygwuql9o?albumCode=${encodeURIComponent(album.albumCode)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 px-4 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#06C755]/25 transition-all active:scale-[0.98]"
+              >
+                <Send className="h-4 w-4" />
+                <span>↗️ กดเลือกกลุ่ม LINE เพื่อส่งต่อการ์ด Flex Message</span>
+              </a>
+            </div>
+
+            {/* Secondary Action: Open & Share via LINE App / Web Share */}
+            <div className="rounded-2xl border border-slate-700/60 bg-slate-900/40 p-4 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <div className="p-2 rounded-xl bg-slate-800 text-slate-300 mt-0.5 shrink-0">
+                  <ExternalLink className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-200">
+                    แชร์ลิงก์พร้อมข้อความสรุป (LINE URL Scheme)
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                    ส่งเป็นข้อความสรุปกิจกรรมพร้อมลิงก์เปิดอัลบั้ม
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={handleOpenLineShare}
-                className="w-full py-3 px-4 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#06C755]/25 transition-all active:scale-[0.98]"
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center justify-center gap-2 border border-slate-700 transition-all active:scale-[0.98]"
               >
-                <ExternalLink className="h-4 w-4" />
-                <span>📲 คลิกส่งเข้าห้องแชท / กลุ่ม LINE (กดแล้วเปิดอัลบั้มได้ทันที)</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span>แชร์เป็นข้อความสรุปกิจกรรม (Text + Link)</span>
               </button>
             </div>
 

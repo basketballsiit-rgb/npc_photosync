@@ -1,4 +1,5 @@
 import { AlbumType } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { getLineMessagingConfig } from "@/lib/services/systemSettingService";
 
 export interface LineAlbumNotificationPayload {
@@ -119,24 +120,30 @@ export function buildAlbumFlexMessage(
   };
 
   let coverUrl = "";
-  if (album.coverThumbnailUrl && album.coverThumbnailUrl.startsWith("https://")) {
-    coverUrl = album.coverThumbnailUrl;
-  } else if (album.coverThumbnailUrl && album.coverThumbnailUrl.startsWith("http://")) {
+  if (album.coverThumbnailUrl && (album.coverThumbnailUrl.startsWith("https://") || album.coverThumbnailUrl.startsWith("http://"))) {
     coverUrl = album.coverThumbnailUrl.replace(/^http:\/\//i, "https://");
-  } else if (album.coverThumbnailUrl && album.coverThumbnailUrl.startsWith("/")) {
-    coverUrl = `${baseUrl}${album.coverThumbnailUrl}`;
+  } else if (album.coverThumbnailUrl) {
+    const cleanPath = album.coverThumbnailUrl.startsWith("/")
+      ? album.coverThumbnailUrl
+      : `/${album.coverThumbnailUrl}`;
+
+    if (cleanPath.startsWith("/npc_photosync/")) {
+      coverUrl = `https://service.npc.ac.th${cleanPath}`;
+    } else {
+      coverUrl = `${baseUrl}${cleanPath}`;
+    }
   } else {
-    // High-quality, reliable default HTTPS cover image for college events
+    // High-quality fallback HTTPS cover image
     coverUrl = "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
   }
 
   // Ensure coverUrl is strictly https://
   if (!coverUrl.startsWith("https://")) {
-    coverUrl = "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80";
+    coverUrl = coverUrl.replace(/^http:\/\//i, "https://");
   }
 
-  // If this is a test album, link directly to the main PhotoSync gallery
-  // Append openExternalBrowser=1 so LINE automatically launches default browser (Chrome/Safari)
+  // If this is a mock test album with no DB match, link to main PhotoSync gallery
+  // Real albums link directly to their own album page (/albums/[albumCode])
   let albumPageUrl = album.albumCode.startsWith("TEST-")
     ? `${baseUrl}?openExternalBrowser=1`
     : `${baseUrl}/albums/${album.albumCode}?openExternalBrowser=1`;
@@ -488,11 +495,14 @@ export async function sendNewAlbumFlexMessage(
 }
 
 /**
- * Sends a test push message to verify LINE Messaging API credentials and target group
+ * Sends a test push message to verify LINE Messaging API credentials and target group.
+ * Automatically picks the latest real album in the database so the test is 100% authentic,
+ * showing the real event cover photo and linking directly to that specific album page.
  */
 export async function sendLineTestMessage(params?: {
   channelAccessToken?: string;
   targetGroupId?: string;
+  albumCode?: string;
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const config = await getLineMessagingConfig();
   const token = (params?.channelAccessToken || config.channelAccessToken).trim();
@@ -505,7 +515,54 @@ export async function sendLineTestMessage(params?: {
     return { success: false, error: "กรุณาระบุ Target Group ID ก่อนทดสอบ" };
   }
 
-  const testPayload: LineAlbumNotificationPayload = {
+  // 1. Attempt to fetch real album from database (specific album or latest uploaded)
+  let realAlbumPayload: LineAlbumNotificationPayload | null = null;
+  try {
+    const album = await prisma.album.findFirst({
+      where: params?.albumCode ? { albumCode: params.albumCode } : undefined,
+      orderBy: { createdAt: "desc" },
+      include: {
+        project: {
+          select: {
+            projectCode: true,
+            projectName: true,
+          },
+        },
+        mediaFiles: {
+          orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+          take: 1,
+        },
+      },
+    });
+
+    if (album) {
+      const coverUrl =
+        album.coverThumbnailUrl ||
+        album.mediaFiles[0]?.thumbnailWebpUrl ||
+        album.mediaFiles[0]?.reportReadyJpgUrl ||
+        null;
+
+      realAlbumPayload = {
+        albumCode: album.albumCode,
+        title: album.title,
+        description: album.description,
+        albumType: album.albumType,
+        photoCount: album.photoCount,
+        totalSizeBytes: album.totalSizeBytes,
+        eventDate: album.eventDate,
+        coverThumbnailUrl: coverUrl,
+        divisionName: album.divisionName,
+        departmentName: album.departmentName,
+        projectCode: album.project?.projectCode || null,
+        projectName: album.project?.projectName || null,
+      };
+    }
+  } catch (err) {
+    console.warn("Could not query latest album for test push:", err);
+  }
+
+  // 2. Fallback only if database has zero albums yet
+  const testPayload: LineAlbumNotificationPayload = realAlbumPayload || {
     albumCode: `TEST-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}`,
     title: "🔔 ทดสอบการเชื่อมต่อระบบแจ้งเตือน LINE Messaging API",
     description: "ทดสอบการส่งข้อความแจ้งเตือนอัตโนมัติจากระบบ NPC_PhotoSync วิทยาลัยสารพัดช่างน่าน การเชื่อมต่อสำเร็จสมบูรณ์พร้อมใช้งาน!",

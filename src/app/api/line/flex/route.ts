@@ -15,7 +15,66 @@ export async function GET(req: NextRequest) {
     const config = await getLineMessagingConfig();
     const liffId = config.liffId || "2012443779-ygwuql9o";
 
+    // If test requested or no albumCode, attempt to fetch latest real album from database
     if (isTest || !albumCode) {
+      let realAlbum = null;
+      try {
+        realAlbum = await prisma.album.findFirst({
+          orderBy: { createdAt: "desc" },
+          include: {
+            project: {
+              select: {
+                projectCode: true,
+                projectName: true,
+              },
+            },
+            mediaFiles: {
+              orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+              take: 1,
+            },
+          },
+        });
+      } catch (err) {
+        console.warn("Could not load latest album for flex route:", err);
+      }
+
+      if (realAlbum) {
+        const coverUrl =
+          realAlbum.coverThumbnailUrl ||
+          realAlbum.mediaFiles[0]?.thumbnailWebpUrl ||
+          realAlbum.mediaFiles[0]?.reportReadyJpgUrl ||
+          null;
+
+        const payload: LineAlbumNotificationPayload = {
+          albumCode: realAlbum.albumCode,
+          title: realAlbum.title,
+          description: realAlbum.description,
+          albumType: realAlbum.albumType,
+          photoCount: realAlbum.photoCount,
+          totalSizeBytes: realAlbum.totalSizeBytes,
+          eventDate: realAlbum.eventDate,
+          coverThumbnailUrl: coverUrl,
+          divisionName: realAlbum.divisionName,
+          departmentName: realAlbum.departmentName,
+          projectCode: realAlbum.project?.projectCode || null,
+          projectName: realAlbum.project?.projectName || null,
+        };
+
+        const flexMessage = buildAlbumFlexMessage(payload, { liffId });
+        return NextResponse.json({
+          success: true,
+          liffId,
+          album: {
+            title: payload.title,
+            albumCode: payload.albumCode,
+            coverThumbnailUrl: payload.coverThumbnailUrl,
+            photoCount: payload.photoCount,
+          },
+          flexMessage,
+        });
+      }
+
+      // Fallback only if no albums exist in database
       const testPayload: LineAlbumNotificationPayload = {
         albumCode: albumCode || `TEST-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}`,
         title: "🔔 ทดสอบการเชื่อมต่อระบบแจ้งเตือน LINE Messaging API",
@@ -42,6 +101,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Lookup specific album by code
     const album = await prisma.album.findUnique({
       where: { albumCode },
       include: {
@@ -50,6 +110,10 @@ export async function GET(req: NextRequest) {
             projectCode: true,
             projectName: true,
           },
+        },
+        mediaFiles: {
+          orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+          take: 1,
         },
       },
     });
@@ -61,6 +125,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const coverUrl =
+      album.coverThumbnailUrl ||
+      album.mediaFiles[0]?.thumbnailWebpUrl ||
+      album.mediaFiles[0]?.reportReadyJpgUrl ||
+      null;
+
     const payload: LineAlbumNotificationPayload = {
       albumCode: album.albumCode,
       title: album.title,
@@ -69,7 +139,7 @@ export async function GET(req: NextRequest) {
       photoCount: album.photoCount,
       totalSizeBytes: album.totalSizeBytes,
       eventDate: album.eventDate,
-      coverThumbnailUrl: album.coverThumbnailUrl,
+      coverThumbnailUrl: coverUrl,
       divisionName: album.divisionName,
       departmentName: album.departmentName,
       projectCode: album.project?.projectCode || null,
@@ -84,7 +154,7 @@ export async function GET(req: NextRequest) {
       album: {
         title: album.title,
         albumCode: album.albumCode,
-        coverThumbnailUrl: album.coverThumbnailUrl,
+        coverThumbnailUrl: coverUrl,
         photoCount: album.photoCount,
       },
       flexMessage,

@@ -2518,33 +2518,16 @@ export default function AdminPage() {
                                 <Edit className="h-4 w-4" />
                               </button>
 
-                              {/* Share to LINE Button (Free, Unlimited) */}
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const origin = typeof window !== "undefined" ? window.location.origin : "";
-                                  const url = `${origin}/npc_photosync/albums/${album.albumCode}?openExternalBrowser=1`;
-                                  const eventDateStr = album.eventDate ? album.eventDate.slice(0, 10) : "";
-                                  const shareText = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 ${album.title}\n📅 วันที่: ${eventDateStr}\n📸 จำนวน: ${album.photoCount} ภาพ\n🌐 เปิดดูภาพและดาวน์โหลด:\n${url}\nhttps://service.npc.ac.th/`;
-                                  const textForWebShare = `📢 [คลังภาพกิจกรรม วช.น่าน]\n📌 ${album.title}\n📅 วันที่: ${eventDateStr}\n📸 จำนวน: ${album.photoCount} ภาพ\n🌐 เปิดดูภาพและดาวน์โหลด:`;
-                                  try {
-                                    await navigator.clipboard.writeText(shareText);
-                                  } catch {}
-
-                                  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                                  if (isMobile) {
-                                    window.open(`https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`, "_blank");
-                                  } else {
-                                    const webShareUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(textForWebShare)}`;
-                                    window.open(webShareUrl, "_blank");
-                                    showAlert.success("คัดลอกข้อความแล้ว", "ระบบเปิดหน้าต่างแชร์ LINE พร้อมข้อความสรุป และคัดลอกข้อความลงคลิปบอร์ดเรียบร้อยแล้ว");
-                                  }
-                                }}
+                              {/* Share 100% Flex Message via LIFF to LINE */}
+                              <a
+                                href={`https://liff.line.me/${lineSettings?.liffId || "2012443779-ygwuql9o"}?albumCode=${encodeURIComponent(album.albumCode)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="p-1.5 rounded-xl text-emerald-400 hover:text-emerald-200 hover:bg-emerald-950/50 transition-colors"
-                                title="แชร์ลงกลุ่ม LINE (ฟรี ไม่จำกัดโควตา)"
+                                title="แชร์การ์ด Flex Message เข้ากลุ่ม LINE (ฟรี 100% ต้นฉบับ)"
                               >
                                 <MessageSquare className="h-4 w-4" />
-                              </button>
+                              </a>
 
                               {/* Link Project Button (if unlinked) */}
                               {isUnlinked && (
