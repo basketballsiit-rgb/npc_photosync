@@ -159,6 +159,21 @@ export async function sendNewAlbumFlexMessage(
   const thaiDateStr = formatThaiDate(album.eventDate);
   const sizeStr = formatFileSize(album.totalSizeBytes);
 
+  // Ready-to-share message for LINE In-App Share Target Picker (Allows forwarding to any LINE group/friend)
+  const shareText = [
+    `📢 [คลังภาพกิจกรรม วช.น่าน]`,
+    `📌 ${album.title}`,
+    `📅 วันที่: ${thaiDateStr}`,
+    `📸 จำนวน: ${album.photoCount} ภาพ (${sizeStr})`,
+    `🏛️ หน่วยงาน: ${album.divisionName}${album.departmentName ? ` (${album.departmentName})` : ""}`,
+    album.projectCode ? `🔗 โครงการ: ${album.projectCode} ${album.projectName || ""}`.trim() : "",
+    `\n🌐 เปิดดูภาพและดาวน์โหลด:\n${albumPageUrl}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const lineShareUrl = `https://line.me/R/share?text=${encodeURIComponent(shareText)}`;
+
   // Flex Message Container with Deep Navy & Electric Cyan palette
   const flexContainer = {
     type: "bubble",
@@ -352,6 +367,7 @@ export async function sendNewAlbumFlexMessage(
     footer: {
       type: "box",
       layout: "vertical",
+      spacing: "sm",
       backgroundColor: "#0F172A",
       paddingAll: "12px",
       contents: [
@@ -364,6 +380,17 @@ export async function sendNewAlbumFlexMessage(
             type: "uri",
             label: "🌐 เปิดดูภาพและดาวน์โหลด",
             uri: albumPageUrl,
+          },
+        },
+        {
+          type: "button",
+          style: "primary",
+          color: "#10B981",
+          height: "sm",
+          action: {
+            type: "uri",
+            label: "↗️ แชร์ต่อลงกลุ่ม LINE อื่น",
+            uri: lineShareUrl,
           },
         },
       ],
