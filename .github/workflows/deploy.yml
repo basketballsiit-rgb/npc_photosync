@@ -54,6 +54,7 @@ jobs:
           echo "🗄️ Generating Prisma Client & Syncing Database..."
           npx prisma generate
           npx prisma db push --accept-data-loss || true
+          node scripts/refresh-dimensions.js || true
 
           # 6. Build Next.js Production Assets
           echo "⚡ Building Next.js application..."

@@ -104,10 +104,13 @@ export async function processAndSaveImage(
     .jpeg({ quality: 85, progressive: true, mozjpeg: true })
     .toBuffer();
 
-  // Inspect final report dimensions
-  const finalMeta = await sharp(reportBuffer).metadata();
-  const width = finalMeta.width || rawMetadata.width || 1920;
-  const height = finalMeta.height || rawMetadata.height || 1080;
+  // Inspect true camera original dimensions (after auto-rotation)
+  let width = rawMetadata.width || 1920;
+  let height = rawMetadata.height || 1080;
+  if (rawMetadata.orientation && rawMetadata.orientation >= 5 && rawMetadata.orientation <= 8) {
+    width = rawMetadata.height || 1080;
+    height = rawMetadata.width || 1920;
+  }
 
   // 4. Ensure directories exist on disk (thumbs, report, and 100% untouched original)
   const thumbsDir = path.resolve(baseStorage, "thumbs", albumCode);

@@ -340,6 +340,24 @@ export default function AlbumDetailPage() {
   // Touch swipe state for Lightbox navigation
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [isFullOriginalView, setIsFullOriginalView] = useState(false);
+
+  useEffect(() => {
+    setIsFullOriginalView(false);
+  }, [activeLightboxMedia?.id]);
+
+  const getAspectRatioLabel = (w?: number | null, h?: number | null) => {
+    if (!w || !h) return "";
+    const ratio = w / h;
+    if (Math.abs(ratio - 16 / 9) < 0.05) return "16:9";
+    if (Math.abs(ratio - 4 / 3) < 0.05) return "4:3";
+    if (Math.abs(ratio - 3 / 2) < 0.05) return "3:2";
+    if (Math.abs(ratio - 1) < 0.05) return "1:1";
+    if (Math.abs(ratio - 9 / 16) < 0.05) return "9:16";
+    if (Math.abs(ratio - 3 / 4) < 0.05) return "3:4";
+    if (Math.abs(ratio - 2 / 3) < 0.05) return "2:3";
+    return `${w}:${h}`;
+  };
 
   const currentMediaIndex =
     activeMediaList.findIndex((m) => m.id === activeLightboxMedia?.id) ?? -1;
@@ -1559,8 +1577,12 @@ ${shareUrl}`;
               title="แตะปัดซ้าย-ขวาบนมือถือเพื่อเปลี่ยนรูป"
             >
               <img
-                key={activeLightboxMedia.id}
-                src={formatMediaUrl(activeLightboxMedia.reportReadyJpgUrl, activeLightboxMedia.id, "report")}
+                key={`${activeLightboxMedia.id}-${isFullOriginalView}`}
+                src={
+                  isFullOriginalView
+                    ? `${getClientBasePath()}/api/v1/image-proxy/${activeLightboxMedia.id}?type=original`
+                    : formatMediaUrl(activeLightboxMedia.reportReadyJpgUrl, activeLightboxMedia.id, "report")
+                }
                 alt={activeLightboxMedia.fileName}
                 className="max-h-[50vh] sm:max-h-[70vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-purple-800/40 select-none transition-all duration-200"
                 onError={(e) => {
@@ -1581,11 +1603,37 @@ ${shareUrl}`;
                     {activeLightboxMedia.aiCaption || activeLightboxMedia.fileName}
                   </h4>
                   <div className="flex flex-wrap items-center gap-2 text-purple-400/80 text-[11px] mt-1">
-                    <span>{activeLightboxMedia.cameraModel || "กล้องดิจิทัล"}</span>
+                    <span className="font-semibold text-purple-200">{activeLightboxMedia.cameraModel || "กล้องดิจิทัล"}</span>
                     <span>•</span>
-                    <span>{activeLightboxMedia.width} x {activeLightboxMedia.height} px</span>
+                    {activeLightboxMedia.width && activeLightboxMedia.height && (
+                      <>
+                        <span className="text-cyan-300 font-bold">
+                          สัดส่วน {getAspectRatioLabel(activeLightboxMedia.width, activeLightboxMedia.height)}
+                        </span>
+                        <span>•</span>
+                        <span className="text-white font-mono">
+                          {activeLightboxMedia.width} x {activeLightboxMedia.height} px
+                        </span>
+                        <span>•</span>
+                      </>
+                    )}
+                    <span>{formatMb(Number(activeLightboxMedia.fileSizeBytes))}</span>
                     <span>•</span>
-                    <span className="font-mono text-purple-300">{activeLightboxMedia.fileName}</span>
+                    <span className="font-mono text-purple-300 truncate max-w-[200px]" title={activeLightboxMedia.fileName}>
+                      {activeLightboxMedia.fileName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsFullOriginalView(!isFullOriginalView)}
+                      className={`ml-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                        isFullOriginalView
+                          ? "bg-amber-500/30 text-amber-300 border-amber-500/60 shadow-sm shadow-amber-500/20"
+                          : "bg-purple-900/50 text-purple-300 border-purple-700/50 hover:bg-purple-800/60 hover:text-white"
+                      }`}
+                      title="คลิกเพื่อสลับดูภาพไฟล์ต้นฉบับแท้ 100% ไม่บีบอัด"
+                    >
+                      {isFullOriginalView ? "💎 กำลังแสดง: ไฟล์ต้นฉบับแท้" : "🔍 สลับดูไฟล์ต้นฉบับ 100%"}
+                    </button>
                   </div>
                 </div>
 
