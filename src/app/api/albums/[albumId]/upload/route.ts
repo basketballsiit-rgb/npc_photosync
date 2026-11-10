@@ -46,23 +46,26 @@ export async function POST(
     let addedSizeBytes = BigInt(0);
     const newTagsCollector = new Set<string>();
 
-    // Auto-recover Google Drive folder if missing, mock, or previously errored
+    // Auto-recover Google Drive folder if missing, mock, previously errored, or pending
     let driveFolderId = album.driveFolderId;
     if (
       !driveFolderId ||
       driveFolderId.startsWith("mock_") ||
-      driveFolderId.startsWith("err_")
+      driveFolderId.startsWith("err_") ||
+      driveFolderId.startsWith("pending_")
     ) {
       try {
         const driveResult = await ensureAlbumDriveFolder(
           album.academicYear,
           album.albumType,
-          album.albumCode
+          album.albumCode,
+          4000
         );
         if (
           driveResult.driveFolderId &&
           !driveResult.driveFolderId.startsWith("mock_") &&
-          !driveResult.driveFolderId.startsWith("err_")
+          !driveResult.driveFolderId.startsWith("err_") &&
+          !driveResult.driveFolderId.startsWith("pending_")
         ) {
           driveFolderId = driveResult.driveFolderId;
           await prisma.album.update({

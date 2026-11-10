@@ -452,35 +452,59 @@ export function QuickUploadModal({
         autoProse
       );
 
-      // 2. Create Album with safe JSON parsing
-      const createRes = await fetch(apiUrl("/api/albums"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          description: finalDescription,
-          eventDate,
-          albumType,
-          projectId: albumType === AlbumType.PROJECT ? projectId : null,
-          divisionName,
-          departmentName,
-        }),
-      });
+      // 2. Create Album with safe JSON parsing and auto-retry
+      let createData: any = null;
+      let lastCreateErr: Error | null = null;
 
-      const createContentType = createRes.headers.get("content-type") || "";
-      let createData: any;
-      if (createContentType.includes("application/json")) {
-        createData = await createRes.json();
-      } else {
-        const rawErr = await createRes.text();
-        console.error("Create album non-JSON response:", rawErr);
-        throw new Error(
-          `เซิร์ฟเวอร์ขัดข้องในการสร้างอัลบั้ม (HTTP ${createRes.status}) กรุณาลองใหม่อีกครั้ง`
-        );
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          if (attempt > 1) {
+            setUploadStatusText("กำลังพยายามสร้างอัลบั้มใหม่อีกครั้ง...");
+          }
+          const createRes = await fetch(apiUrl("/api/albums"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title,
+              description: finalDescription,
+              eventDate,
+              albumType,
+              projectId: albumType === AlbumType.PROJECT ? projectId : null,
+              divisionName,
+              departmentName,
+            }),
+          });
+
+          const createContentType = createRes.headers.get("content-type") || "";
+          if (createContentType.includes("application/json")) {
+            createData = await createRes.json();
+          } else {
+            const rawErr = await createRes.text();
+            console.error(`Create album non-JSON response (attempt ${attempt}):`, rawErr);
+            throw new Error(
+              createRes.status === 504
+                ? "เซิร์ฟเวอร์ใช้เวลาตอบสนองนานเกินกำหนด (HTTP 504 Gateway Timeout) กำลังลองใหม่อีกครั้ง..."
+                : `เซิร์ฟเวอร์ขัดข้องในการสร้างอัลบั้ม (HTTP ${createRes.status}) กรุณาลองใหม่อีกครั้ง`
+            );
+          }
+
+          if (!createRes.ok || !createData?.success) {
+            throw new Error(createData?.error || "ไม่สามารถสร้างอัลบั้มในระบบได้");
+          }
+
+          lastCreateErr = null;
+          break; // Succeeded!
+        } catch (cErr: any) {
+          lastCreateErr = cErr;
+          if (attempt < 2) {
+            console.warn(`[QuickUpload] Create album attempt ${attempt} failed, retrying in 1s:`, cErr);
+            await new Promise((r) => setTimeout(r, 1200));
+          }
+        }
       }
 
-      if (!createRes.ok || !createData.success) {
-        throw new Error(createData.error || "ไม่สามารถสร้างอัลบั้มในระบบได้");
+      if (lastCreateErr || !createData?.data) {
+        throw lastCreateErr || new Error("ไม่สามารถสร้างอัลบั้มในระบบได้");
       }
 
       const createdAlbum = createData.data;

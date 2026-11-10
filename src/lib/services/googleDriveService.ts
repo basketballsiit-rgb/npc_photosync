@@ -210,29 +210,32 @@ async function findOrCreateFolder(
 /**
  * Ensure the full hierarchical folder exists for an album:
  * Root -> [academicYear] -> [01_โครงการตามแผน | ...] -> [folderName]
+ * Non-blocking with timeout to prevent HTTP 504 Gateway Timeouts
  */
 export async function ensureAlbumDriveFolder(
   academicYear: number,
   albumType: AlbumType,
-  folderName: string
+  folderName: string,
+  timeoutMs: number = 3500
 ): Promise<DriveFolderResult> {
-  const client = await getDriveClient();
-  const drive = client?.drive;
-  const rootSharedDriveId = client?.rootId;
   const categoryName = ALBUM_TYPE_DRIVE_CATEGORY[albumType];
   const pathDisplay = `/${academicYear}/${categoryName}/${folderName}`;
 
-  // Dev / Mock fallback if credentials are not configured or in test mode
-  if (!drive || !rootSharedDriveId || rootSharedDriveId.includes("0AFqXXXX")) {
-    const mockFolderId = `mock_folder_${Date.now()}`;
-    return {
-      driveFolderId: mockFolderId,
-      driveFolderUrl: `https://drive.google.com/drive/folders/${mockFolderId}`,
-      drivePathDisplay: pathDisplay,
-    };
-  }
+  const drivePromise = (async (): Promise<DriveFolderResult> => {
+    const client = await getDriveClient();
+    const drive = client?.drive;
+    const rootSharedDriveId = client?.rootId;
 
-  try {
+    // Dev / Mock fallback if credentials are not configured or in test mode
+    if (!drive || !rootSharedDriveId || rootSharedDriveId.includes("0AFqXXXX")) {
+      const mockFolderId = `mock_folder_${Date.now()}`;
+      return {
+        driveFolderId: mockFolderId,
+        driveFolderUrl: `https://drive.google.com/drive/folders/${mockFolderId}`,
+        drivePathDisplay: pathDisplay,
+      };
+    }
+
     // 1. Ensure Year folder (e.g., /2569)
     const yearFolderId = await findOrCreateFolder(drive, String(academicYear), rootSharedDriveId);
 
@@ -247,12 +250,30 @@ export async function ensureAlbumDriveFolder(
       driveFolderUrl: `https://drive.google.com/drive/folders/${albumFolderId}`,
       drivePathDisplay: pathDisplay,
     };
+  })();
+
+  const timeoutPromise = new Promise<DriveFolderResult>((resolve) => {
+    setTimeout(() => {
+      console.warn(
+        `[Google Drive] ensureAlbumDriveFolder timed out after ${timeoutMs}ms for ${folderName}. Using non-blocking pending fallback.`
+      );
+      const pendingFolderId = `pending_drive_${Date.now()}`;
+      resolve({
+        driveFolderId: pendingFolderId,
+        driveFolderUrl: "",
+        drivePathDisplay: pathDisplay,
+      });
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([drivePromise, timeoutPromise]);
   } catch (error: any) {
     console.error("Error in ensureAlbumDriveFolder:", error?.response?.data || error?.message || error);
     const fallbackFolderId = `err_folder_${Date.now()}`;
     return {
       driveFolderId: fallbackFolderId,
-      driveFolderUrl: `https://drive.google.com/drive/folders/${fallbackFolderId}`,
+      driveFolderUrl: "",
       drivePathDisplay: pathDisplay,
     };
   }
@@ -265,12 +286,18 @@ export async function uploadOriginalToDrive(
   fileBuffer: Buffer,
   fileName: string,
   mimeType: string,
-  folderId: string
+  folderId: string,
+  timeoutMs: number = 15000
 ): Promise<DriveUploadResult> {
   const client = await getDriveClient();
   const drive = client?.drive;
 
-  if (!drive || folderId.startsWith("mock_") || folderId.startsWith("err_")) {
+  if (
+    !drive ||
+    folderId.startsWith("mock_") ||
+    folderId.startsWith("err_") ||
+    folderId.startsWith("pending_")
+  ) {
     const mockFileId = `mock_file_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     return {
       driveFileId: mockFileId,
@@ -278,7 +305,7 @@ export async function uploadOriginalToDrive(
     };
   }
 
-  try {
+  const uploadPromise = (async (): Promise<DriveUploadResult> => {
     const stream = Readable.from(fileBuffer);
 
     const safeMimeType =
@@ -303,8 +330,21 @@ export async function uploadOriginalToDrive(
         response.data.webViewLink ||
         `https://drive.google.com/file/d/${response.data.id}/view`,
     };
+  })();
+
+  const timeoutPromise = new Promise<DriveUploadResult>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Google Drive upload timed out after ${timeoutMs}ms for "${fileName}"`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([uploadPromise, timeoutPromise]);
   } catch (error: any) {
-    console.error(`Error uploading "${fileName}" to Google Drive (folderId: ${folderId}):`, error?.response?.data || error?.message || error);
+    console.error(
+      `Error uploading "${fileName}" to Google Drive (folderId: ${folderId}):`,
+      error?.response?.data || error?.message || error
+    );
     throw error;
   }
 }
