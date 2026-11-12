@@ -339,7 +339,9 @@ export default function AlbumDetailPage() {
 
   // Touch swipe state for Lightbox navigation
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [touchEndY, setTouchEndY] = useState<number | null>(null);
   const [isFullOriginalView, setIsFullOriginalView] = useState(false);
 
   useEffect(() => {
@@ -396,27 +398,48 @@ export default function AlbumDetailPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeLightboxMedia, album]);
 
-  // Touch Swipe Handlers for mobile
+  // Touch Swipe Handlers for mobile (Enhanced with X/Y tracking & friendly thumb threshold)
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchEndX(null);
-    setTouchStartX(e.targetTouches[0].clientX);
+    setTouchEndY(null);
+    if (e.touches[0]) {
+      setTouchStartX(e.touches[0].clientX);
+      setTouchStartY(e.touches[0].clientY);
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEndX(e.targetTouches[0].clientX);
+    if (e.touches[0]) {
+      setTouchEndX(e.touches[0].clientX);
+      setTouchEndY(e.touches[0].clientY);
+    }
   };
 
-  const handleTouchEnd = () => {
-    if (!touchStartX || !touchEndX) return;
-    const distance = touchStartX - touchEndX;
-    const minSwipeDistance = 45;
-    if (distance > minSwipeDistance) {
-      // Swiped Left -> Next Photo
-      handleNextPhoto();
-    } else if (distance < -minSwipeDistance) {
-      // Swiped Right -> Previous Photo
-      handlePrevPhoto();
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const finalX = touchEndX ?? (e.changedTouches[0] ? e.changedTouches[0].clientX : null);
+    const finalY = touchEndY ?? (e.changedTouches[0] ? e.changedTouches[0].clientY : null);
+
+    if (touchStartX !== null && finalX !== null && touchStartY !== null && finalY !== null) {
+      const diffX = touchStartX - finalX;
+      const diffY = touchStartY - finalY;
+      const minSwipeDistance = 35; // friendly threshold for mobile thumbs
+
+      // Only trigger if horizontal swipe is greater than vertical drag
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > minSwipeDistance) {
+        if (diffX > 0) {
+          // Swiped Left -> Next Photo
+          handleNextPhoto();
+        } else {
+          // Swiped Right -> Previous Photo
+          handlePrevPhoto();
+        }
+      }
     }
+
+    setTouchStartX(null);
+    setTouchStartY(null);
+    setTouchEndX(null);
+    setTouchEndY(null);
   };
 
   // Toggle selection
@@ -1510,9 +1533,9 @@ ${shareUrl}`;
 
       {/* LIGHTBOX PREVIEW MODAL WITH SLIDE/SWIPE & DIRECT DOWNLOAD */}
       {activeLightboxMedia && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-3 sm:p-5 backdrop-blur-md animate-in fade-in overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-2 sm:p-5 backdrop-blur-md animate-in fade-in overflow-y-auto overflow-x-hidden w-full max-w-full">
           {/* Top Left: Photo Index Counter & Date Badge */}
-          <div className="fixed top-4 left-4 z-50 rounded-full bg-[#1F0F4C]/90 px-3.5 py-2 text-xs font-mono font-bold text-pink-300 border border-purple-700/50 backdrop-blur-md shadow-lg flex items-center gap-2">
+          <div className="fixed top-3 left-3 sm:top-4 sm:left-4 z-50 rounded-full bg-[#1F0F4C]/90 px-3.5 py-1.5 sm:py-2 text-xs font-mono font-bold text-pink-300 border border-purple-700/50 backdrop-blur-md shadow-lg flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-pink-400 animate-pulse" />
             <span>
               ภาพที่ {currentMediaIndex + 1} จาก {totalMediaCount}
@@ -1530,52 +1553,76 @@ ${shareUrl}`;
           {/* Top Right: Close Button */}
           <button
             onClick={() => setActiveLightboxMedia(null)}
-            className="fixed top-4 right-4 z-50 rounded-full bg-[#1F0F4C]/90 p-2.5 text-white hover:bg-pink-600 transition-colors shadow-lg border border-purple-700/50"
+            className="fixed top-3 right-3 sm:top-4 sm:right-4 z-50 rounded-full bg-[#1F0F4C]/90 p-2 sm:p-2.5 text-white hover:bg-pink-600 transition-colors shadow-lg border border-purple-700/50"
             aria-label="ปิดหน้าต่างรูปภาพ"
             title="ปิดหน้าต่างรูปภาพ (Esc)"
           >
             <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
 
-          {/* Left Arrow Button (Previous Photo) */}
-          {totalMediaCount > 1 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePrevPhoto();
-              }}
-              className="fixed left-2 sm:left-6 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center h-11 w-11 sm:h-14 sm:w-14 rounded-full bg-[#180A38]/85 hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-600 text-white border border-purple-700/50 backdrop-blur-md shadow-2xl transition-all hover:scale-110 active:scale-95 group"
-              title="ดูภาพก่อนหน้า (กดปุ่มลูกศรซ้าย ← หรือปัดขวา)"
-              aria-label="ดูภาพก่อนหน้า"
-            >
-              <ChevronLeft className="h-6 w-6 sm:h-8 sm:w-8 text-purple-200 group-hover:text-white transition-colors" />
-            </button>
-          )}
-
-          {/* Right Arrow Button (Next Photo) */}
-          {totalMediaCount > 1 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleNextPhoto();
-              }}
-              className="fixed right-2 sm:right-6 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center h-11 w-11 sm:h-14 sm:w-14 rounded-full bg-[#180A38]/85 hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-600 text-white border border-purple-700/50 backdrop-blur-md shadow-2xl transition-all hover:scale-110 active:scale-95 group"
-              title="ดูภาพถัดไป (กดปุ่มลูกศรขวา → หรือปัดซ้าย)"
-              aria-label="ดูภาพถัดไป"
-            >
-              <ChevronRight className="h-6 w-6 sm:h-8 sm:w-8 text-purple-200 group-hover:text-white transition-colors" />
-            </button>
-          )}
-
           <div className="relative max-w-4xl w-full my-auto flex flex-col items-center">
-            {/* Image Preview with mobile touch swipe support */}
+            {/* Image Preview Area with Centered Navigation Arrows & Touch Swipe Support */}
             <div
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className="relative w-full flex items-center justify-center touch-pan-y cursor-grab active:cursor-grabbing"
+              className="relative w-full flex items-center justify-center touch-pan-y select-none"
               title="แตะปัดซ้าย-ขวาบนมือถือเพื่อเปลี่ยนรูป"
             >
+              {/* Left Arrow Button (Previous Photo) - Vertically Centered on Image */}
+              {totalMediaCount > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrevPhoto();
+                  }}
+                  className="absolute left-1.5 sm:left-3 top-1/2 -translate-y-1/2 z-40 flex items-center justify-center h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-[#14062e]/90 hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-600 active:scale-90 text-white border-2 border-purple-400/60 backdrop-blur-md shadow-2xl transition-all cursor-pointer group"
+                  title="ดูภาพก่อนหน้า (กดปุ่มลูกศรซ้าย ← หรือปัดขวา)"
+                  aria-label="ดูภาพก่อนหน้า"
+                >
+                  <ChevronLeft className="h-7 w-7 sm:h-8 sm:w-8 text-white transition-colors" />
+                </button>
+              )}
+
+              {/* Right Arrow Button (Next Photo) - Vertically Centered on Image */}
+              {totalMediaCount > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNextPhoto();
+                  }}
+                  className="absolute right-1.5 sm:right-3 top-1/2 -translate-y-1/2 z-40 flex items-center justify-center h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-[#14062e]/90 hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-600 active:scale-90 text-white border-2 border-purple-400/60 backdrop-blur-md shadow-2xl transition-all cursor-pointer group"
+                  title="ดูภาพถัดไป (กดปุ่มลูกศรขวา → หรือปัดซ้าย)"
+                  aria-label="ดูภาพถัดไป"
+                >
+                  <ChevronRight className="h-7 w-7 sm:h-8 sm:w-8 text-white transition-colors" />
+                </button>
+              )}
+
+              {/* Left Tap Zone (Previous Photo) */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrevPhoto();
+                }}
+                className="absolute left-0 top-0 bottom-0 w-1/4 z-30 cursor-pointer"
+                title="แตะด้านซ้ายเพื่อดูภาพก่อนหน้า"
+                aria-label="แตะเพื่อดูภาพก่อนหน้า"
+              />
+
+              {/* Right Tap Zone (Next Photo) */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNextPhoto();
+                }}
+                className="absolute right-0 top-0 bottom-0 w-1/4 z-30 cursor-pointer"
+                title="แตะด้านขวาเพื่อดูภาพถัดไป"
+                aria-label="แตะเพื่อดูภาพถัดไป"
+              />
+
               <img
                 key={`${activeLightboxMedia.id}-${isFullOriginalView}`}
                 src={
@@ -1584,6 +1631,7 @@ ${shareUrl}`;
                     : formatMediaUrl(activeLightboxMedia.reportReadyJpgUrl, activeLightboxMedia.id, "report")
                 }
                 alt={activeLightboxMedia.fileName}
+                draggable={false}
                 className="max-h-[50vh] sm:max-h-[70vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl border border-purple-800/40 select-none transition-all duration-200"
                 onError={(e) => {
                   const target = e.currentTarget;
@@ -1596,7 +1644,7 @@ ${shareUrl}`;
             </div>
 
             {/* Bottom Floating Control Panel */}
-            <div className="mt-3.5 w-full rounded-2xl sm:rounded-3xl bg-[#140832]/95 p-4 sm:p-5 border border-purple-800/50 text-xs text-purple-200 space-y-3 backdrop-blur-xl shadow-2xl">
+            <div className="mt-3 w-full rounded-2xl sm:rounded-3xl bg-[#140832]/95 p-3.5 sm:p-5 border border-purple-800/50 text-xs text-purple-200 space-y-3 backdrop-blur-xl shadow-2xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h4 className="font-bold text-white text-sm line-clamp-2">
@@ -1637,12 +1685,12 @@ ${shareUrl}`;
                   </div>
                 </div>
 
-                {/* Direct Mobile & Desktop Download Buttons */}
-                <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
+                {/* Direct Mobile & Desktop Download Buttons - Responsive Grid on Mobile */}
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
                   <button
                     onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "original")}
                     disabled={downloadingMediaId === activeLightboxMedia.id}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                    className="flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-3 sm:px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
                     title="ดาวน์โหลดไฟล์ภาพต้นฉบับคมชัดสูงสุด 100% เท่ากับที่ถ่ายจากกล้อง"
                   >
                     {downloadingMediaId === activeLightboxMedia.id ? (
@@ -1650,47 +1698,84 @@ ${shareUrl}`;
                     ) : (
                       <Download className="h-3.5 w-3.5" />
                     )}
-                    <span>💎 ต้นฉบับ 100%</span>
+                    <span className="truncate">💎 ต้นฉบับ 100%</span>
                   </button>
 
                   <button
                     onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "report")}
                     disabled={downloadingMediaId === activeLightboxMedia.id}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full border border-purple-600 bg-purple-900/60 px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-purple-800 hover:text-white active:scale-95 transition-all disabled:opacity-50"
+                    className="flex items-center justify-center gap-1.5 rounded-full border border-purple-600 bg-purple-900/60 px-3 sm:px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-purple-800 hover:text-white active:scale-95 transition-all disabled:opacity-50"
                     title="ดาวน์โหลดภาพขนาด HD สำหรับทำรายงาน 5 บท"
                   >
                     <FileText className="h-3.5 w-3.5" />
-                    <span>📄 รายงาน 5 บท (HD)</span>
+                    <span className="truncate">📄 รายงาน 5 บท</span>
                   </button>
 
                   <button
                     onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "watermark")}
                     disabled={downloadingMediaId === activeLightboxMedia.id}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full border border-purple-700/60 bg-[#1F0F4C] px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white active:scale-95 transition-all disabled:opacity-50"
+                    className="flex items-center justify-center gap-1.5 rounded-full border border-purple-700/60 bg-[#1F0F4C] px-3 sm:px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white active:scale-95 transition-all disabled:opacity-50"
                     title="ดาวน์โหลดภาพพร้อมประทับลายน้ำโลโก้วิทยาลัย"
                   >
-                    <span>🏷️ ติดโลโก้ PR</span>
+                    <span className="truncate">🏷️ ติดโลโก้ PR</span>
                   </button>
 
                   <button
                     onClick={() => openMoveModalForSingle(activeLightboxMedia)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-full border border-cyan-500/50 bg-gradient-to-r from-cyan-500/20 to-blue-500/25 px-3.5 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-500/40 hover:text-white active:scale-95 transition-all shadow-md shadow-cyan-500/15"
+                    className="flex items-center justify-center gap-1.5 rounded-full border border-cyan-500/50 bg-gradient-to-r from-cyan-500/20 to-blue-500/25 px-3 sm:px-3.5 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-500/40 hover:text-white active:scale-95 transition-all shadow-md shadow-cyan-500/15"
                     title="ย้ายรูปภาพนี้ไปยังอัลบั้มอื่นที่ถูกต้อง"
                   >
                     <FolderInput className="h-3.5 w-3.5 text-cyan-300" />
-                    <span>📦 ย้ายไปอัลบั้มอื่น</span>
+                    <span className="truncate">📦 ย้ายอัลบั้ม</span>
                   </button>
                 </div>
               </div>
 
-              {/* Mobile Tip & Keyboard Shortcut Guide */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 rounded-xl bg-purple-950/40 border border-purple-800/30 px-3 py-1.5 text-[11px] text-purple-300/90">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-pink-400 font-bold shrink-0">📱 ปัดซ้าย-ขวา / ปุ่มลูกศร:</span>
-                  <span className="truncate">เลื่อนดูภาพถัดไปหรือย้อนกลับได้ทันที</span>
+              {/* Mobile Dedicated Prev/Next Navigation Bar & Shortcut Guide */}
+              <div className="flex flex-col gap-2 rounded-2xl bg-gradient-to-r from-[#200B42] via-[#2A0E52] to-[#200B42] border border-purple-600/40 p-2 text-xs">
+                {/* Touch-Friendly Thumb Prev / Counter / Next Controller */}
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevPhoto();
+                    }}
+                    disabled={totalMediaCount <= 1}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-purple-900/80 hover:bg-pink-600/40 text-purple-100 hover:text-white border border-purple-500/50 active:scale-95 transition-all disabled:opacity-40 font-bold shadow-sm cursor-pointer select-none"
+                    aria-label="ดูภาพก่อนหน้า"
+                  >
+                    <ChevronLeft className="h-4 w-4 text-pink-400 shrink-0" />
+                    <span className="text-xs">ภาพก่อนหน้า</span>
+                  </button>
+
+                  <div className="px-3.5 py-1.5 rounded-lg bg-black/50 text-center font-mono font-bold text-pink-300 text-xs shrink-0 border border-purple-700/60 shadow-inner">
+                    {currentMediaIndex + 1} / {totalMediaCount}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextPhoto();
+                    }}
+                    disabled={totalMediaCount <= 1}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold shadow-lg shadow-pink-500/25 active:scale-95 transition-all disabled:opacity-40 cursor-pointer select-none"
+                    aria-label="ดูภาพถัดไป"
+                  >
+                    <span className="text-xs">ภาพถัดไป</span>
+                    <ChevronRight className="h-4 w-4 text-white shrink-0" />
+                  </button>
                 </div>
-                <div className="text-[10px] text-purple-400 font-mono hidden sm:block">
-                  คีย์ลัด: ← ย้อนกลับ | → ถัดไป | Esc ปิด
+
+                <div className="flex items-center justify-between px-1 text-[11px] text-purple-300/80">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="text-pink-400 font-bold shrink-0">📱 ทริกมือถือ:</span>
+                    <span className="truncate">ปัดซ้าย-ขวาบนภาพ หรือแตะปุ่มลูกศรเพื่อเลื่อนดูรูป</span>
+                  </div>
+                  <div className="text-[10px] text-purple-400 font-mono hidden sm:block shrink-0">
+                    คีย์บอร์ด: ← ย้อนกลับ | → ถัดไป | Esc ปิด
+                  </div>
                 </div>
               </div>
             </div>
