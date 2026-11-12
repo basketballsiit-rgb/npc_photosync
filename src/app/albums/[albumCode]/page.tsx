@@ -36,6 +36,7 @@ import {
   ZoomIn,
   Newspaper,
   FolderInput,
+  Tag,
 } from "lucide-react";
 import { AlbumType } from "@prisma/client";
 import { showAlert, npcSwal } from "@/lib/sweetalert";
@@ -1685,48 +1686,57 @@ ${shareUrl}`;
                   </div>
                 </div>
 
-                {/* Direct Mobile & Desktop Download Buttons - Responsive Grid on Mobile */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
+                {/* Compact Action Toolbar (Clear Icons + Concise Labels) */}
+                <div className="flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto pt-1 sm:pt-0">
+                  {/* 1. Download Original */}
                   <button
+                    type="button"
                     onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "original")}
                     disabled={downloadingMediaId === activeLightboxMedia.id}
-                    className="flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-3 sm:px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-pink-500/25 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
-                    title="ดาวน์โหลดไฟล์ภาพต้นฉบับคมชัดสูงสุด 100% เท่ากับที่ถ่ายจากกล้อง"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-2.5 py-1.5 text-xs font-bold text-white shadow-md shadow-pink-500/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                    title="ดาวน์โหลดภาพต้นฉบับคมชัดสูงสุด 100%"
                   >
                     {downloadingMediaId === activeLightboxMedia.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
                     ) : (
-                      <Download className="h-3.5 w-3.5" />
+                      <Download className="h-3.5 w-3.5 shrink-0" />
                     )}
-                    <span className="truncate">💎 ต้นฉบับ 100%</span>
+                    <span className="truncate">ต้นฉบับ</span>
                   </button>
 
+                  {/* 2. Download Report HD */}
                   <button
+                    type="button"
                     onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "report")}
                     disabled={downloadingMediaId === activeLightboxMedia.id}
-                    className="flex items-center justify-center gap-1.5 rounded-full border border-purple-600 bg-purple-900/60 px-3 sm:px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-purple-800 hover:text-white active:scale-95 transition-all disabled:opacity-50"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-purple-600/70 bg-purple-900/60 px-2.5 py-1.5 text-xs font-semibold text-purple-200 hover:bg-purple-800 hover:text-white active:scale-95 transition-all disabled:opacity-50"
                     title="ดาวน์โหลดภาพขนาด HD สำหรับทำรายงาน 5 บท"
                   >
-                    <FileText className="h-3.5 w-3.5" />
-                    <span className="truncate">📄 รายงาน 5 บท</span>
+                    <FileText className="h-3.5 w-3.5 text-purple-300 shrink-0" />
+                    <span className="truncate">รายงาน 5 บท</span>
                   </button>
 
+                  {/* 3. Download PR Watermark */}
                   <button
+                    type="button"
                     onClick={() => handleDownloadSinglePhoto(activeLightboxMedia, "watermark")}
                     disabled={downloadingMediaId === activeLightboxMedia.id}
-                    className="flex items-center justify-center gap-1.5 rounded-full border border-purple-700/60 bg-[#1F0F4C] px-3 sm:px-3.5 py-2.5 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white active:scale-95 transition-all disabled:opacity-50"
-                    title="ดาวน์โหลดภาพพร้อมประทับลายน้ำโลโก้วิทยาลัย"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-purple-700/60 bg-[#1F0F4C] px-2.5 py-1.5 text-xs font-semibold text-purple-200 hover:bg-[#2B1464] hover:text-white active:scale-95 transition-all disabled:opacity-50"
+                    title="ดาวน์โหลดภาพพร้อมติดโลโก้ PR วิทยาลัย"
                   >
-                    <span className="truncate">🏷️ ติดโลโก้ PR</span>
+                    <Tag className="h-3.5 w-3.5 text-pink-400 shrink-0" />
+                    <span className="truncate">ติดโลโก้ PR</span>
                   </button>
 
+                  {/* 4. Move Photo */}
                   <button
+                    type="button"
                     onClick={() => openMoveModalForSingle(activeLightboxMedia)}
-                    className="flex items-center justify-center gap-1.5 rounded-full border border-cyan-500/50 bg-gradient-to-r from-cyan-500/20 to-blue-500/25 px-3 sm:px-3.5 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-500/40 hover:text-white active:scale-95 transition-all shadow-md shadow-cyan-500/15"
-                    title="ย้ายรูปภาพนี้ไปยังอัลบั้มอื่นที่ถูกต้อง"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-2.5 py-1.5 text-xs font-bold text-cyan-200 hover:bg-cyan-900/50 hover:text-white active:scale-95 transition-all"
+                    title="ย้ายรูปภาพนี้ไปยังอัลบั้มอื่น"
                   >
-                    <FolderInput className="h-3.5 w-3.5 text-cyan-300" />
-                    <span className="truncate">📦 ย้ายอัลบั้ม</span>
+                    <FolderInput className="h-3.5 w-3.5 text-cyan-300 shrink-0" />
+                    <span className="truncate">ย้าย</span>
                   </button>
                 </div>
               </div>
