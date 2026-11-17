@@ -57,6 +57,7 @@ jobs:
 
           # 6. Build Next.js Production Assets
           echo "⚡ Building Next.js application..."
+          rm -rf .next/cache
           export NODE_OPTIONS="--max-old-space-size=1536"
           npm run build
 
@@ -86,6 +87,9 @@ jobs:
           $PM2_CMD delete npc_photosync 2>/dev/null || true
           $PM2_CMD start ecosystem.config.js
           $PM2_CMD save
+
+          # ล้างแคช Nginx Reverse Proxy (ถ้ามี)
+          nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true
 
           # รอให้ Next.js เริ่มต้นการทำงาน
           sleep 8
