@@ -17,6 +17,10 @@ import {
   RefreshCw,
   HardDrive,
   FolderInput,
+  CheckSquare,
+  Square,
+  Download,
+  FileText,
 } from "lucide-react";
 import { showAlert } from "@/lib/sweetalert";
 import { MovePhotoModal } from "@/components/admin/MovePhotoModal";
@@ -83,6 +87,11 @@ export function ManagePhotosModal({
     }>
   >([]);
 
+  // Multi-selection state for batch management
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+
   const getClientBasePath = () => {
     if (typeof window !== "undefined") {
       return window.location.pathname.startsWith("/npc_photosync") ? "/npc_photosync" : "";
@@ -121,10 +130,12 @@ export function ManagePhotosModal({
 
   useEffect(() => {
     if (isOpen && albumId) {
+      setSelectedPhotoIds([]);
       loadAlbumData();
     } else {
       setAlbum(null);
       setMediaList([]);
+      setSelectedPhotoIds([]);
       setEditingMediaId(null);
       setPreviewMedia(null);
     }
@@ -230,11 +241,114 @@ export function ManagePhotosModal({
     }
   };
 
-  // Delete Individual Photo
+  // Multi-select handlers for batch management
+  const handleToggleSelectPhoto = (id: string) => {
+    setSelectedPhotoIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedPhotoIds.length === mediaList.length && mediaList.length > 0) {
+      setSelectedPhotoIds([]);
+    } else {
+      setSelectedPhotoIds(mediaList.map((m) => m.id));
+    }
+  };
+
+  const handleOpenBulkMove = () => {
+    if (selectedPhotoIds.length === 0) return;
+    const selectedItems = mediaList.filter((m) => selectedPhotoIds.includes(m.id));
+    setPhotosToMove(
+      selectedItems.map((m) => ({
+        id: m.id,
+        fileName: m.fileName,
+        thumbnailUrl: formatUrl(m.thumbnailWebpUrl, m.id),
+        caption: m.aiCaption,
+      }))
+    );
+    setIsMoveModalOpen(true);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedPhotoIds.length === 0) return;
+    const confirmed = await showAlert.confirmDelete(
+      `ย้ายรูปภาพที่เลือก ${selectedPhotoIds.length} รูป ไปยังถังขยะ?`,
+      `รูปภาพจะถูกย้ายไปยังถังขยะระบบ สามารถกู้คืนกลับมาได้ทุกเมื่อจากแท็บ "ถังขยะระบบ"`
+    );
+    if (!confirmed) return;
+
+    setIsBulkDeleting(true);
+    try {
+      const res = await fetch(`${getClientBasePath()}/api/admin/media/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaIds: selectedPhotoIds,
+          permanent: false,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showAlert.success(
+          "ย้ายไปถังขยะสำเร็จ",
+          data.message || `ย้าย ${selectedPhotoIds.length} รูปภาพไปยังถังขยะเรียบร้อยแล้ว`
+        );
+        setMediaList((prev) => prev.filter((m) => !selectedPhotoIds.includes(m.id)));
+        setAlbum((prev: any) => ({
+          ...prev,
+          photoCount: Math.max(0, (prev?.photoCount || 0) - selectedPhotoIds.length),
+        }));
+        setSelectedPhotoIds([]);
+        if (onAlbumUpdated) onAlbumUpdated();
+      } else {
+        showAlert.error("เกิดข้อผิดพลาด", data.error || "ไม่สามารถย้ายรูปภาพไปถังขยะได้");
+      }
+    } catch (err: any) {
+      showAlert.error("เกิดข้อผิดพลาด", err.message || "ไม่สามารถย้ายรูปภาพได้");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const handleBulkDownloadZip = async (quality: "original" | "report" = "original") => {
+    if (selectedPhotoIds.length === 0 || !album) return;
+    setIsDownloadingZip(true);
+    try {
+      const base = getClientBasePath();
+      const res = await fetch(`${base}/api/albums/${album.id}/download-zip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaIds: selectedPhotoIds,
+          quality,
+        }),
+      });
+
+      if (!res.ok) throw new Error("ZIP generation failed");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${album?.albumCode || "photos"}_selected_${quality.toUpperCase()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showAlert.toast(`ดาวน์โหลด ${selectedPhotoIds.length} รูปภาพเรียบร้อยแล้ว`, "success");
+    } catch (err: any) {
+      showAlert.error("ดาวน์โหลดล้มเหลว", err.message || "เกิดข้อผิดพลาดในการดาวน์โหลด ZIP");
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
+
+  // Delete Individual Photo (Soft-delete to trash)
   const handleDeleteMedia = async (media: MediaFileItem) => {
     const confirmed = await showAlert.confirmDelete(
-      "ยืนยันการลบรูปภาพนี้?",
-      `คุณแน่ใจหรือไม่ว่าต้องการลบรูปภาพ "${media.fileName}" อย่างถาวร? (ระบบจะลบทั้งในเครื่องและ Google Drive)`
+      "ยืนยันการย้ายรูปภาพไปถังขยะ?",
+      `คุณต้องการย้ายรูปภาพ "${media.fileName}" ไปยังถังขยะระบบหรือไม่? (สามารถกู้คืนได้ภายหลังจากแท็บ "ถังขยะระบบ")`
     );
     if (!confirmed) return;
 
@@ -244,8 +358,9 @@ export function ManagePhotosModal({
       });
       const data = await res.json();
       if (data.success) {
-        showAlert.success("ลบสำเร็จ", data.message || "ลบรูปภาพเรียบร้อยแล้ว");
+        showAlert.success("ย้ายไปถังขยะสำเร็จ", data.message || "ย้ายรูปภาพไปยังถังขยะเรียบร้อยแล้ว");
         setMediaList((prev) => prev.filter((m) => m.id !== media.id));
+        setSelectedPhotoIds((prev) => prev.filter((id) => id !== media.id));
         setAlbum((prev: any) => ({
           ...prev,
           photoCount: Math.max(0, (prev?.photoCount || 1) - 1),
@@ -321,8 +436,8 @@ export function ManagePhotosModal({
         </div>
 
         {/* Stats Strip */}
-        <div className="flex flex-wrap items-center justify-between border-b border-purple-900/40 px-6 py-2.5 bg-[#0C0420] text-xs text-purple-300">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between border-b border-purple-900/40 px-6 py-2.5 bg-[#0C0420] text-xs text-purple-300 gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <span>
               จำนวนรูปภาพ: <strong className="text-pink-300 font-mono">{mediaList.length}</strong> รูป
             </span>
@@ -340,12 +455,42 @@ export function ManagePhotosModal({
             </span>
           </div>
 
-          {uploadProgress && (
-            <div className="flex items-center gap-2 text-pink-300 animate-pulse font-semibold">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>{uploadProgress}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {uploadProgress && (
+              <div className="flex items-center gap-2 text-pink-300 animate-pulse font-semibold">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>{uploadProgress}</span>
+              </div>
+            )}
+
+            {mediaList.length > 0 && (
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
+                  selectedPhotoIds.length === mediaList.length
+                    ? "bg-pink-500/20 text-pink-300 border border-pink-500/40"
+                    : selectedPhotoIds.length > 0
+                    ? "bg-purple-800/40 text-purple-200 border border-purple-600/40"
+                    : "bg-purple-900/20 text-purple-400 hover:text-white border border-purple-800/30"
+                }`}
+              >
+                {selectedPhotoIds.length === mediaList.length ? (
+                  <>
+                    <CheckSquare className="h-3.5 w-3.5 text-pink-400" />
+                    <span>ยกเลิกเลือกทั้งหมด</span>
+                  </>
+                ) : (
+                  <>
+                    <Square className="h-3.5 w-3.5" />
+                    <span>
+                      เลือกทั้งหมด {selectedPhotoIds.length > 0 ? `(${selectedPhotoIds.length}/${mediaList.length})` : ""}
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Photos Grid Body */}
@@ -366,6 +511,7 @@ export function ManagePhotosModal({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {mediaList.map((media, index) => {
+                const isSelected = selectedPhotoIds.includes(media.id);
                 const isCover =
                   media.isFeatured ||
                   album?.coverThumbnailUrl === media.thumbnailWebpUrl ||
@@ -376,8 +522,11 @@ export function ManagePhotosModal({
                 return (
                   <div
                     key={media.id}
-                    className={`group relative rounded-2xl border transition-all overflow-hidden flex flex-col ${
-                      isCover
+                    onClick={() => handleToggleSelectPhoto(media.id)}
+                    className={`group relative rounded-2xl border transition-all overflow-hidden flex flex-col cursor-pointer ${
+                      isSelected
+                        ? "border-pink-500 bg-pink-950/30 ring-2 ring-pink-500 shadow-xl shadow-pink-500/25 scale-[1.01]"
+                        : isCover
                         ? "border-pink-500 bg-gradient-to-b from-pink-950/20 to-[#190C3E] shadow-lg shadow-pink-500/20 ring-1 ring-pink-500/50"
                         : "border-purple-800/40 bg-[#160B35]/70 hover:border-purple-600/70 hover:bg-[#1C0E44]"
                     }`}
@@ -398,7 +547,7 @@ export function ManagePhotosModal({
                       />
 
                       {/* Top Badges */}
-                      <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">
+                      <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10 pointer-events-none">
                         {isCover && (
                           <span className="flex items-center gap-1 rounded-full bg-pink-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-md">
                             <Star className="h-3 w-3 fill-white" />
@@ -410,12 +559,32 @@ export function ManagePhotosModal({
                         </span>
                       </div>
 
+                      {/* Top-Right Selection Checkbox */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleSelectPhoto(media.id);
+                        }}
+                        className={`absolute top-2 right-2 z-20 flex h-7 w-7 items-center justify-center rounded-xl transition-all shadow-md ${
+                          isSelected
+                            ? "bg-pink-500 text-white ring-2 ring-white/70 scale-105"
+                            : "bg-black/60 text-purple-300 opacity-80 hover:opacity-100 hover:text-white border border-purple-800/40"
+                        }`}
+                        title={isSelected ? "ยกเลิกเลือกรูปภาพนี้" : "เลือกรูปภาพนี้"}
+                      >
+                        {isSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                      </button>
+
                       {/* Quick Hover Action Bar */}
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         {/* Lightbox Preview */}
                         <button
                           type="button"
-                          onClick={() => setPreviewMedia(media)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewMedia(media);
+                          }}
                           title="ดูภาพขยายเต็มจอ"
                           className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-900/80 text-white hover:bg-pink-600 transition-all shadow-lg active:scale-95"
                         >
@@ -426,7 +595,10 @@ export function ManagePhotosModal({
                         {!isCover && (
                           <button
                             type="button"
-                            onClick={() => handleSetCover(media)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSetCover(media);
+                            }}
                             title="ตั้งเป็นภาพหน้าปกอัลบั้ม"
                             className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-900/80 text-yellow-300 hover:bg-yellow-500 hover:text-black transition-all shadow-lg active:scale-95"
                           >
@@ -437,7 +609,8 @@ export function ManagePhotosModal({
                         {/* Move Photo to Another Album */}
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setPhotosToMove([
                               {
                                 id: media.id,
@@ -457,8 +630,11 @@ export function ManagePhotosModal({
                         {/* Delete Photo */}
                         <button
                           type="button"
-                          onClick={() => handleDeleteMedia(media)}
-                          title="ลบรูปภาพนี้"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteMedia(media);
+                          }}
+                          title="ย้ายรูปภาพนี้ไปถังขยะ"
                           className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-950/80 text-rose-300 hover:bg-rose-600 hover:text-white transition-all shadow-lg active:scale-95"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -482,7 +658,8 @@ export function ManagePhotosModal({
                           {!isEditingThisCaption && (
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setEditingMediaId(media.id);
                                 setCaptionInput(media.aiCaption || "");
                               }}
@@ -496,7 +673,10 @@ export function ManagePhotosModal({
 
                         {/* Caption Editor or Display */}
                         {isEditingThisCaption ? (
-                          <div className="space-y-1.5 pt-1">
+                          <div
+                            className="space-y-1.5 pt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <textarea
                               rows={2}
                               value={captionInput}
@@ -542,7 +722,10 @@ export function ManagePhotosModal({
                         {!isCover ? (
                           <button
                             type="button"
-                            onClick={() => handleSetCover(media)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSetCover(media);
+                            }}
                             className="text-purple-400 hover:text-yellow-300 flex items-center gap-1 transition-colors"
                           >
                             <Star className="h-3 w-3" />
@@ -558,7 +741,8 @@ export function ManagePhotosModal({
                         <div className="flex items-center gap-3">
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setPhotosToMove([
                                 {
                                   id: media.id,
@@ -578,7 +762,10 @@ export function ManagePhotosModal({
 
                           <button
                             type="button"
-                            onClick={() => handleDeleteMedia(media)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteMedia(media);
+                            }}
                             className="text-rose-400 hover:text-rose-200 flex items-center gap-1 transition-colors"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -593,6 +780,70 @@ export function ManagePhotosModal({
             </div>
           )}
         </div>
+
+        {/* Floating Bulk Action Bar */}
+        {selectedPhotoIds.length > 0 && (
+          <div className="absolute bottom-16 left-4 right-4 sm:left-6 sm:right-6 z-30 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#170838]/95 via-[#1E0E46]/95 to-[#240A42]/95 p-3.5 px-5 border-2 border-pink-500/60 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-3 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500 text-white font-bold font-mono text-sm shadow-md shadow-pink-500/40 shrink-0">
+                {selectedPhotoIds.length}
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white">
+                  เลือกรูปภาพไว้แล้ว {selectedPhotoIds.length} รูป
+                </div>
+                <div className="text-[10px] text-purple-300">
+                  จัดการหลายรายการพร้อมกัน: ย้ายอัลบั้ม, ลบลงถังขยะ หรือดาวน์โหลด ZIP
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Bulk Move */}
+              <button
+                type="button"
+                onClick={handleOpenBulkMove}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md shadow-cyan-600/30 transition-all active:scale-95"
+              >
+                <FolderInput className="h-3.5 w-3.5" />
+                <span>ย้ายอัลบั้ม ({selectedPhotoIds.length})</span>
+              </button>
+
+              {/* Bulk Download ZIP Original */}
+              <button
+                type="button"
+                disabled={isDownloadingZip}
+                onClick={() => handleBulkDownloadZip("original")}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow-md shadow-purple-700/30 transition-all active:scale-95 disabled:opacity-50"
+                title="ดาวน์โหลดไฟล์ต้นฉบับคมชัดสูงสุดแบบ ZIP"
+              >
+                {isDownloadingZip ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                <span>ดาวน์โหลด ZIP</span>
+              </button>
+
+              {/* Bulk Delete to Trash */}
+              <button
+                type="button"
+                disabled={isBulkDeleting}
+                onClick={handleBulkDelete}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isBulkDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                <span>ย้ายไปถังขยะ ({selectedPhotoIds.length})</span>
+              </button>
+
+              {/* Clear Selection */}
+              <button
+                type="button"
+                onClick={() => setSelectedPhotoIds([])}
+                className="p-2 rounded-xl text-purple-300 hover:text-white hover:bg-purple-800/40 transition-colors ml-1"
+                title="ยกเลิกการเลือกทั้งหมด"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Modal Footer */}
         <div className="flex items-center justify-between border-t border-purple-800/40 px-6 py-3 bg-[#160B37] text-xs">
@@ -619,6 +870,7 @@ export function ManagePhotosModal({
             }}
             photosToMove={photosToMove}
             onMoveSuccess={() => {
+              setSelectedPhotoIds([]);
               loadAlbumData();
               onAlbumUpdated?.();
             }}

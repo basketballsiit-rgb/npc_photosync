@@ -15,11 +15,14 @@ export async function GET(
   { params }: { params: { albumId: string } }
 ) {
   const { albumId } = params;
+  const { searchParams } = new URL(req.url);
+  const includeDeleted = searchParams.get("includeDeleted") === "true";
 
   try {
     const album = await prisma.album.findFirst({
       where: {
         OR: [{ id: albumId }, { albumCode: albumId }],
+        ...(includeDeleted ? {} : { deletedAt: null }),
       },
       include: {
         project: true,
@@ -28,6 +31,7 @@ export async function GET(
           select: { name: true, email: true },
         },
         mediaFiles: {
+          where: includeDeleted ? {} : { deletedAt: null },
           orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
         },
       },
@@ -167,13 +171,15 @@ export async function PATCH(
 }
 
 /**
- * DELETE: Delete album, associated media files, local disk folders, and Google Drive folder
+ * DELETE: Soft delete (move to Trash) or Hard delete (permanent removal)
  */
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { albumId: string } }
 ) {
   const { albumId } = params;
+  const { searchParams } = new URL(req.url);
+  const isPermanent = searchParams.get("permanent") === "true";
 
   try {
     const album = await prisma.album.findFirst({
@@ -192,32 +198,57 @@ export async function DELETE(
       );
     }
 
-    // 1. Delete album folder from Google Drive in background
+    if (!isPermanent) {
+      // 1. Soft Delete: Mark album and its mediaFiles as deletedAt
+      const now = new Date();
+      await prisma.$transaction([
+        prisma.album.update({
+          where: { id: album.id },
+          data: { deletedAt: now },
+        }),
+        prisma.mediaFile.updateMany({
+          where: { albumId: album.id },
+          data: { deletedAt: now },
+        }),
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        message: `ย้ายอัลบั้ม [${album.albumCode}] ไปยังถังขยะเรียบร้อยแล้ว (สามารถกู้คืนได้)`,
+        isTrash: true,
+      });
+    }
+
+    // 2. Permanent Hard Delete:
+    // 2.1 Delete album folder from Google Drive in background
     if (album.driveFolderId) {
       deleteFolderFromDrive(album.driveFolderId).catch((err) =>
         console.warn(`[Delete Album] Drive deletion warning for ${album.albumCode}:`, err)
       );
     }
 
-    // 2. Delete local directories on disk: thumbs and report
+    // 2.2 Delete local directories on disk: thumbs, report, and original
     const baseStorage = process.env.LOCAL_MEDIA_STORAGE_PATH || "./public/uploads";
     try {
       const thumbsDir = path.resolve(baseStorage, "thumbs", album.albumCode);
       const reportDir = path.resolve(baseStorage, "report", album.albumCode);
+      const originalDir = path.resolve(baseStorage, "original", album.albumCode);
       await fs.rm(thumbsDir, { recursive: true, force: true });
       await fs.rm(reportDir, { recursive: true, force: true });
+      await fs.rm(originalDir, { recursive: true, force: true });
     } catch (diskErr) {
       console.warn(`[Delete Album] Failed to remove disk directory for ${album.albumCode}:`, diskErr);
     }
 
-    // 3. Delete from Prisma database (Cascade deletes MediaFile, AlbumTag, DownloadLog)
+    // 2.3 Delete from Prisma database (Cascade deletes MediaFile, AlbumTag, DownloadLog)
     await prisma.album.delete({
       where: { id: album.id },
     });
 
     return NextResponse.json({
       success: true,
-      message: `ลบอัลบั้ม [${album.albumCode}] และรูปภาพทั้งหมดเรียบร้อยแล้ว`,
+      message: `ลบอัลบั้ม [${album.albumCode}] และรูปภาพถาวรเรียบร้อยแล้ว`,
+      isPermanent: true,
     });
   } catch (error: any) {
     console.error(`Error deleting album ${albumId}:`, error);

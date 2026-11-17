@@ -95,6 +95,9 @@ model Album {
   isPublic          Boolean          @default(true)
   isLineNotified    Boolean          @default(false)
 
+  // Soft Delete (Trash)
+  deletedAt         DateTime?
+
   // Creator
   uploadedById     String            @db.VarChar(191)
   uploadedBy       User              @relation(fields: [uploadedById], references: [id])
@@ -111,6 +114,7 @@ model Album {
   @@index([projectId])
   @@index([eventDate])
   @@index([uploadedById])
+  @@index([deletedAt])
   @@map("albums")
 }
 
@@ -139,6 +143,10 @@ model MediaFile {
 
   isFeatured       Boolean       @default(false)
   downloadCount    Int           @default(0)
+
+  // Soft Delete (Trash)
+  deletedAt        DateTime?
+
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -146,6 +154,7 @@ model MediaFile {
 
   @@index([albumId])
   @@index([isFeatured])
+  @@index([deletedAt])
   @@map("media_files")
 }
 

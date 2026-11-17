@@ -16,6 +16,7 @@ export async function GET(
     const album = await prisma.album.findFirst({
       where: {
         OR: [{ id: albumId }, { albumCode: albumId }],
+        deletedAt: null,
       },
       include: {
         project: {
@@ -33,6 +34,7 @@ export async function GET(
           select: { name: true, email: true },
         },
         mediaFiles: {
+          where: { deletedAt: null },
           orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
         },
       },

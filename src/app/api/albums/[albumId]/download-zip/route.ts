@@ -24,13 +24,16 @@ export async function POST(
     const album = await prisma.album.findFirst({
       where: {
         OR: [{ id: albumId }, { albumCode: albumId }],
+        deletedAt: null,
       },
       include: {
         mediaFiles: {
-          where:
-            Array.isArray(mediaIds) && mediaIds.length > 0
+          where: {
+            deletedAt: null,
+            ...(Array.isArray(mediaIds) && mediaIds.length > 0
               ? { id: { in: mediaIds } }
-              : undefined,
+              : {}),
+          },
         },
       },
     });

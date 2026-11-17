@@ -32,7 +32,9 @@ export async function GET(req: NextRequest) {
   const skip = (page - 1) * limit;
 
   try {
-    const where: any = {};
+    const where: any = {
+      deletedAt: null,
+    };
 
     if (academicYear) where.academicYear = academicYear;
     if (semester) where.semester = semester;

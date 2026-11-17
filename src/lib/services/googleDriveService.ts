@@ -471,7 +471,7 @@ export async function deleteFileFromDrive(fileId?: string | null): Promise<boole
  * Delete or trash a folder from Google Drive
  */
 export async function deleteFolderFromDrive(folderId?: string | null): Promise<boolean> {
-  if (!folderId || folderId.startsWith("mock_") || folderId.startsWith("err_")) {
+  if (!folderId || folderId.startsWith("mock_") || folderId.startsWith("err_") || folderId.startsWith("pending_")) {
     return true;
   }
   const client = await getDriveClient();
@@ -488,3 +488,4 @@ export async function deleteFolderFromDrive(folderId?: string | null): Promise<b
     return false;
   }
 }
+

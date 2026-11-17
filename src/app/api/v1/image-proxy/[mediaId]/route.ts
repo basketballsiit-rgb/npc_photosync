@@ -20,6 +20,15 @@ export async function OPTIONS() {
   });
 }
 
+async function streamToBuffer(stream: any): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  return new Promise((resolve, reject) => {
+    stream.on("data", (chunk: any) => chunks.push(Buffer.from(chunk)));
+    stream.on("error", (err: any) => reject(err));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+  });
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { mediaId: string } }
@@ -57,13 +66,90 @@ export async function GET(
       ? `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`
       : `inline; filename="${encodedFilename}"`;
 
+    const thumbsDir = path.resolve(baseUploadPath, "thumbs", albumCode);
+    const reportDir = path.resolve(baseUploadPath, "report", albumCode);
+    const thumbPath = path.resolve(thumbsDir, `${media.id}.webp`);
+    const reportPath = path.resolve(reportDir, `${media.id}.jpg`);
+
+    // Helper: auto-heal thumbnail / report from original file or Google Drive
+    const autoHealFromSources = async () => {
+      await fs.mkdir(thumbsDir, { recursive: true });
+      await fs.mkdir(reportDir, { recursive: true });
+
+      // 1. Check if thumbnail exists at an older path (e.g. from previous album before move)
+      if (media.thumbnailWebpUrl && media.thumbnailWebpUrl.startsWith("/uploads/")) {
+        const oldRel = media.thumbnailWebpUrl.replace(/^\/uploads\//, "");
+        const altThumbPath = path.resolve(baseUploadPath, oldRel);
+        if (existsSync(altThumbPath) && !existsSync(thumbPath)) {
+          try {
+            await fs.copyFile(altThumbPath, thumbPath);
+          } catch {}
+        }
+      }
+
+      // 2. Check if report JPG exists at an older path
+      if (media.reportReadyJpgUrl && media.reportReadyJpgUrl.startsWith("/uploads/")) {
+        const oldReportRel = media.reportReadyJpgUrl.replace(/^\/uploads\//, "");
+        const altReportPath = path.resolve(baseUploadPath, oldReportRel);
+        if (existsSync(altReportPath) && !existsSync(reportPath)) {
+          try {
+            await fs.copyFile(altReportPath, reportPath);
+          } catch {}
+        }
+      }
+
+      // 3. Check if local original master is on disk
+      const originalDir = path.resolve(baseUploadPath, "original", albumCode);
+      const possibleExts = [path.extname(media.fileName || ""), ".jpg", ".jpeg", ".png", ".webp", ".heic"].filter(Boolean);
+      for (const e of possibleExts) {
+        const localOrig = path.join(originalDir, `${media.id}${e.startsWith(".") ? e : "." + e}`);
+        if (existsSync(localOrig)) {
+          try {
+            const origBuf = await fs.readFile(localOrig);
+            if (!existsSync(thumbPath)) {
+              const tb = await sharp(origBuf).rotate().resize({ width: 600, fit: "inside", withoutEnlargement: true }).webp({ quality: 80 }).toBuffer();
+              await fs.writeFile(thumbPath, tb);
+            }
+            if (!existsSync(reportPath)) {
+              const rb = await sharp(origBuf).rotate().resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 85, progressive: true }).toBuffer();
+              await fs.writeFile(reportPath, rb);
+            }
+            return;
+          } catch {}
+        }
+      }
+
+      // 4. Check if Google Drive file is available to restore missing local files
+      if (media.driveFileId && !media.driveFileId.startsWith("mock_") && !media.driveFileId.startsWith("err_") && !media.driveFileId.startsWith("drive_")) {
+        try {
+          const driveStream = await getOriginalFileStream(media.driveFileId);
+          const driveBuf = await streamToBuffer(driveStream);
+          if (driveBuf && driveBuf.length > 0) {
+            if (!existsSync(thumbPath)) {
+              const tb = await sharp(driveBuf).rotate().resize({ width: 600, fit: "inside", withoutEnlargement: true }).webp({ quality: 80 }).toBuffer();
+              await fs.writeFile(thumbPath, tb);
+            }
+            if (!existsSync(reportPath)) {
+              const rb = await sharp(driveBuf).rotate().resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 85, progressive: true }).toBuffer();
+              await fs.writeFile(reportPath, rb);
+            }
+            // Also restore original master locally
+            const targetOrig = path.join(originalDir, `${media.id}${possibleExts[0] || ".jpg"}`);
+            await fs.mkdir(originalDir, { recursive: true });
+            if (!existsSync(targetOrig)) {
+              await fs.writeFile(targetOrig, driveBuf);
+            }
+          }
+        } catch (healErr) {
+          console.warn(`[ImageProxy] Auto-heal from Google Drive skipped for ${media.id}:`, healErr);
+        }
+      }
+    };
+
     if (type === "thumb") {
-      const thumbPath = path.resolve(
-        baseUploadPath,
-        "thumbs",
-        albumCode,
-        `${media.id}.webp`
-      );
+      if (!existsSync(thumbPath)) {
+        await autoHealFromSources();
+      }
 
       if (existsSync(thumbPath)) {
         const fileBuf = await fs.readFile(thumbPath);
@@ -77,12 +163,9 @@ export async function GET(
         });
       }
     } else if (type === "watermark") {
-      const reportPath = path.resolve(
-        baseUploadPath,
-        "report",
-        albumCode,
-        `${media.id}.jpg`
-      );
+      if (!existsSync(reportPath)) {
+        await autoHealFromSources();
+      }
 
       if (existsSync(reportPath)) {
         const reportBuf = await fs.readFile(reportPath);
@@ -120,7 +203,8 @@ export async function GET(
       if (
         media.driveFileId &&
         !media.driveFileId.startsWith("mock_") &&
-        !media.driveFileId.startsWith("err_")
+        !media.driveFileId.startsWith("err_") &&
+        !media.driveFileId.startsWith("drive_")
       ) {
         try {
           const stream = await getOriginalFileStream(media.driveFileId);
@@ -148,12 +232,9 @@ export async function GET(
     }
 
     // Default: Report-ready HD JPEG
-    const reportPath = path.resolve(
-      baseUploadPath,
-      "report",
-      albumCode,
-      `${media.id}.jpg`
-    );
+    if (!existsSync(reportPath)) {
+      await autoHealFromSources();
+    }
 
     if (existsSync(reportPath)) {
       const fileBuf = await fs.readFile(reportPath);

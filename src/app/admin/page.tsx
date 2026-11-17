@@ -53,6 +53,7 @@ import { showAlert } from "@/lib/sweetalert";
 import { EditAlbumModal } from "@/components/admin/EditAlbumModal";
 import { ManagePhotosModal } from "@/components/admin/ManagePhotosModal";
 import { NewsletterStudio } from "@/components/admin/NewsletterStudio";
+import { TrashManager } from "@/components/admin/TrashManager";
 import { getClientBasePath } from "@/lib/basepath";
 
 interface AdminStats {
@@ -76,7 +77,7 @@ interface SystemHealth {
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<
-    "academic_terms" | "departments" | "albums" | "orphans" | "newsletter" | "smartflow" | "pr_report" | "google_drive" | "line_notify"
+    "academic_terms" | "departments" | "albums" | "orphans" | "newsletter" | "smartflow" | "pr_report" | "google_drive" | "line_notify" | "trash"
   >("academic_terms");
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
@@ -1599,6 +1600,18 @@ export default function AdminPage() {
               )}
             </button>
           )}
+
+          <button
+            onClick={() => setActiveTab("trash")}
+            className={`flex items-center gap-2 pb-3 px-4 transition-all border-b-2 ${
+              activeTab === "trash"
+                ? "border-red-500 text-red-300"
+                : "border-transparent text-purple-400 hover:text-white"
+            }`}
+          >
+            <Trash2 className="h-4 w-4 text-red-400" />
+            <span>🗑️ ถังขยะระบบ</span>
+          </button>
         </div>
 
         {/* TAB 0: ACADEMIC TERMS & CURRENT SEMESTER SETTINGS */}
@@ -3666,6 +3679,9 @@ export default function AdminPage() {
             </div>
           </section>
         )}
+
+        {/* TAB 8: SYSTEM TRASH & RECYCLE BIN */}
+        {activeTab === "trash" && <TrashManager />}
       </main>
 
       {/* Retroactive Link Modal for Orphans */}
