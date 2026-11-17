@@ -1,8 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { FilterBar, FilterState } from "@/components/gallery/FilterBar";
