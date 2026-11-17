@@ -54,7 +54,7 @@ import { EditAlbumModal } from "@/components/admin/EditAlbumModal";
 import { ManagePhotosModal } from "@/components/admin/ManagePhotosModal";
 import { NewsletterStudio } from "@/components/admin/NewsletterStudio";
 import { TrashManager } from "@/components/admin/TrashManager";
-import { getClientBasePath } from "@/lib/basepath";
+import { getClientBasePath, apiUrl } from "@/lib/basepath";
 
 interface AdminStats {
   totalAlbums: number;
@@ -209,7 +209,7 @@ export default function AdminPage() {
 
   const checkAuth = async () => {
     try {
-      const res = await fetch(`/api/auth/me?t=${Date.now()}`, {
+      const res = await fetch(apiUrl(`/api/auth/me?t=${Date.now()}`), {
         cache: "no-store",
       });
       const data = await res.json();
@@ -248,7 +248,7 @@ export default function AdminPage() {
     setLoginError("");
     setIsLoggingIn(true);
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(apiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: loginUser, password: loginPass }),
@@ -284,10 +284,10 @@ export default function AdminPage() {
     const confirmed = await showAlert.confirm("ออกจากระบบ", "คุณต้องการออกจากระบบจัดการใช่หรือไม่?", "ออกจากระบบ", "ยกเลิก");
     if (!confirmed) return;
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch(apiUrl("/api/auth/logout"), { method: "POST" });
       setIsAuthenticated(false);
       setCurrentUser(null);
-      window.location.href = "/";
+      window.location.href = getClientBasePath() || "/";
     } catch (err) {
       console.error("Logout error:", err);
       setIsAuthenticated(false);
@@ -299,7 +299,7 @@ export default function AdminPage() {
   const fetchAcademicTerms = async () => {
     setIsTermsLoading(true);
     try {
-      const res = await fetch(`/api/admin/academic-terms?t=${Date.now()}`, {
+      const res = await fetch(apiUrl(`/api/admin/academic-terms?t=${Date.now()}`), {
         cache: "no-store",
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -325,7 +325,7 @@ export default function AdminPage() {
   const fetchDepartments = async () => {
     setIsDepartmentsLoading(true);
     try {
-      const res = await fetch(`/api/admin/departments?t=${Date.now()}`, {
+      const res = await fetch(apiUrl(`/api/admin/departments?t=${Date.now()}`), {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
       });
@@ -349,7 +349,7 @@ export default function AdminPage() {
     }
     setIsSubmittingDept(true);
     try {
-      const res = await fetch("/api/admin/departments", {
+      const res = await fetch(apiUrl("/api/admin/departments"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -382,7 +382,7 @@ export default function AdminPage() {
     if (!editingDept || !editingDept.name.trim()) return;
     setIsSubmittingDept(true);
     try {
-      const res = await fetch("/api/admin/departments", {
+      const res = await fetch(apiUrl("/api/admin/departments"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -420,7 +420,7 @@ export default function AdminPage() {
       return;
     }
     try {
-      const res = await fetch(`/api/admin/departments?id=${encodeURIComponent(id)}`, {
+      const res = await fetch(apiUrl(`/api/admin/departments?id=${encodeURIComponent(id)}`), {
         method: "DELETE",
       });
       const data = await res.json();
@@ -451,7 +451,7 @@ export default function AdminPage() {
       return;
     }
     try {
-      const res = await fetch("/api/admin/departments", {
+      const res = await fetch(apiUrl("/api/admin/departments"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reset" }),
@@ -474,7 +474,7 @@ export default function AdminPage() {
     setIsLoading(true);
     try {
       // 1. Load Stats (real-time, no cache)
-      const statsRes = await fetch(`/api/admin/stats?t=${Date.now()}`, {
+      const statsRes = await fetch(apiUrl(`/api/admin/stats?t=${Date.now()}`), {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
       });
@@ -485,7 +485,7 @@ export default function AdminPage() {
       }
 
       // 2. Load Orphan Albums
-      const orphansRes = await fetch("/api/v1/albums/unlinked", {
+      const orphansRes = await fetch(apiUrl("/api/v1/albums/unlinked"), {
         headers: {
           "x-photosync-api-key": "photosync-api-key-live-nan-polytechnic-college",
         },
@@ -538,7 +538,7 @@ export default function AdminPage() {
       }
 
       // 4. Load PR Report data
-      const prRes = await fetch("/api/admin/pr-report");
+      const prRes = await fetch(apiUrl("/api/admin/pr-report"));
       const prData = await prRes.json();
       if (prData.success) {
         setPrReportRows(prData.rows);
@@ -554,7 +554,7 @@ export default function AdminPage() {
   const handleSetCurrentTerm = async (academicYear: number, semester: number, budgetYear?: number, note?: string) => {
     try {
       setIsTermsLoading(true);
-      const res = await fetch("/api/admin/academic-terms", {
+      const res = await fetch(apiUrl("/api/admin/academic-terms"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ academicYear, semester, budgetYear, note }),
@@ -585,7 +585,7 @@ export default function AdminPage() {
     e.preventDefault();
     setIsSubmittingTerm(true);
     try {
-      const res = await fetch("/api/admin/academic-terms", {
+      const res = await fetch(apiUrl("/api/admin/academic-terms"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newTermForm),
@@ -794,7 +794,7 @@ export default function AdminPage() {
   // Watermark Handlers
   const fetchWatermarkInfo = async () => {
     try {
-      const res = await fetch("/api/admin/watermark");
+      const res = await fetch(apiUrl("/api/admin/watermark"));
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.watermark) {
@@ -818,7 +818,7 @@ export default function AdminPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/admin/watermark", {
+      const res = await fetch(apiUrl("/api/admin/watermark"), {
         method: "POST",
         body: formData,
       });
@@ -861,7 +861,7 @@ export default function AdminPage() {
     setWatermarkMessage(null);
 
     try {
-      const res = await fetch("/api/admin/watermark", {
+      const res = await fetch(apiUrl("/api/admin/watermark"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reset" }),
@@ -1024,7 +1024,7 @@ export default function AdminPage() {
   const fetchLineSettings = async () => {
     setIsLineLoading(true);
     try {
-      const res = await fetch(`/api/admin/settings/line?t=${Date.now()}`, {
+      const res = await fetch(apiUrl(`/api/admin/settings/line?t=${Date.now()}`), {
         cache: "no-store",
       });
       const data = await res.json();
@@ -1048,7 +1048,7 @@ export default function AdminPage() {
     e.preventDefault();
     setIsSavingLine(true);
     try {
-      const res = await fetch("/api/admin/settings/line", {
+      const res = await fetch(apiUrl("/api/admin/settings/line"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1079,7 +1079,7 @@ export default function AdminPage() {
   const handleTestLinePush = async () => {
     setIsTestingLine(true);
     try {
-      const res = await fetch("/api/admin/settings/line", {
+      const res = await fetch(apiUrl("/api/admin/settings/line"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
