@@ -57,7 +57,7 @@ jobs:
 
           # 6. Build Next.js Production Assets
           echo "⚡ Building Next.js application..."
-          rm -rf .next/cache
+          rm -rf .next
           export NODE_OPTIONS="--max-old-space-size=1536"
           npm run build
 
