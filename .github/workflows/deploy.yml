@@ -18,7 +18,7 @@ jobs:
         key: ${{ secrets.SERVER_SSH_KEY }}
         password: ${{ secrets.SERVER_PASSWORD }}
         timeout: 120s
-        command_timeout: 30m
+        command_timeout: 60m
         script: |
           echo "=== 🚀 Starting NPC_PhotoSync Deployment ==="
           TARGET_DIR="/var/www/npc_photosync"
@@ -30,6 +30,11 @@ jobs:
           fi
 
           cd "$TARGET_DIR"
+
+          # System resources check
+          echo "📊 System Resources:"
+          free -h 2>/dev/null || true
+          nproc 2>/dev/null || true
 
           # 2. ตั้งค่า Path สำหรับ Node.js (ตามโครงสร้างเดียวกับ npc_smartflow)
           if [ -d "/root/.nvm/versions/node/v20.20.2/bin" ]; then
@@ -58,7 +63,7 @@ jobs:
           # 6. Build Next.js Production Assets
           echo "⚡ Building Next.js application..."
           rm -rf .next
-          export NODE_OPTIONS="--max-old-space-size=1536"
+          export NODE_OPTIONS="--max-old-space-size=2048"
           npm run build
 
           # 7. จัดการสิทธิ์โฟลเดอร์อัปโหลดภาพ (SELinux & Permissions)
