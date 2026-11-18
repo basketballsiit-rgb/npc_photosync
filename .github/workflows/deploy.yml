@@ -62,7 +62,7 @@ jobs:
 
           # 6. Build Next.js Production Assets
           echo "⚡ Building Next.js application..."
-          rm -rf .next
+          rm -rf .next/cache
           export NODE_OPTIONS="--max-old-space-size=2048"
           npm run build
 
@@ -75,6 +75,14 @@ jobs:
           # 8. รีสตาร์ตแอปพลิเคชันผ่าน PM2 (พอร์ต 3006)
           echo "🔄 Restarting Next.js server with PM2..."
           set +e
+
+          # เคลียร์ process หรือ zombie เก่าที่ค้างอยู่บนพอร์ต 3006
+          echo "🧹 Cleaning up lingering processes on port 3006..."
+          fuser -k 3006/tcp 2>/dev/null || true
+          lsof -ti:3006 | xargs kill -9 2>/dev/null || true
+
+          # ล้างแคช Nginx Reverse Proxy (ถ้ามีบนดิสก์)
+          rm -rf /var/cache/nginx/* 2>/dev/null || true
 
           if [ -d "/root/.nvm/versions/node/v20.20.2/bin" ]; then
             export PATH="/root/.nvm/versions/node/v20.20.2/bin:$PATH"
@@ -90,10 +98,12 @@ jobs:
 
           echo "Using PM2 command: $PM2_CMD"
           $PM2_CMD delete npc_photosync 2>/dev/null || true
+          sleep 2
+          fuser -k 3006/tcp 2>/dev/null || true
           $PM2_CMD start ecosystem.config.js
           $PM2_CMD save
 
-          # ล้างแคช Nginx Reverse Proxy (ถ้ามี)
+          # รีโหลด Nginx Reverse Proxy
           nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true
 
           # รอให้ Next.js เริ่มต้นการทำงาน
@@ -107,8 +117,10 @@ jobs:
 
           echo "=== LOCAL CURL PORT 3006 ==="
           curl -I -s --connect-timeout 5 http://127.0.0.1:3006/npc_photosync || echo "CURL to 127.0.0.1:3006 failed"
+          curl -I -s --connect-timeout 5 http://127.0.0.1:3006/npc_photosync/admin || echo "CURL to 127.0.0.1:3006/admin failed"
 
           echo "=== PM2 RECENT LOGS ==="
           $PM2_CMD logs npc_photosync --lines 30 --nostream
+          $PM2_CMD logs npc_photosync --err --lines 30 --nostream
 
           echo "✅ Deploy NPC PhotoSync สำเร็จเรียบร้อยแล้ว!"
