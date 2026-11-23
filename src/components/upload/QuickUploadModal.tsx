@@ -508,13 +508,13 @@ export function QuickUploadModal({
       }
 
       const createdAlbum = createData.data;
-      const CHUNK_SIZE = 2; // 2 files per batch for optimal network throughput & zero proxy timeouts
+      const CHUNK_SIZE = 1; // 1 file per request: minimizes payload size, avoids proxy timeouts & memory spikes
       const totalFiles = selectedFiles.length;
       const totalBatches = Math.ceil(totalFiles / CHUNK_SIZE);
       let uploadedCount = 0;
       let lastLineNotification: { success: boolean; error?: string } | null = null;
 
-      // 2. Upload Batch Files in small chunks (2 files/request) with auto-retry
+      // 2. Upload Batch Files in 1-by-1 chunks with auto-retry
       for (let i = 0; i < totalFiles; i += CHUNK_SIZE) {
         const chunk = selectedFiles.slice(i, i + CHUNK_SIZE);
         const isLastChunk = i + CHUNK_SIZE >= totalFiles;
@@ -526,18 +526,25 @@ export function QuickUploadModal({
         );
         setUploadProgress(currentPercent);
         setUploadStatusText(
-          `กำลังอัปโหลดชุดที่ ${currentBatchNum}/${totalBatches} (รูปที่ ${uploadedCount + 1}-${uploadedCount + chunk.length} จาก ${totalFiles} รูป)...`
+          `กำลังอัปโหลดรูปที่ ${currentBatchNum}/${totalBatches} (${chunk[0].name})...`
         );
 
         const formData = new FormData();
         chunk.forEach((f) => formData.append("files", f));
-        formData.append("runAiTagging", String(runAiTagging));
+        formData.append("runAiTagging", String(runAiTagging && i < 2));
         // Send LINE notification only on the final chunk when all photos are registered
         formData.append("sendLineNotify", String(isLastChunk && sendLineNotify));
 
         let lastError: Error | null = null;
-        for (let attempt = 1; attempt <= 2; attempt++) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
           try {
+            if (attempt > 1) {
+              setUploadStatusText(
+                `รูปที่ ${currentBatchNum}/${totalBatches}: กำลังลองใหม่อีกครั้ง (รอบที่ ${attempt})...`
+              );
+              await new Promise((r) => setTimeout(r, 1500));
+            }
+
             const uploadRes = await fetch(apiUrl(`/api/albums/${createdAlbum.id}/upload`), {
               method: "POST",
               body: formData,

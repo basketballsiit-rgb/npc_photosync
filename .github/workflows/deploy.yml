@@ -103,8 +103,11 @@ jobs:
           $PM2_CMD start ecosystem.config.js
           $PM2_CMD save
 
-          # รีโหลด Nginx Reverse Proxy
-          nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true
+          # อัปเดตการตั้งค่า Nginx (ถ้ามีโฟลเดอร์ /etc/nginx/conf.d/)
+          if [ -d "/etc/nginx/conf.d" ]; then
+            cp scripts/server-configs/nginx-photosync.conf /etc/nginx/conf.d/npc_photosync.conf 2>/dev/null || true
+          fi
+          nginx -t 2>/dev/null && (nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true)
 
           # รอให้ Next.js เริ่มต้นการทำงาน
           sleep 8

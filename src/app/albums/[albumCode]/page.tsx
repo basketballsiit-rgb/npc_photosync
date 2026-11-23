@@ -105,6 +105,7 @@ export default function AlbumDetailPage() {
   const [addPhotosPreviewUrls, setAddPhotosPreviewUrls] = useState<string[]>([]);
   const [isUploadingMore, setIsUploadingMore] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState("");
+  const [uploadProgressPercent, setUploadProgressPercent] = useState<number>(0);
   const [lineSharedSuccess, setLineSharedSuccess] = useState(false);
   const [downloadingMediaId, setDownloadingMediaId] = useState<string | null>(null);
   const [isLineBrowser, setIsLineBrowser] = useState(false);
@@ -733,52 +734,103 @@ ${shareUrl}`;
   const handleSubmitAddPhotos = async () => {
     if (!album || addPhotosFiles.length === 0) return;
     setIsUploadingMore(true);
+    setUploadProgressPercent(0);
     setUploadProgressText(`กำลังเตรียมอัปโหลด ${addPhotosFiles.length} รูปภาพ...`);
 
     try {
-      const CHUNK_SIZE = 3;
       const totalFiles = addPhotosFiles.length;
-      const totalBatches = Math.ceil(totalFiles / CHUNK_SIZE);
       let uploadedCount = 0;
+      const failedFiles: string[] = [];
       const base = getClientBasePath();
 
-      for (let i = 0; i < totalFiles; i += CHUNK_SIZE) {
-        const chunk = addPhotosFiles.slice(i, i + CHUNK_SIZE);
-        const currentBatchNum = Math.floor(i / CHUNK_SIZE) + 1;
+      for (let i = 0; i < totalFiles; i++) {
+        const file = addPhotosFiles[i];
+        const currentFileNum = i + 1;
+        const percent = Math.round(((currentFileNum - 1) / totalFiles) * 100);
+        setUploadProgressPercent(percent);
 
         setUploadProgressText(
-          `กำลังอัปโหลดชุดที่ ${currentBatchNum}/${totalBatches} (รูปที่ ${uploadedCount + 1}-${uploadedCount + chunk.length} จาก ${totalFiles} รูป)...`
+          `กำลังอัปโหลดรูปที่ ${currentFileNum}/${totalFiles} (${file.name})...`
         );
 
-        const formData = new FormData();
-        chunk.forEach((f) => formData.append("files", f));
-        formData.append("runAiTagging", "true");
-        formData.append("sendLineNotify", "false"); // Do not spam LINE on adding extra photos
+        let fileUploaded = false;
+        let lastErrorMsg = "";
 
-        const res = await fetch(`${base}/api/albums/${album.id}/upload`, {
-          method: "POST",
-          body: formData,
-        });
+        // Auto-retry up to 3 times per file on timeout or server busy
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            if (attempt > 1) {
+              setUploadProgressText(
+                `รูปที่ ${currentFileNum}/${totalFiles}: กำลังลองใหม่อีกครั้ง (รอบที่ ${attempt})...`
+              );
+              await new Promise((r) => setTimeout(r, 1500));
+            }
 
-        const contentType = res.headers.get("content-type") || "";
-        let data: any;
-        if (contentType.includes("application/json")) {
-          data = await res.json();
-        } else {
-          throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP ${res.status}): หมดเวลาการเชื่อมต่อ`);
+            const formData = new FormData();
+            formData.append("files", file);
+            // Run AI tagging only for the first 2 photos if album has no tags yet
+            formData.append("runAiTagging", i < 2 ? "true" : "false");
+            formData.append("sendLineNotify", "false");
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s safety timeout
+
+            const res = await fetch(`${base}/api/albums/${album.id}/upload`, {
+              method: "POST",
+              body: formData,
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+
+            const contentType = res.headers.get("content-type") || "";
+            let data: any;
+            if (contentType.includes("application/json")) {
+              data = await res.json();
+            } else {
+              throw new Error(`HTTP ${res.status}: เซิร์ฟเวอร์ใช้เวลาตอบสนองนานเกินกำหนด`);
+            }
+
+            if (!res.ok || !data.success) {
+              throw new Error(data.error || `เกิดข้อผิดพลาดในการอัปโหลดรูปที่ ${currentFileNum}`);
+            }
+
+            fileUploaded = true;
+            uploadedCount++;
+            break;
+          } catch (err: any) {
+            lastErrorMsg = err?.message || "การเชื่อมต่อขัดข้อง";
+            console.warn(`[Upload] Attempt ${attempt} failed for file ${file.name}:`, err);
+          }
         }
 
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || `เกิดข้อผิดพลาดในการอัปโหลดรูปภาพชุดที่ ${currentBatchNum}`);
+        if (!fileUploaded) {
+          failedFiles.push(file.name);
+          console.error(`[Upload] Failed to upload ${file.name} after 3 attempts: ${lastErrorMsg}`);
         }
 
-        uploadedCount += chunk.length;
+        // Update progress after finishing current file
+        setUploadProgressPercent(Math.round((currentFileNum / totalFiles) * 100));
       }
 
-      showAlert.success(
-        "เพิ่มรูปภาพสำเร็จ",
-        `เพิ่มรูปภาพเข้าสู่กิจกรรมเรียบร้อยแล้วทั้งหมด ${uploadedCount} รูป!`
-      );
+      setUploadProgressPercent(100);
+
+      if (failedFiles.length === 0) {
+        showAlert.success(
+          "เพิ่มรูปภาพสำเร็จ",
+          `เพิ่มรูปภาพเข้าสู่กิจกรรมเรียบร้อยแล้วทั้งหมด ${uploadedCount} รูป!`
+        );
+      } else if (uploadedCount > 0) {
+        showAlert.warning(
+          "เพิ่มรูปภาพสำเร็จบางส่วน",
+          `บันทึกรูปภาพได้ ${uploadedCount} รูป (ไม่สำเร็จ ${failedFiles.length} รูป: ${failedFiles.slice(0, 3).join(", ")}${failedFiles.length > 3 ? "..." : ""})`
+        );
+      } else {
+        showAlert.error(
+          "ไม่สามารถอัปโหลดรูปภาพได้",
+          `ไม่สามารถอัปโหลดรูปภาพได้ กรุณาตรวจสอบสัญญาณอินเทอร์เน็ตหรือลดขนาดไฟล์แล้วลองใหม่อีกครั้ง`
+        );
+      }
+
       setIsAddPhotosModalOpen(false);
       addPhotosPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
       setAddPhotosPreviewUrls([]);
@@ -789,6 +841,7 @@ ${shareUrl}`;
     } finally {
       setIsUploadingMore(false);
       setUploadProgressText("");
+      setUploadProgressPercent(0);
     }
   };
 
@@ -1955,6 +2008,27 @@ ${shareUrl}`;
                       <img src={url} alt={`preview_${idx}`} className="w-full h-full object-cover" />
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Upload Progress Bar */}
+            {isUploadingMore && (
+              <div className="space-y-2 rounded-2xl border border-pink-500/30 bg-pink-950/20 p-4">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-2 text-pink-300 font-semibold truncate pr-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-pink-400 shrink-0" />
+                    <span className="truncate">{uploadProgressText}</span>
+                  </span>
+                  <span className="font-mono font-bold text-pink-400 shrink-0">
+                    {uploadProgressPercent}%
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[#180C3E]">
+                  <div
+                    className="h-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 transition-all duration-300"
+                    style={{ width: `${uploadProgressPercent}%` }}
+                  />
                 </div>
               </div>
             )}

@@ -141,7 +141,7 @@ export function ManagePhotosModal({
     }
   }, [isOpen, albumId]);
 
-  // Handle Upload More Photos
+  // Handle Upload More Photos (1 file per batch with auto-retry to prevent 502/OOM)
   const handleUploadFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -150,37 +150,97 @@ export function ManagePhotosModal({
     setUploadProgress(`กำลังเตรียมอัปโหลด ${files.length} รูปภาพ...`);
 
     try {
-      const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append("files", files[i]);
+      const totalFiles = files.length;
+      let uploadedCount = 0;
+      const failedFiles: string[] = [];
+      const base = getClientBasePath();
+
+      for (let i = 0; i < totalFiles; i++) {
+        const file = files[i];
+        const currentFileNum = i + 1;
+        const percent = Math.round((currentFileNum / totalFiles) * 100);
+
+        setUploadProgress(
+          `กำลังอัปโหลดรูปที่ ${currentFileNum}/${totalFiles} (${percent}%): ${file.name}`
+        );
+
+        let fileUploaded = false;
+        let lastErrorMsg = "";
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            if (attempt > 1) {
+              setUploadProgress(
+                `รูปที่ ${currentFileNum}/${totalFiles}: กำลังลองใหม่อีกครั้ง (รอบที่ ${attempt})...`
+              );
+              await new Promise((r) => setTimeout(r, 1500));
+            }
+
+            const formData = new FormData();
+            formData.append("files", file);
+            formData.append("runAiTagging", "false");
+            formData.append("sendLineNotify", "false");
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+            const res = await fetch(`${base}/api/albums/${albumId}/upload`, {
+              method: "POST",
+              body: formData,
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+
+            const contentType = res.headers.get("content-type") || "";
+            let data: any;
+            if (contentType.includes("application/json")) {
+              data = await res.json();
+            } else {
+              throw new Error(`HTTP ${res.status}: เซิร์ฟเวอร์ใช้เวลาตอบสนองนานเกินกำหนด`);
+            }
+
+            if (!res.ok || !data.success) {
+              throw new Error(data.error || `เกิดข้อผิดพลาดในการอัปโหลดรูปที่ ${currentFileNum}`);
+            }
+
+            fileUploaded = true;
+            uploadedCount++;
+            break;
+          } catch (err: any) {
+            lastErrorMsg = err?.message || "การเชื่อมต่อขัดข้อง";
+            console.warn(`[Admin Upload] Attempt ${attempt} failed for ${file.name}:`, err);
+          }
+        }
+
+        if (!fileUploaded) {
+          failedFiles.push(file.name);
+        }
       }
-      formData.append("runAiTagging", "false");
-      formData.append("sendLineNotify", "false");
 
-      setUploadProgress(`กำลังประมวลผลและสร้างภาพความละเอียดสูง...`);
-
-      const res = await fetch(`${getClientBasePath()}/api/albums/${albumId}/upload`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (data.success) {
+      if (failedFiles.length === 0) {
         showAlert.success(
           "อัปโหลดสำเร็จ",
-          `เพิ่มรูปภาพใหม่จำนวน ${data.mediaList?.length || files.length} รูปเรียบร้อยแล้ว`
+          `เพิ่มรูปภาพใหม่จำนวน ${uploadedCount} รูปเรียบร้อยแล้ว`
         );
-        await loadAlbumData();
-        if (onAlbumUpdated) onAlbumUpdated();
+      } else if (uploadedCount > 0) {
+        showAlert.warning(
+          "อัปโหลดสำเร็จบางส่วน",
+          `บันทึกรูปภาพได้ ${uploadedCount} รูป (ไม่สำเร็จ ${failedFiles.length} รูป: ${failedFiles.slice(0, 3).join(", ")})`
+        );
       } else {
-        showAlert.error("อัปโหลดไม่สำเร็จ", data.error || "เกิดข้อผิดพลาดในการอัปโหลด");
+        showAlert.error(
+          "อัปโหลดไม่สำเร็จ",
+          "ไม่สามารถอัปโหลดรูปภาพได้ กรุณาตรวจสอบสัญญาณอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง"
+        );
       }
+
+      await loadAlbumData();
+      if (onAlbumUpdated) onAlbumUpdated();
     } catch (err: any) {
       showAlert.error("ข้อผิดพลาด", err.message || "เกิดข้อผิดพลาดในการอัปโหลด");
     } finally {
       setIsUploading(false);
       setUploadProgress(null);
-      // Reset input
       e.target.value = "";
     }
   };
