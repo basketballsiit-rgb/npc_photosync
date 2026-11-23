@@ -43,8 +43,10 @@ jobs:
 
           # 3. ดึงโค้ดล่าสุดจาก GitHub
           echo "📥 Pulling latest changes from GitHub main branch..."
+          OLD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
           git fetch origin main
           git reset --hard origin/main
+          NEW_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
 
           # 4. ตรวจสอบไฟล์ .env บน Server
           if [ ! -f ".env" ] && [ -f ".env.example" ]; then
@@ -60,11 +62,22 @@ jobs:
           npx prisma generate
           npx prisma db push --accept-data-loss --skip-generate || true
 
-          # 6. Build Next.js Production Assets
-          echo "⚡ Building Next.js application..."
-          rm -rf .next/cache
-          export NODE_OPTIONS="--max-old-space-size=2048"
-          npm run build
+          # 6. Build Next.js Production Assets (ข้ามเฉพาะเมื่อแก้ไฟล์ config/deploy และ .next/BUILD_ID พร้อมอยู่แล้ว)
+          CHANGED_APP_FILES=""
+          if [ -n "$OLD_SHA" ] && [ -n "$NEW_SHA" ]; then
+            CHANGED_APP_FILES=$(git diff --name-only "$OLD_SHA" "$NEW_SHA" -- src/ prisma/ package.json package-lock.json next.config.mjs public/ 2>/dev/null || echo "FORCE_BUILD")
+          else
+            CHANGED_APP_FILES="FORCE_BUILD"
+          fi
+
+          if [ ! -f ".next/BUILD_ID" ] || [ -n "$CHANGED_APP_FILES" ]; then
+            echo "⚡ Building Next.js application..."
+            rm -rf .next/cache
+            export NODE_OPTIONS="--max-old-space-size=2048"
+            npm run build
+          else
+            echo "⚡ Only config/workflow files changed and .next/BUILD_ID exists — skipping redundant build!"
+          fi
 
           # 7. จัดการสิทธิ์โฟลเดอร์อัปโหลดภาพ (SELinux & Permissions)
           echo "🔒 Setting directory permissions..."
@@ -100,13 +113,10 @@ jobs:
           $PM2_CMD delete npc_photosync 2>/dev/null || true
           sleep 2
           fuser -k 3006/tcp 2>/dev/null || true
-          $PM2_CMD start ecosystem.config.js
+          $PM2_CMD start ecosystem.config.js || $PM2_CMD start npm --name npc_photosync -- start
           $PM2_CMD save
 
-          # อัปเดตการตั้งค่า Nginx (ถ้ามีโฟลเดอร์ /etc/nginx/conf.d/)
-          if [ -d "/etc/nginx/conf.d" ]; then
-            cp scripts/server-configs/nginx-photosync.conf /etc/nginx/conf.d/npc_photosync.conf 2>/dev/null || true
-          fi
+          # รีโหลด Nginx Reverse Proxy (ไม่เขียนทับไฟล์คอนฟิกเซิร์ฟเวอร์โดยพลการ)
           nginx -t 2>/dev/null && (nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true)
 
           # รอให้ Next.js เริ่มต้นการทำงาน
